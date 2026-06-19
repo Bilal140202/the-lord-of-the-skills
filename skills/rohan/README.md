@@ -15,7 +15,7 @@
 |:---|---:|
 | Total artifacts | 450 |
 | Source repositories | 35 |
-| Canonical (⭐) | 4 |
+| Canonical (⭐) | 20 |
 | Frameworks represented | 6 |
 
 ## ⚙ Frameworks
