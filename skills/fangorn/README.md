@@ -1,0 +1,56 @@
+# 🌳 Fangorn
+
+> *"The old forest remembers."*
+
+---
+
+**Domain:** Documentation & Memory
+
+**Keyword signatures:** `memory, context, rag, embedding, knowledge base`
+
+
+## 📊 Statistics
+
+| Metric | Count |
+|:---|---:|
+| Total artifacts | 322 |
+| Source repositories | 35 |
+| Canonical (⭐) | 6 |
+| Frameworks represented | 7 |
+
+## ⚙ Frameworks
+
+| Framework | Artifacts |
+|:---|---:|
+| claude-code | 250 |
+| general | 49 |
+| cursor | 13 |
+| codex | 4 |
+| goose | 3 |
+| openhands | 2 |
+| roo | 1 |
+
+## 📁 Directory Layout
+
+```
+fangorn/
+├── <framework>/              ← e.g. claude-code, cursor, cline, aider
+│   └── <source-repo>/        ← e.g. anthropics__skills
+│       ├── SKILL.md          ← original skill file
+│       ├── canonical__*.md   ← ⭐ canonical representative
+│       └── ...               ← all variants preserved
+└── ...
+```
+
+## 🚀 Usage
+
+```bash
+# Copy all Fangorn skills for Claude Code
+cp -r fangorn/claude-code/*/* ~/.claude/skills/
+
+# Copy only canonical ⭐ representatives
+find fangorn/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
+```
+
+---
+*Part of [The Lord of the Skills](../README.md)*

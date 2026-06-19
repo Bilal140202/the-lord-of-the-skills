@@ -212,6 +212,7 @@
 ```
 the-lord-of-the-skills/
 ├── README.md                          ← You are here
+├── KINGDOMS.md                        ← 🗺 Map of the Kingdoms (start here)
 ├── LICENSE                            ← MIT
 ├── CHANGELOG.md                       ← Version history
 ├── CONTRIBUTING.md                    ← How to add skills
