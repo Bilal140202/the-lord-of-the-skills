@@ -1,0 +1,47 @@
+---
+description: Angular 18 development with signals, standalone components, and modern control flow
+globs: "**/*.ts, **/*.html, **/*.component.ts"
+alwaysApply: false
+---
+
+# Angular 18 Cursor Rules
+
+## Architecture
+- Use standalone components (no NgModules for new code)
+- Use signals for reactive state management
+- Follow Angular CLI conventions: `ng generate component/service/pipe`
+- Organize by feature modules, not by type
+
+## Signals (Angular 16+)
+- Use `signal()` for component state
+- Use `computed()` for derived state
+- Use `effect()` for side effects (sparingly)
+- Use `input()` and `output()` signal-based APIs (Angular 17+)
+- Migrate from `@Input()` decorators to `input()` function
+
+## Modern Control Flow (Angular 17+)
+- Use `@if` instead of `*ngIf`
+- Use `@for` with `track` instead of `*ngFor` with `trackBy`
+- Use `@switch` instead of `[ngSwitch]`
+- Use `@defer` for lazy loading sections
+
+## Services & Dependency Injection
+- Use `providedIn: 'root'` for singleton services
+- Use `inject()` function instead of constructor injection
+- Create focused services: one responsibility per service
+
+## Performance
+- Use `OnPush` change detection strategy by default
+- Use `@defer` blocks for below-the-fold content
+- Use `trackBy` / `track` expression in loops
+- Lazy load routes with `loadComponent` / `loadChildren`
+
+## Forms
+- Use Reactive Forms for complex forms, Template-driven for simple
+- Always validate on both client and server
+- Use strongly-typed forms with `FormGroup<T>`
+
+## HTTP
+- Use `HttpClient` with typed responses
+- Implement interceptors for auth tokens, error handling, loading states
+- Use `rxjs` operators: `switchMap`, `catchError`, `retry`

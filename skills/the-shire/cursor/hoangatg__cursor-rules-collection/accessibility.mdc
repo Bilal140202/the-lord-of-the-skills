@@ -1,0 +1,45 @@
+---
+description: WCAG 2.2 accessibility compliance with ARIA and keyboard navigation
+globs: "**/*.tsx, **/*.jsx, **/*.vue, **/*.html"
+alwaysApply: false
+---
+
+# Accessibility (a11y) Cursor Rules
+
+## Semantic HTML First
+- Use native HTML elements: `<button>`, `<a>`, `<input>`, `<nav>`, `<main>`
+- Use heading hierarchy: one `<h1>` per page, sequential levels
+- Use `<ul>/<ol>` for lists, not divs with custom styles
+- Use `<table>` for tabular data, not for layout
+- DON'T: Use `<div>` with `onClick` — use `<button>` instead
+
+## ARIA (When HTML Isn't Enough)
+- Rule: No ARIA is better than bad ARIA
+- Use `aria-label` for elements without visible text
+- Use `aria-describedby` for additional descriptions
+- Use `aria-live="polite"` for dynamic content updates
+- Use `role` attributes only when native HTML doesn't suffice
+
+## Keyboard Navigation
+- All interactive elements must be keyboard accessible
+- Use logical tab order (don't override with `tabindex` > 0)
+- Implement focus management for modals and dialogs
+- Show visible focus indicators (never `outline: none` without replacement)
+- Support Escape key for closing modals/popups
+
+## Forms
+- Every input must have an associated `<label>`
+- Group related inputs with `<fieldset>` and `<legend>`
+- Provide clear error messages linked to inputs (`aria-describedby`)
+- Use `aria-required` or `required` attribute for mandatory fields
+
+## Color & Contrast
+- Minimum contrast ratio: 4.5:1 for normal text, 3:1 for large text
+- Don't use color alone to convey information (add icons, text, patterns)
+- Support high contrast mode and `prefers-contrast` media query
+
+## Testing
+- Test with screen readers: VoiceOver (Mac), NVDA (Windows)
+- Use axe-core for automated accessibility testing
+- Test keyboard-only navigation for all user flows
+- Verify focus management in dynamic content (modals, tabs, menus)

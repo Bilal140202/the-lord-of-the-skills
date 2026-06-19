@@ -1,0 +1,37 @@
+---
+description: LangChain chains, agents, RAG, and memory patterns
+globs: "**/*.py, **/*.ts"
+alwaysApply: false
+---
+
+# LangChain Cursor Rules
+
+## Architecture
+- Use LangChain Expression Language (LCEL) for chain composition
+- Use `|` pipe operator for chaining: `prompt | llm | output_parser`
+- Use `RunnablePassthrough` for passing data through chains
+- Use `RunnableBranch` for conditional logic
+
+## RAG (Retrieval-Augmented Generation)
+- Use appropriate text splitters: `RecursiveCharacterTextSplitter` (default)
+- Choose embedding model based on use case (OpenAI, Cohere, HuggingFace)
+- Use vector stores: Pinecone (managed), Chroma (local), pgvector (Postgres)
+- Implement retrieval chain: query → retrieve → augment prompt → generate
+
+## Agents
+- Use tool-calling agents for tasks requiring external actions
+- Define tools with clear descriptions (LLM reads these to decide)
+- Set max iterations to prevent infinite loops
+- Use structured output with Pydantic models
+
+## Memory
+- Use `ConversationBufferMemory` for short conversations
+- Use `ConversationSummaryMemory` for long conversations
+- Use `ConversationBufferWindowMemory` for fixed-window history
+
+## Best Practices
+- DO: Use streaming for better UX: `chain.stream(input)`
+- DO: Implement fallbacks: `chain.with_fallbacks([fallback_chain])`
+- DO: Add callbacks for logging and monitoring
+- DON'T: Chain too many LLM calls — each adds latency and cost
+- DON'T: Skip input validation — sanitize user inputs

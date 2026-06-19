@@ -1,0 +1,85 @@
+---
+description: Tailwind CSS v4+ best practices for modern web applications.
+globs: **/*.css, **/*.tsx, **/*.jsx, **/*.vue, **/*.svelte, **/*.html
+alwaysApply: false
+---
+
+# Tailwind CSS v4+ Best Practices
+
+## Core Concepts & Setup (v4 Focus)
+- Leverage Native CSS: Understand that Tailwind v4 integrates more deeply with native CSS features.
+- Primary CSS Entry Point: Use a single CSS file (e.g., `src/app.css`) as the main entry point.
+- Import Tailwind: Import Tailwind's core styles using native CSS `@import` statements within your main CSS file:
+  ```css
+  /* src/app.css */
+  @import "tailwindcss";
+  ```
+- CSS Variables for Configuration: Configure and customize Tailwind primarily using standard CSS variables directly in your CSS file. The `tailwind.config.js` file is often unnecessary for basic theme customizations.
+  ```css
+  /* src/app.css */
+  @import "tailwindcss";
+
+  @layer theme {
+    :root {
+      --color-primary: oklch(60% 0.2 260);
+      --font-sans: "Inter", sans-serif;
+    }
+  }
+  ```
+- Minimal `tailwind.config.js`: Only use `tailwind.config.js` (or `.ts`) for advanced configurations not expressible via CSS variables (like plugins or complex variants) or if preferred for organization.
+- No `content` Configuration Needed (Typically): Tailwind v4's engine often doesn't require the `content` array in the config file due to its build process integration.
+- Framework Integration: Follow framework-specific guides (Next.js, Vite, etc.) for optimal setup, ensuring Tailwind processes your main CSS entry point.
+
+## Styling Philosophy
+- Utility-First: Apply styles primarily using Tailwind's utility classes directly in your markup (HTML/JSX/Vue/Svelte templates).
+- Avoid Premature Abstraction: Only create reusable component classes or use `@layer components` when a pattern is truly reused significantly and warrants abstraction.
+- Consistency: Use the defined theme values (colors, spacing, fonts) via utilities rather than arbitrary magic numbers.
+
+## Using Utilities
+- Apply utilities directly in the `class` attribute.
+- Combine utilities for desired styling (e.g., `flex items-center justify-between p-4 bg-primary text-white`).
+- Understand variant modifiers for states (e.g., `hover:`, `focus:`, `dark:`, `group-hover:`) and breakpoints (e.g., `sm:`, `md:`, `lg:`).
+
+## Customization (v4 Focus)
+- Use CSS Variables: Define custom theme values (colors, fonts, spacing) using CSS variables within an `@layer theme` block in your main CSS file.
+  ```css
+  /* src/app.css */
+  @layer theme {
+    :root {
+      --spacing-7: 1.75rem;
+      --color-brand-accent: oklch(70% 0.25 300);
+    }
+    .dark {
+      --color-brand-accent: oklch(60% 0.2 280);
+    }
+  }
+  ```
+- Reference Theme Values in CSS: Use the `@theme` directive (replacing `theme()`) to access theme values within custom CSS rules.
+  ```css
+  /* src/app.css */
+  .custom-card {
+    padding: @theme(spacing.4);
+    background-color: @theme(colors.brand-accent);
+    border-radius: @theme(borderRadius.md);
+  }
+  ```
+- Arbitrary Values: Use square bracket notation (`p-[17px]`, `bg-[#1a2b3c]`) for one-off values, but prefer theme values for consistency.
+
+## Responsive Design
+- Design mobile-first, applying base styles without prefixes and overriding them at larger breakpoints using modifiers (e.g., `w-full md:w-1/2`).
+- Configure custom breakpoints via CSS variables if needed, though the defaults are often sufficient.
+
+## Dark Mode
+- Use the `dark:` variant modifier for dark mode styles.
+- Configure dark mode strategy (usually `class`) if needed, often handled by framework integrations.
+- Define dark mode theme overrides using CSS variables within a `.dark` selector in the `@layer theme` block.
+
+## Working with CSS
+- Adding Custom CSS: Place custom CSS rules outside of Tailwind's `@layer` blocks or within `@layer utilities` or `@layer components` if extending Tailwind's system.
+- Avoid `@apply`: While still functional, `@apply` is less central in v4. Prefer direct utility application or creating reusable components/CSS classes when necessary.
+
+## Best Practices
+- Keep markup readable; consider component extraction in frameworks if class lists become excessively long.
+- Use consistent naming for custom CSS variables if defined.
+- Ensure accessibility (sufficient color contrast, focus states, semantic HTML).
+- Leverage framework features (like component libraries or CSS Modules) alongside Tailwind where appropriate, ensuring Tailwind processes the generated classes.

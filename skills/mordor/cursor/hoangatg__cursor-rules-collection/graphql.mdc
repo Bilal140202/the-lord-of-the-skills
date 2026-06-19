@@ -1,0 +1,38 @@
+---
+description: GraphQL schema design, resolvers, and federation patterns
+globs: "**/*.graphql, **/*.ts, **/*.js"
+alwaysApply: false
+---
+
+# GraphQL Cursor Rules
+
+## Schema Design
+- Use descriptive type names: `User`, `CreateUserInput`, `UserConnection`
+- Use `input` types for mutations, object types for queries
+- Use `enum` for fixed sets of values
+- Implement Relay-style pagination: `Connection`, `Edge`, `PageInfo`
+- Use interfaces for shared fields across types
+
+## Resolvers
+- Keep resolvers thin — delegate to service/data layer
+- Use DataLoader for batching and caching (prevent N+1)
+- Return typed errors in the response, not just throwing
+- Implement field-level resolvers only when needed
+
+## Mutations
+- Name mutations as verb+noun: `createUser`, `updateArticle`, `deleteComment`
+- Return the mutated object in the response
+- Use input validation before processing
+- Implement optimistic responses on the client
+
+## Security
+- Implement authentication in context, not resolvers
+- Use field-level authorization with directives or middleware
+- Limit query depth and complexity to prevent abuse
+- Disable introspection in production
+
+## Performance
+- Use DataLoader for all relationship fields
+- Implement query complexity analysis
+- Use persisted queries for trusted clients
+- Cache frequently accessed data at the resolver level

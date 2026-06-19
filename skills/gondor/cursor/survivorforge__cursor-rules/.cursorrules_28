@@ -1,0 +1,197 @@
+# React Native + Expo + TypeScript — Cursor Rules
+# Production mobile app patterns with React Native, Expo SDK, and TypeScript
+
+# Project Context
+You are building a cross-platform mobile application using React Native with Expo (SDK 50+)
+and TypeScript. The app targets both iOS and Android from a single codebase. The project uses
+Expo Router for navigation, React Query for server state, and follows React Native best
+practices for performance and UX.
+
+# Project Structure (Expo Router)
+```
+app/
+  _layout.tsx             # Root layout (providers, fonts, splash screen)
+  (tabs)/
+    _layout.tsx           # Tab navigator layout
+    index.tsx             # Home tab
+    explore.tsx           # Explore tab
+    profile.tsx           # Profile tab
+  (auth)/
+    _layout.tsx           # Auth stack layout
+    login.tsx
+    register.tsx
+  [id].tsx                # Dynamic route
+  +not-found.tsx          # 404 screen
+src/
+  components/
+    ui/                   # Reusable UI components
+    screens/              # Screen-specific components
+  hooks/                  # Custom hooks
+  services/               # API client and services
+  stores/                 # Zustand/Jotai stores
+  types/                  # TypeScript types
+  utils/                  # Utilities
+  constants/              # Colors, spacing, config
+    theme.ts
+    layout.ts
+```
+
+# Expo Router Navigation
+- Use file-based routing in the `app/` directory (like Next.js for mobile).
+- Group routes with parentheses: `(tabs)`, `(auth)`, `(modal)`.
+- Use `_layout.tsx` files to define navigators (Stack, Tabs, Drawer).
+- Navigate with typed routes:
+  ```typescript
+  import { router } from 'expo-router';
+  router.push('/profile/123');
+  router.replace('/(auth)/login');
+  router.back();
+  ```
+- Use `<Link>` component for declarative navigation.
+- Handle deep links by defining route patterns in app.json.
+- Protect routes in layout files by checking auth state and redirecting.
+
+# Component Patterns
+- Use `StyleSheet.create()` for all styles — never inline style objects:
+  ```typescript
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 16,
+      backgroundColor: colors.background,
+    },
+  });
+  ```
+- Extract dimensions and colors into theme constants:
+  ```typescript
+  export const colors = { primary: '#007AFF', background: '#FFFFFF', text: '#000000' } as const;
+  export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
+  ```
+- Use `Platform.select()` for platform-specific values:
+  ```typescript
+  const shadow = Platform.select({
+    ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1 },
+    android: { elevation: 3 },
+  });
+  ```
+- Use `<SafeAreaView>` or `useSafeAreaInsets()` for proper safe area handling.
+
+# Performance (Critical for Mobile)
+- Use `FlatList` for long lists — never `ScrollView` with mapped items:
+  ```typescript
+  <FlatList
+    data={items}
+    keyExtractor={(item) => item.id}
+    renderItem={({ item }) => <ItemCard item={item} />}
+    getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
+    initialNumToRender={10}
+    maxToRenderPerBatch={5}
+    windowSize={5}
+  />
+  ```
+- Memoize list item components with `React.memo()`.
+- Use `useCallback` for event handlers passed to list items.
+- Use `Animated` API or `react-native-reanimated` for 60fps animations.
+  ```typescript
+  // Use reanimated for gesture-driven animations
+  const translateX = useSharedValue(0);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  ```
+- Optimize images: use `expo-image` (not React Native's `<Image>`):
+  ```typescript
+  import { Image } from 'expo-image';
+  <Image source={uri} contentFit="cover" placeholder={blurhash} transition={200} />
+  ```
+- DON'T: Use `console.log` in production — it causes performance issues on Android.
+- DON'T: Create new style objects in render — use StyleSheet.create outside the component.
+- DON'T: Use `ScrollView` for long dynamic lists — use `FlatList` or `FlashList`.
+
+# State Management
+- Use React Query (TanStack Query) for server/API state.
+- Use Zustand for client-side global state (lighter than Redux):
+  ```typescript
+  import { create } from 'zustand';
+  interface AuthStore {
+    user: User | null;
+    setUser: (user: User | null) => void;
+    logout: () => void;
+  }
+  export const useAuthStore = create<AuthStore>((set) => ({
+    user: null,
+    setUser: (user) => set({ user }),
+    logout: () => set({ user: null }),
+  }));
+  ```
+- Use `AsyncStorage` (via zustand `persist` middleware) for persisting state across app restarts.
+- DON'T: Store server data in Zustand — use React Query for anything from an API.
+
+# API Integration
+- Create a typed API client with interceptors:
+  ```typescript
+  const api = axios.create({ baseURL: process.env.EXPO_PUBLIC_API_URL });
+  api.interceptors.request.use(async (config) => {
+    const token = await SecureStore.getItemAsync('accessToken');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  });
+  ```
+- Use React Query for all data fetching:
+  ```typescript
+  export function useUser(id: string) {
+    return useQuery({
+      queryKey: ['user', id],
+      queryFn: () => api.get<User>(`/users/${id}`).then(r => r.data),
+      staleTime: 5 * 60 * 1000,
+    });
+  }
+  ```
+- Handle offline state: show cached data, queue mutations for retry.
+- Use `useMutation` with `onMutate` for optimistic updates.
+
+# Authentication
+- Store tokens in `expo-secure-store` (encrypted native storage), NOT AsyncStorage.
+- Implement token refresh with axios interceptors.
+- Check auth state in root layout and redirect to login if unauthenticated.
+- Support biometric authentication with `expo-local-authentication`.
+
+# Form Handling
+- Use `react-hook-form` with zod validation for forms:
+  ```typescript
+  const { control, handleSubmit } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+  });
+  ```
+- Use `<Controller>` to wrap React Native `<TextInput>` components.
+- Handle keyboard properly: use `<KeyboardAvoidingView>` or `react-native-keyboard-aware-scroll-view`.
+- Dismiss keyboard on tap outside with `<TouchableWithoutFeedback>` + `Keyboard.dismiss()`.
+
+# Push Notifications
+- Use `expo-notifications` for push notification setup.
+- Register for push tokens on app start, send to your backend.
+- Handle notification taps to navigate to relevant screens.
+- Request notification permissions at a contextually appropriate moment (not on first launch).
+
+# Expo-Specific Patterns
+- Use `expo-constants` for app config values.
+- Use `expo-updates` for OTA (over-the-air) updates.
+- Use `expo-splash-screen` to control splash screen visibility during asset loading.
+- Configure app.json/app.config.ts properly for both platforms.
+- Use EAS Build for production builds and EAS Submit for store submissions.
+
+# Testing
+- Use Jest + React Native Testing Library for component tests.
+- Test hooks with `renderHook` from testing library.
+- Mock navigation: `jest.mock('expo-router')`.
+- Mock native modules: `jest.mock('expo-secure-store')`.
+- Use Detox or Maestro for E2E tests on real devices/simulators.
+
+# Common Mistakes to Avoid
+- DON'T: Use web-specific APIs (window, document) — they don't exist in React Native.
+- DON'T: Create styles inside render functions — extract to StyleSheet.create.
+- DON'T: Use `TouchableOpacity` from React Native — use `Pressable` (more flexible).
+- DON'T: Store sensitive data in AsyncStorage — use expo-secure-store.
+- DON'T: Ignore platform differences — test on both iOS and Android.
+- DON'T: Use pixel values for responsive layout — use flex, percentages, or Dimensions API.
+- DON'T: Block the JS thread with heavy computation — use `InteractionManager` or offload to native.

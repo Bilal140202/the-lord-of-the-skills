@@ -1,0 +1,229 @@
+---
+description: "SvelteKit application development"
+alwaysApply: false
+globs: "**/*.svelte,**/*.ts"
+---
+
+# SvelteKit — Cursor Rules
+# Comprehensive rules for SvelteKit application development
+
+## Project Context
+You are working on a SvelteKit application. The project uses Svelte 5 runes for
+reactivity, SvelteKit for routing and server-side rendering, and TypeScript for type
+safety. SvelteKit provides file-based routing, server-side rendering, and a clear
+separation between server and client code.
+
+## Tech Stack
+- Svelte 5 with runes ($state, $derived, $effect)
+- SvelteKit 2+ with file-based routing
+- TypeScript (strict mode)
+- Vite for building
+- Tailwind CSS or vanilla CSS for styling
+- Superforms or native form handling
+- Vitest + Playwright for testing
+
+## Coding Style
+
+### Naming Conventions
+- Components: PascalCase (e.g., `UserProfile.svelte`, `DataTable.svelte`)
+- Route files: `+page.svelte`, `+page.server.ts`, `+layout.svelte`, `+server.ts`
+- Stores: camelCase with descriptive names (e.g., `userStore.ts`, `cartItems.svelte.ts`)
+- Utility functions: camelCase (e.g., `formatDate.ts`, `validateEmail.ts`)
+- CSS classes: kebab-case or Tailwind utilities
+- Events: kebab-case (e.g., `on:item-selected`)
+
+### File Structure
+```
+src/
+  routes/
+    +page.svelte              # Home page
+    +layout.svelte            # Root layout
+    +layout.server.ts         # Root layout server load
+    (app)/                    # Route group for authenticated pages
+      dashboard/
+        +page.svelte
+        +page.server.ts
+    (marketing)/              # Route group for public pages
+      about/
+        +page.svelte
+    api/
+      webhooks/
+        +server.ts            # API endpoint
+  lib/
+    components/               # Shared components
+      ui/                     # UI primitives
+    server/                   # Server-only modules (database, auth)
+    utils/                    # Shared utilities
+    types/                    # TypeScript types
+    stores/                   # Svelte stores / rune-based state
+  hooks.server.ts             # Server hooks (auth, logging)
+  hooks.client.ts             # Client hooks (error handling)
+```
+
+## Svelte 5 Runes
+
+### State Management
+```svelte
+<script lang="ts">
+  // Reactive state with $state
+  let count = $state(0);
+  let user = $state<User | null>(null);
+
+  // Derived values with $derived
+  let doubled = $derived(count * 2);
+  let isLoggedIn = $derived(user !== null);
+
+  // Complex derived with $derived.by
+  let summary = $derived.by(() => {
+    if (!user) return 'Not logged in';
+    return `${user.name} (${user.email})`;
+  });
+
+  // Side effects with $effect
+  $effect(() => {
+    console.log('Count changed to', count);
+    // Cleanup function (optional)
+    return () => { /* cleanup */ };
+  });
+</script>
+```
+
+### Props with Runes
+```svelte
+<script lang="ts">
+  interface Props {
+    title: string;
+    count?: number;
+    onUpdate?: (value: number) => void;
+    children: import('svelte').Snippet;
+  }
+
+  let { title, count = 0, onUpdate, children }: Props = $props();
+</script>
+```
+
+### Prefer
+- Svelte 5 runes (`$state`, `$derived`, `$effect`) over Svelte 4 stores
+- `$derived` over `$effect` for computing values (no unnecessary side effects)
+- `$props()` for component inputs
+- Snippets over slots for content projection (Svelte 5)
+- `.svelte.ts` files for shared reactive state modules
+- Form actions for form handling
+- `$lib/` alias for imports from `src/lib/`
+
+### Avoid
+- Svelte 4 syntax (`export let`, `$:` reactive declarations, `$$props`)
+- Writable stores for local component state — use `$state` instead
+- `$effect` for derived values — use `$derived` instead
+- Direct DOM manipulation — use Svelte's reactivity
+- `onMount` when `$effect` serves the same purpose
+- Overusing context for simple prop passing
+
+## SvelteKit Data Loading
+
+### Server Load Functions
+```ts
+// +page.server.ts
+import type { PageServerLoad } from './$types';
+import { error, redirect } from '@sveltejs/kit';
+
+export const load: PageServerLoad = async ({ params, locals, depends }) => {
+  depends('app:posts'); // For invalidation
+
+  const post = await db.post.findUnique({ where: { slug: params.slug } });
+  if (!post) error(404, 'Post not found');
+
+  return { post };
+};
+```
+
+### Universal Load Functions
+```ts
+// +page.ts — runs on both server and client
+import type { PageLoad } from './$types';
+
+export const load: PageLoad = async ({ fetch, params }) => {
+  const response = await fetch(`/api/posts/${params.id}`);
+  return { post: await response.json() };
+};
+```
+
+### Form Actions
+```ts
+// +page.server.ts
+import type { Actions } from './$types';
+import { fail, redirect } from '@sveltejs/kit';
+
+export const actions: Actions = {
+  create: async ({ request, locals }) => {
+    const formData = await request.formData();
+    const title = formData.get('title')?.toString();
+
+    if (!title || title.length < 3) {
+      return fail(400, { title, error: 'Title must be at least 3 characters' });
+    }
+
+    const post = await db.post.create({ data: { title, authorId: locals.user.id } });
+    redirect(303, `/posts/${post.id}`);
+  },
+
+  delete: async ({ params, locals }) => {
+    await db.post.delete({ where: { id: params.id, authorId: locals.user.id } });
+    redirect(303, '/posts');
+  },
+};
+```
+
+## Error Handling
+- Use `error()` helper in load functions for expected errors (404, 403)
+- Use `fail()` in form actions for validation errors
+- Create `+error.svelte` pages for error UI at each route level
+- Use `handleError` hook in `hooks.server.ts` for unexpected server errors
+- Always provide user-friendly error messages
+- Log unexpected errors to an error tracking service
+
+## API Routes
+```ts
+// routes/api/posts/+server.ts
+import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const page = Number(url.searchParams.get('page')) || 1;
+  const posts = await db.post.findMany({ skip: (page - 1) * 20, take: 20 });
+  return json({ posts, page });
+};
+
+export const POST: RequestHandler = async ({ request, locals }) => {
+  if (!locals.user) error(401, 'Unauthorized');
+  const body = await request.json();
+  const post = await db.post.create({ data: { ...body, authorId: locals.user.id } });
+  return json(post, { status: 201 });
+};
+```
+
+## Testing
+- Use Vitest for unit tests of utilities, stores, and logic
+- Use `@testing-library/svelte` for component tests
+- Use Playwright for E2E tests via SvelteKit's integration
+- Test load functions as regular async functions
+- Test form actions by simulating FormData
+- Place tests in `src/tests/` or co-locate with `*.test.ts` files
+
+## Performance Guidelines
+- Use streaming with `await parent()` wisely — avoid waterfalls
+- Preload data with `data-sveltekit-preload-data="hover"` on links
+- Use `{#key}` blocks sparingly — they destroy and recreate DOM
+- Lazy-load heavy components with dynamic imports
+- Use `$effect.pre()` only when you need to run before DOM update
+- Avoid expensive computations in `$derived` — memoize or debounce if needed
+
+## Common Pitfalls
+- Forgetting to return data from load functions
+- Not using `$types` imports for proper type inference in load/actions
+- Using `$effect` to set state that could be `$derived`
+- Mutating `$state` arrays/objects — mutations ARE tracked in Svelte 5 (unlike React)
+- Not handling the `form` prop in `+page.svelte` after form actions
+- Forgetting that `+page.server.ts` load data is serialized (no functions, dates as strings)
+- Using `fetch` from `globalThis` instead of the `fetch` passed to load functions
+- Not calling `await parent()` when needed in nested load functions

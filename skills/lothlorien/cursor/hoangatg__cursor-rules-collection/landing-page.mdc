@@ -1,0 +1,40 @@
+---
+description: Landing page best practices with hero, features, pricing, CTA, and SEO
+globs: "**/*.tsx, **/*.jsx, **/*.html, **/*.css"
+alwaysApply: false
+---
+
+# Landing Page Cursor Rules
+
+## Page Structure (Top to Bottom)
+1. **Navigation**: Logo, links, CTA button (sticky)
+2. **Hero**: Headline, sub-headline, primary CTA, hero image/video
+3. **Social Proof**: Logos, testimonials, stats
+4. **Features**: 3-6 key features with icons and descriptions
+5. **How It Works**: 3-step process illustration
+6. **Pricing**: Plan comparison table with recommended plan highlighted
+7. **Testimonials**: Customer quotes with photos
+8. **FAQ**: Expandable accordion
+9. **Final CTA**: Repeat call-to-action
+10. **Footer**: Links, legal, social media
+
+## Design Rules
+- One primary CTA per section (don't overwhelm)
+- Use contrast for CTA buttons (stand out from page)
+- Above-the-fold must communicate value proposition in 5 seconds
+- Use whitespace generously — don't cram content
+- Mobile-first responsive design
+
+## SEO
+- Unique `<title>` and `<meta description>` per page
+- One `<h1>` per page (your main value proposition)
+- Use structured data (JSON-LD) for organization/product
+- Optimize Core Web Vitals (LCP, CLS, INP)
+- Use semantic HTML throughout
+
+## Conversion Optimization
+- Clear value proposition above the fold
+- Reduce friction: minimal form fields
+- Add urgency/scarcity when appropriate (honestly)
+- Show trust signals: security badges, guarantees, reviews
+- A/B test headlines and CTAs

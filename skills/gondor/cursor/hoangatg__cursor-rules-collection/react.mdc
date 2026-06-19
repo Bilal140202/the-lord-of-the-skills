@@ -1,0 +1,57 @@
+---
+description: React 19 component development with hooks, Server Components, and modern patterns
+globs: "**/*.tsx, **/*.jsx"
+alwaysApply: false
+---
+
+# React 19 Cursor Rules
+
+## Architecture
+- Use Server Components by default, Client Components only when needed (interactivity, hooks, browser APIs)
+- Prefer function components with hooks over class components
+- Co-locate related files: `Component.tsx`, `Component.test.tsx`, `Component.module.css`
+- Use barrel exports (`index.ts`) sparingly — they hurt tree-shaking
+
+## Component Patterns
+- Name components with PascalCase: `UserProfile`, `NavigationBar`
+- Extract reusable logic into custom hooks prefixed with `use`: `useAuth`, `useLocalStorage`
+- Keep components under 150 lines — split into smaller components if larger
+- Use `React.memo()` only when profiling shows re-render issues, not preemptively
+
+## Hooks Rules
+- DO: Call hooks at the top level of components
+- DON'T: Call hooks inside loops, conditions, or nested functions
+- DO: Use `useCallback` for event handlers passed to memoized children
+- DON'T: Wrap every function in `useCallback` — it has overhead
+- DO: Use `useMemo` for expensive computations
+- DON'T: Use `useMemo` for simple values or primitives
+
+## State Management
+- Local state: `useState` for simple, `useReducer` for complex
+- Shared state: Context for theme/auth, Zustand/Jotai for complex global state
+- Server state: TanStack Query for data fetching, caching, and synchronization
+- DO: Lift state up only as far as needed
+- DON'T: Put everything in global state
+
+## React 19 Features
+- Use `use()` hook for reading resources (promises, context)
+- Use `useActionState` for form actions with pending states
+- Use `useOptimistic` for optimistic UI updates
+- Server Actions: Define with `'use server'` directive for mutations
+
+## Performance
+- Use `React.lazy()` and `Suspense` for code splitting
+- Avoid inline object/array creation in JSX props (causes re-renders)
+- Use `key` prop properly — never use array index for dynamic lists
+- Prefer CSS for animations over JS-driven re-renders
+
+## Error Handling
+- Wrap feature boundaries with `ErrorBoundary` components
+- Use `Suspense` boundaries for loading states
+- Handle async errors in effects with cleanup functions
+
+## TypeScript Integration
+- Define props with interfaces, not types (for better error messages)
+- Use `React.FC` sparingly — prefer explicit return types
+- Export prop interfaces for reusable components
+- Use generics for flexible, type-safe components

@@ -1,0 +1,229 @@
+---
+description: "Test-driven development practices"
+alwaysApply: false
+globs: "**/*.test.*,**/*.spec.*,**/*.py"
+---
+
+# Testing & TDD — Cursor Rules
+# Comprehensive rules for test-driven development across languages and frameworks
+
+## Project Context
+You are working on a project that prioritizes test-driven development (TDD). Tests are
+written before implementation, code is designed for testability, and the test suite serves
+as living documentation. The goal is high confidence in code correctness through
+well-structured, maintainable tests.
+
+## Tech Stack (Multi-Framework)
+- JavaScript/TypeScript: Jest, Vitest, React Testing Library, Playwright
+- Python: pytest, unittest, pytest-cov, factory_boy
+- General: MSW (Mock Service Worker), Faker for test data
+- CI integration for automated test runs
+
+## TDD Workflow
+
+### The Red-Green-Refactor Cycle
+1. **Red**: Write a failing test that describes the desired behavior
+2. **Green**: Write the minimum code to make the test pass
+3. **Refactor**: Clean up the code while keeping tests green
+4. Repeat
+
+### Rules
+- Never write production code without a failing test first
+- Each test should test ONE behavior or requirement
+- Run the full test suite before committing
+- Treat test code with the same quality standards as production code
+- Tests should be fast — mock expensive I/O operations
+
+## Naming Conventions
+
+### Test Files
+- JavaScript: `*.test.ts`, `*.spec.ts` (co-located with source)
+- Python: `test_*.py` or `*_test.py` in `tests/` directory
+- Test fixtures/factories: `factories.ts`, `conftest.py`
+
+### Test Names — Describe Behavior, Not Implementation
+```ts
+// GOOD — describes what should happen
+it('returns 404 when the user does not exist')
+it('sends a confirmation email after successful registration')
+it('prevents duplicate orders within 5 minutes')
+it('shows an error message when the form submission fails')
+
+// BAD — describes implementation details
+it('calls findById with correct id')
+it('sets isLoading to true')
+it('dispatches SET_USER action')
+```
+
+### Test Structure — AAA Pattern
+```ts
+it('calculates the total with tax for items in the cart', () => {
+  // Arrange — set up test data and dependencies
+  const cart = new Cart();
+  cart.addItem({ name: 'Widget', price: 10.00, quantity: 2 });
+  cart.addItem({ name: 'Gadget', price: 25.00, quantity: 1 });
+
+  // Act — perform the action being tested
+  const total = cart.calculateTotal({ taxRate: 0.08 });
+
+  // Assert — verify the expected outcome
+  expect(total).toBe(48.60);
+});
+```
+
+## Test Categories
+
+### Unit Tests
+- Test individual functions, classes, or modules in isolation
+- Mock all external dependencies (database, APIs, file system)
+- Should run in milliseconds
+- Aim for high coverage of business logic and utility functions
+
+### Integration Tests
+- Test how modules work together
+- May use a real database (test instance) or API
+- Test the full request/response cycle for API endpoints
+- Slower than unit tests but provide higher confidence
+
+### End-to-End (E2E) Tests
+- Test complete user workflows through the UI
+- Use Playwright or Cypress
+- Test critical paths: sign up, purchase flow, key features
+- Keep the E2E suite small — focus on high-value user journeys
+
+### The Testing Pyramid
+```
+    /  E2E  \        Few — slow, expensive, high confidence
+   / Integr. \      Some — medium speed, good confidence
+  /   Unit    \     Many — fast, cheap, focused
+```
+
+## Mocking Strategy
+
+### What to Mock
+- External APIs and services
+- Database calls (in unit tests)
+- File system operations
+- Time/dates (use fake timers)
+- Random number generation
+- Email/notification services
+
+### What NOT to Mock
+- The code under test itself
+- Simple utility functions
+- Data structures and models
+- Things that are fast and deterministic
+
+### Mock Patterns
+```ts
+// Prefer dependency injection over module mocking
+class OrderService {
+  constructor(
+    private db: Database,        // Inject — easy to mock
+    private emailService: EmailService,
+  ) {}
+}
+
+// In tests:
+const mockDb = { findById: vi.fn(), save: vi.fn() };
+const mockEmail = { send: vi.fn() };
+const service = new OrderService(mockDb, mockEmail);
+```
+
+```ts
+// MSW for API mocking (intercepts at the network level)
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+
+const server = setupServer(
+  http.get('/api/users/:id', ({ params }) => {
+    return HttpResponse.json({ id: params.id, name: 'Alice' });
+  }),
+);
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+```
+
+## React/UI Testing
+
+### Testing Library Philosophy
+- Test what the user sees and does, not component internals
+- Query by role, label, text — not by CSS class or test ID
+- Prefer `userEvent` over `fireEvent` for realistic interactions
+
+```tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+it('shows validation error when submitting empty form', async () => {
+  const user = userEvent.setup();
+  render(<LoginForm onSubmit={vi.fn()} />);
+
+  await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+  expect(screen.getByText(/email is required/i)).toBeInTheDocument();
+});
+
+it('calls onSubmit with form data when valid', async () => {
+  const user = userEvent.setup();
+  const handleSubmit = vi.fn();
+  render(<LoginForm onSubmit={handleSubmit} />);
+
+  await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+  await user.type(screen.getByLabelText(/password/i), 'secure123');
+  await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+  expect(handleSubmit).toHaveBeenCalledWith({
+    email: 'test@example.com',
+    password: 'secure123',
+  });
+});
+```
+
+## Test Data Management
+- Use factories for test data generation (factory_boy, fishery)
+- Use Faker for realistic random data
+- Create minimal test data — only the fields relevant to the test
+- Use builder patterns for complex object creation
+- Reset database state between tests (transactions or truncation)
+
+```ts
+// factories.ts
+import { faker } from '@faker-js/faker';
+
+export function buildUser(overrides: Partial<User> = {}): User {
+  return {
+    id: faker.string.uuid(),
+    email: faker.internet.email(),
+    name: faker.person.fullName(),
+    createdAt: faker.date.past(),
+    ...overrides,
+  };
+}
+```
+
+## Error and Edge Case Testing
+- Test error paths, not just happy paths
+- Test boundary conditions (empty arrays, zero values, max lengths)
+- Test concurrent operations when relevant
+- Test authorization: users accessing resources they don't own
+- Test invalid input: wrong types, missing fields, malformed data
+
+## Performance
+- Tests should run in seconds, not minutes
+- Parallelize test execution where possible
+- Mock slow I/O in unit tests
+- Use `beforeAll` for expensive setup shared across tests
+- Profile slow tests with `--verbose` or timing reporters
+
+## Common Pitfalls
+- Testing implementation details instead of behavior (brittle tests)
+- Shared mutable state between tests (flaky tests)
+- Not resetting mocks between tests (`vi.restoreAllMocks()`)
+- Over-mocking — testing that mocks return what you told them to return
+- Snapshot testing for dynamic content (snapshots break constantly)
+- Ignoring test failures — fix or delete, never skip permanently
+- Not testing async error paths (unhandled rejections in tests)
+- Writing tests after code is done (loses TDD benefits)

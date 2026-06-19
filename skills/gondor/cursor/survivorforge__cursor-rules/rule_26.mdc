@@ -1,0 +1,182 @@
+---
+description: "TypeScript strict mode advanced"
+alwaysApply: false
+globs: "**/*.ts,**/*.tsx"
+---
+
+# Strict TypeScript — Cursor Rules
+# Zero-compromise TypeScript: no any, proper generics, exhaustive type safety
+
+# Project Context
+You are writing strict TypeScript. The project has all strict compiler options enabled.
+Every value is typed. Every edge case is handled. The type system is your primary tool
+for preventing bugs at compile time rather than catching them at runtime.
+
+# tsconfig.json Strict Settings (Required)
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
+```
+
+# The "No Any" Rule
+- NEVER use `any`. There is always a better type.
+- Use `unknown` when you don't know the type — then narrow it:
+  ```typescript
+  function processInput(input: unknown): string {
+    if (typeof input === 'string') return input;
+    if (typeof input === 'number') return String(input);
+    throw new TypeError(`Unexpected input type: ${typeof input}`);
+  }
+  ```
+- Use `Record<string, unknown>` instead of `object` or `any` for generic objects.
+- For JSON parsing: `JSON.parse(text) as unknown`, then validate with zod or manual narrowing.
+- For third-party libraries without types: create a `.d.ts` declaration file, don't use `any`.
+
+# Type Narrowing Patterns
+- Use discriminated unions for state machines and variant types:
+  ```typescript
+  type Result<T> =
+    | { success: true; data: T }
+    | { success: false; error: Error };
+  ```
+- Create type guard functions for complex runtime checks:
+  ```typescript
+  function isUser(value: unknown): value is User {
+    return typeof value === 'object' && value !== null
+      && 'id' in value && typeof (value as Record<string, unknown>).id === 'string';
+  }
+  ```
+- Use `satisfies` operator to validate types while preserving literal inference:
+  ```typescript
+  const config = {
+    port: 3000,
+    host: 'localhost',
+  } satisfies ServerConfig;
+  // config.port is `3000` (literal), not just `number`
+  ```
+- Use `asserts` for assertion functions that narrow in the calling scope:
+  ```typescript
+  function assertDefined<T>(value: T | undefined, name: string): asserts value is T {
+    if (value === undefined) throw new Error(`${name} is required`);
+  }
+  ```
+
+# Generic Patterns
+- Constrain generics with `extends` to prevent misuse:
+  ```typescript
+  function getProperty<T extends object, K extends keyof T>(obj: T, key: K): T[K] {
+    return obj[key];
+  }
+  ```
+- Use default generic parameters for convenience:
+  ```typescript
+  type ApiResponse<T = void> = { status: number; data: T; timestamp: Date };
+  ```
+- Use `infer` in conditional types to extract nested types:
+  ```typescript
+  type UnwrapPromise<T> = T extends Promise<infer U> ? U : T;
+  type ArrayElement<T> = T extends readonly (infer E)[] ? E : never;
+  ```
+- Use mapped types to transform existing types:
+  ```typescript
+  type Nullable<T> = { [K in keyof T]: T[K] | null };
+  type ReadonlyDeep<T> = { readonly [K in keyof T]: ReadonlyDeep<T[K]> };
+  ```
+
+# Utility Type Usage
+- `Partial<T>` — for update DTOs where all fields are optional.
+- `Required<T>` — to ensure all optional fields are present.
+- `Pick<T, K>` — to create subsets of types for specific use cases.
+- `Omit<T, K>` — to exclude fields (careful: doesn't error on non-existent keys).
+- `Record<K, V>` — for typed dictionaries and maps.
+- `Extract<T, U>` / `Exclude<T, U>` — for union type manipulation.
+- `NonNullable<T>` — to strip null and undefined from types.
+- `ReturnType<T>` / `Parameters<T>` — to extract function signatures.
+- Prefer creating named types over deeply nested utility type compositions.
+
+# Enum Alternatives
+- Prefer `as const` objects over TypeScript enums:
+  ```typescript
+  const Status = { Active: 'active', Inactive: 'inactive', Pending: 'pending' } as const;
+  type Status = typeof Status[keyof typeof Status]; // 'active' | 'inactive' | 'pending'
+  ```
+- Benefits: tree-shakeable, no runtime cost, works with string literals.
+- Use string literal unions for simple cases: `type Direction = 'up' | 'down' | 'left' | 'right'`.
+
+# Exhaustive Checks
+- Always handle all cases in discriminated unions:
+  ```typescript
+  function assertNever(value: never): never {
+    throw new Error(`Unhandled case: ${JSON.stringify(value)}`);
+  }
+
+  switch (action.type) {
+    case 'increment': return state + 1;
+    case 'decrement': return state - 1;
+    default: return assertNever(action); // compile error if a case is missed
+  }
+  ```
+- This pattern ensures adding a new variant to a union forces handling everywhere it's used.
+
+# Function Patterns
+- Use function overloads for APIs with multiple call signatures:
+  ```typescript
+  function createElement(tag: 'a'): HTMLAnchorElement;
+  function createElement(tag: 'canvas'): HTMLCanvasElement;
+  function createElement(tag: string): HTMLElement;
+  function createElement(tag: string): HTMLElement { ... }
+  ```
+- Use parameter objects for functions with 3+ parameters:
+  ```typescript
+  function createUser(options: { name: string; email: string; role?: Role }): User
+  ```
+- Type callbacks explicitly — don't rely on contextual typing for exported APIs.
+- Use `readonly` arrays in function parameters when you don't mutate them.
+
+# Object and Array Patterns
+- Use `readonly` on arrays and objects that shouldn't be mutated:
+  ```typescript
+  function processItems(items: readonly Item[]): Summary { ... }
+  ```
+- Use `as const` for literal tuples: `const pair = [1, 'hello'] as const; // [1, 'hello']`
+- Use `Map<K, V>` and `Set<T>` instead of objects for dynamic key-value storage.
+- Access index signatures safely with `noUncheckedIndexedAccess`:
+  ```typescript
+  const map: Record<string, number> = { a: 1 };
+  const value = map['b']; // type is `number | undefined`, not `number`
+  ```
+
+# Module Patterns
+- Use barrel exports (index.ts) carefully — they can hurt tree-shaking and cause circular deps.
+- Export types separately: `export type { User, UserCreate }` (transpiled away, no runtime cost).
+- Use `import type` when importing only types: `import type { Config } from './config'`.
+
+# Error Handling
+- Type errors explicitly — avoid `catch (e: any)`:
+  ```typescript
+  try { ... } catch (error) {
+    if (error instanceof NetworkError) { /* handle */ }
+    if (error instanceof ValidationError) { /* handle */ }
+    throw error; // re-throw unexpected errors
+  }
+  ```
+- Create typed error classes with additional context fields.
+- Use Result types for expected errors instead of throwing.
+
+# Common Mistakes to Avoid
+- DON'T: Use `any` — use `unknown`, proper types, or generics.
+- DON'T: Use non-null assertion `!` without a guard — it suppresses real bugs.
+- DON'T: Use type assertions `as T` to silence errors — fix the actual type mismatch.
+- DON'T: Use `// @ts-ignore` — use `// @ts-expect-error` (fails when error is fixed, keeping code clean).
+- DON'T: Use `Object`, `Function`, `String`, `Number`, `Boolean` — use lowercase primitives.
+- DON'T: Return `undefined` implicitly — be explicit: `return undefined;`.
+- DON'T: Use `==` or `!=` — always use `===` and `!==`.

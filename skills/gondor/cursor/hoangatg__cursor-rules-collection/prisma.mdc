@@ -1,0 +1,33 @@
+---
+description: Prisma ORM schema design, migrations, and relation patterns
+globs: "**/*.prisma, **/*.ts"
+alwaysApply: false
+---
+
+# Prisma ORM Cursor Rules
+
+## Schema Design
+- Use PascalCase for models, camelCase for fields
+- Use `@id @default(cuid())` for primary keys
+- Define relations explicitly on both sides
+- Use `@@index([field])` for frequently queried fields
+- Use `@@unique([field1, field2])` for composite unique constraints
+
+## Migrations
+- Use `npx prisma migrate dev` for development migrations
+- Use `npx prisma migrate deploy` for production
+- Always review generated SQL before applying
+- Name migrations descriptively: `add_user_email_verification`
+
+## Client Usage
+- Use `PrismaClient` as a singleton (avoid connection exhaustion)
+- Use `include` for eager loading relations
+- Use `select` to fetch only needed fields
+- Use transactions for multi-model operations: `prisma.$transaction()`
+- Handle `PrismaClientKnownRequestError` for constraint violations
+
+## Best Practices
+- DO: Use `findUnique()` instead of `findFirst()` when querying by unique field
+- DO: Use `createMany()` / `updateMany()` for batch operations
+- DON'T: Use raw queries unless Prisma can't express the operation
+- DON'T: Expose Prisma types directly in API responses — map to DTOs

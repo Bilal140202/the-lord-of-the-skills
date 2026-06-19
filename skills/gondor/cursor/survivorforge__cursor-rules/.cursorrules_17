@@ -1,0 +1,84 @@
+# Next.js 14+ App Router — Cursor Rules
+# Senior-level patterns for production Next.js applications
+
+# Project Context
+You are working on a Next.js 14+ application using the App Router (app/ directory).
+All components are React Server Components by default unless explicitly marked with "use client".
+The project uses TypeScript, Tailwind CSS, and follows the latest Next.js conventions.
+
+# Architecture Rules
+- Use the app/ directory exclusively. Never create pages/ directory files.
+- Colocate related files: page.tsx, layout.tsx, loading.tsx, error.tsx, not-found.tsx in the same route folder.
+- Keep route groups (parentheses folders) for logical organization without affecting URL structure.
+- Use parallel routes (@folder) and intercepting routes ((..)folder) when building modal patterns or dashboards.
+
+# Server Components (Default)
+- Every component is a Server Component unless it needs interactivity or browser APIs.
+- DO: Fetch data directly in Server Components using async/await.
+- DO: Use `fetch()` with Next.js caching options: `{ cache: 'force-cache' }`, `{ next: { revalidate: 3600 } }`.
+- DON'T: Import useState, useEffect, useRef, or event handlers in Server Components.
+- DON'T: Pass functions as props from Server Components to Client Components.
+
+# Client Components
+- Mark with "use client" directive at the top of the file.
+- Keep Client Components as small and leaf-level as possible.
+- DO: Extract interactive parts into small Client Components, keep the parent as a Server Component.
+- DON'T: Mark a layout.tsx as "use client" — this forces the entire subtree to be client-rendered.
+
+# Server Actions
+- Define server actions in separate files with "use server" at the top.
+- Place in app/actions/ or colocate with the feature: app/dashboard/actions.ts.
+- Always validate input with zod before processing.
+- Return typed response objects: `{ success: boolean; data?: T; error?: string }`.
+- Use `revalidatePath()` or `revalidateTag()` after mutations, never `router.refresh()`.
+
+# Data Fetching Patterns
+- Fetch data in the component that needs it — Next.js deduplicates fetch requests automatically.
+- Use `generateStaticParams()` for dynamic routes that should be statically generated.
+- Implement proper loading states with loading.tsx Suspense boundaries.
+- Use `unstable_cache()` for non-fetch data sources (database queries, API calls via SDK).
+
+# Error Handling
+- Create error.tsx files at each route segment that might fail.
+- error.tsx must be a Client Component (it receives error and reset props).
+- Use not-found.tsx for 404 states, call `notFound()` from Server Components.
+- Wrap external API calls in try/catch with meaningful error messages.
+
+# Metadata & SEO
+- Export `metadata` object or `generateMetadata()` function from page.tsx and layout.tsx.
+- Use `generateMetadata()` for dynamic pages that need data-driven titles/descriptions.
+- Always include: title, description, openGraph, and twitter card metadata.
+- Place opengraph-image.tsx in route folders for dynamic OG images.
+
+# File Naming Conventions
+- Components: PascalCase (UserProfile.tsx)
+- Utilities/helpers: camelCase (formatDate.ts)
+- Route files: lowercase (page.tsx, layout.tsx, loading.tsx, error.tsx)
+- Server actions: camelCase verb prefix (createUser.ts, updateProfile.ts)
+- Types: PascalCase with .types.ts suffix (User.types.ts)
+
+# Performance
+- Use `<Image>` component from next/image for all images — never raw <img> tags.
+- Use `<Link>` component from next/link for all internal navigation.
+- Implement `<Suspense>` boundaries around slow-loading components.
+- Use `dynamic()` import with `{ ssr: false }` for heavy client-only libraries.
+- Prefer CSS Modules or Tailwind over CSS-in-JS (no runtime cost).
+
+# TypeScript Patterns
+- Define route params types: `{ params: { slug: string } }` for page components.
+- Use `SearchParams` type for page components that read query strings.
+- Type server action return values explicitly.
+- Use `satisfies` operator for metadata objects to get autocomplete while keeping literal types.
+
+# Testing
+- Use @testing-library/react for component tests.
+- Test Server Components by importing and rendering them directly (they're just async functions).
+- Mock fetch calls and database queries in tests.
+- Use Playwright for E2E tests against the dev server.
+
+# Common Mistakes to Avoid
+- DON'T use `useRouter` for navigation in Server Components — use `redirect()` instead.
+- DON'T store server-only secrets in components — use environment variables with NEXT_PUBLIC_ prefix only for client-side values.
+- DON'T use `getServerSideProps` or `getStaticProps` — these are Pages Router patterns.
+- DON'T create API routes (route.ts) just to fetch data for your own pages — fetch directly in Server Components.
+- DON'T put "use client" on every component — think about the boundary carefully.

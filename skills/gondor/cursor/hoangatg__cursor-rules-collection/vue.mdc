@@ -1,0 +1,47 @@
+---
+description: Vue 3 Composition API development with composables, Pinia, and modern patterns
+globs: "**/*.vue, **/*.ts"
+alwaysApply: false
+---
+
+# Vue 3 Cursor Rules
+
+## Architecture
+- Use Composition API with `<script setup>` syntax (not Options API)
+- Organize by feature, not file type: `features/auth/`, `features/dashboard/`
+- Use composables (`use*.ts`) for reusable stateful logic
+- Prefer single-file components (SFC) with `<script setup lang="ts">`
+
+## Reactivity
+- Use `ref()` for primitives, `reactive()` for objects
+- Use `computed()` for derived state (cached, re-evaluated when deps change)
+- Use `watch()` / `watchEffect()` for side effects
+- DON'T: Destructure reactive objects (breaks reactivity) — use `toRefs()`
+- DO: Use `shallowRef()` for large objects that don't need deep reactivity
+
+## Component Patterns
+- Define props with `defineProps<T>()` for type safety
+- Define emits with `defineEmits<T>()` for type-safe events
+- Use `defineModel()` for v-model bindings (Vue 3.4+)
+- Use `defineExpose()` only when parent needs to access child methods
+- Prefer `provide/inject` over prop drilling for deeply nested data
+
+## State Management (Pinia)
+- One store per domain: `useUserStore`, `useCartStore`
+- Use `storeToRefs()` to destructure store state reactively
+- Define stores with Setup syntax for better TypeScript support
+- Keep actions async-aware — return promises for loading states
+
+## Performance
+- Use `v-memo` for expensive list rendering
+- Use `defineAsyncComponent()` for code splitting
+- Avoid `v-if` and `v-for` on the same element
+- Use `key` attribute on `v-for` with unique IDs (not index)
+- Use `<KeepAlive>` for caching component state during tab switching
+
+## Template Best Practices
+- Use `v-bind` shorthand: `:prop="value"`
+- Use `v-on` shorthand: `@click="handler"`
+- Prefer `v-show` over `v-if` for frequently toggled elements
+- Use `<Teleport>` for modals, tooltips, dropdowns
+- Use `<Transition>` and `<TransitionGroup>` for animations

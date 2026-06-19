@@ -1,0 +1,64 @@
+---
+description: "Astro v4+ best practices for building fast content sites and web applications."
+globs: "**/*.astro,astro.config.mjs,astro.config.ts,src/pages/**/*.astro,src/pages/**/*.js,src/pages/**/*.ts,src/pages/**/*.md,src/pages/**/*.mdx,src/layouts/**/*.astro,src/components/**/*.astro,src/components/**/*.jsx,src/components/**/*.tsx,src/components/**/*.vue,src/components/**/*.svelte,src/content/config.ts,src/content/**/*.mdx,src/middleware.js,src/middleware.ts,src/env.d.ts"
+alwaysApply: false
+---
+
+# Astro Development Best Practices (v4+)
+
+You are an expert Astro developer, aware of its features up to version 4+.
+Reference: <https://docs.astro.build/en/getting-started/>
+
+## Core Concepts
+
+- Component-Based: Uses `.astro` files blending HTML, scoped CSS, and JS/TS frontmatter.
+- Islands Architecture: Zero-JS by default. Use `client:*` directives (`load`, `idle`, `visible`, `media`, `only`) to hydrate interactive UI components (Islands) client-side.
+- UI Framework Agnostic: Integrates with React, Vue, Svelte, Solid, Preact, Alpine.js, etc.
+- Content-Focused: Built-in Content Collections API for type-safe Markdown/MDX. Astro DB for integrated database solutions.
+- Server-First: Prioritizes Server-Side Rendering (SSR) via Adapters or Static Site Generation (SSG).
+- View Transitions: Built-in support for smooth page transitions and persistent elements using `astro:transitions`.
+
+## Project Structure (Typical)
+
+- `src/pages/`: File-based routing (`.astro`, `.md`, `.mdx`, `.js`, `.ts` for API routes).
+- `src/layouts/`: Reusable page layout components (`.astro`).
+- `src/components/`: Reusable UI components (`.astro` or framework components).
+- `src/content/`: Content Collections (`config.ts`, `posts/`, `docs/`, etc.).
+- `src/styles/`: Global CSS, fonts.
+- `src/middleware.{ts,js}`: For executing code before/after rendering (auth, redirects).
+- `src/env.d.ts`: TypeScript definitions for Astro environment.
+- `public/`: Static assets.
+- `astro.config.mjs` (or `.ts`): Main configuration.
+- `db/config.ts`, `db/seed.ts`: Astro DB configuration and seeding.
+
+## Configuration (`astro.config.mjs`)
+
+- Define `site`, `base`, output mode (`static`/`server`/`hybrid`).
+- Configure Integrations: UI Frameworks (`@astrojs/react`, etc.), Tailwind (`@astrojs/tailwind`), MDX (`@astrojs/mdx`), Sitemap (`@astrojs/sitemap`), Astro DB (`@astrojs/db`).
+- Setup Adapters for deployment (Vercel, Netlify, Cloudflare, Node).
+- Define Vite plugin options.
+- Manage TypeScript settings.
+- Configure Markdown/MDX options (syntax highlighting, remark/rehype plugins).
+- Set up Internationalization (i18n) routing.
+- Enable Experimental Features.
+
+## Routing & Navigation
+
+- Pages: File-based routing in `src/pages/`.
+- Dynamic Routes: `[param].astro`, `[...slug].astro`. Access via `Astro.params`.
+- Endpoints (API Routes): Export `GET`, `POST`, etc. functions from `.js`/`.ts` files in `src/pages/`.
+- Middleware: Intercept requests/responses using `src/middleware.ts` (`defineMiddleware`, `sequence`). Useful for auth, logging, redirects.
+- i18n: Configure locales and routing strategies in `astro.config.mjs`.
+- Prefetch: Control prefetching behavior for faster navigation.
+- View Transitions: Opt-in via `<ViewTransitions />` component and `transition:*` directives for animations and persistence.
+
+## Building UI
+
+- `.astro` Components: Use frontmatter (`---`) for server-side logic, template for HTML/JSX-like syntax, `<style>` for scoped CSS.
+- Props: Define with `interface Props` or `type Props`; access via `Astro.props`.
+- Slots: Default (`<slot/>`) and named (`<slot name="..."/>`).
+- Layouts: `.astro` components typically in `src/layouts/` used via frontmatter `layout: '../../layouts/BaseLayout.astro'`.
+- Styles: Scoped by default. Use `:global()` or `<style is:global>`. Import CSS/SCSS/etc. Use Tailwind integration if configured.
+- Fonts: Local fonts in `src/` or `public/`, Google Fonts via integrations/imports.
+- Syntax Highlighting: Built-in (Shiki) or via integrations.
+- Scripts & Events: `<script>`

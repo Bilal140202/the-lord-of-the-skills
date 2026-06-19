@@ -1,0 +1,40 @@
+---
+description: Meta-rules for effective AI-assisted coding with any AI coding assistant
+globs: "**/*"
+alwaysApply: true
+---
+
+# AI Coding Meta-Rules
+
+## Communication with AI
+- Be specific in your requests — include file names, function names, expected behavior
+- Provide context: "I'm building a Next.js e-commerce app with Prisma and Stripe"
+- Break complex tasks into smaller, focused requests
+- Ask AI to explain its decisions — catch issues before they become bugs
+
+## Code Review AI Output
+- Always review generated code before accepting
+- Verify imports are correct and packages are installed
+- Check for hardcoded values that should be environment variables
+- Ensure error handling is present (AI often generates happy-path only)
+- Verify TypeScript types are correct (not `any`)
+
+## AI-Friendly Code
+- Write descriptive function and variable names (helps AI understand context)
+- Add JSDoc/docstrings for complex functions
+- Keep files focused — one concern per file
+- Use consistent patterns across your codebase
+
+## What AI Does Well
+- Boilerplate generation and scaffolding
+- Writing tests for existing code
+- Refactoring with clear instructions
+- Converting between formats/languages
+- Adding error handling and edge cases
+
+## What AI Struggles With
+- Complex state management across many files
+- Performance optimization without profiling data
+- Security-critical code (always review manually)
+- Maintaining consistency across large codebases
+- Understanding implicit business rules

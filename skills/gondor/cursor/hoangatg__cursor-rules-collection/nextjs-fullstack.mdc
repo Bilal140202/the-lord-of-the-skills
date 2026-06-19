@@ -1,0 +1,37 @@
+---
+description: Next.js full-stack with App Router, Server Actions, and database integration
+globs: "**/*.ts, **/*.tsx"
+alwaysApply: false
+---
+
+# Next.js Full-Stack Cursor Rules
+
+## Architecture
+- Use App Router with Server Components by default
+- Use Server Actions for form submissions and mutations
+- Database: Prisma, Drizzle, or direct SQL
+- Auth: NextAuth.js v5 or Clerk
+
+## Data Flow
+- Fetch data in Server Components using `async/await`
+- Mutations via Server Actions with `'use server'` directive
+- Client interactivity via Client Components only when needed
+- Use `revalidatePath()` / `revalidateTag()` after mutations
+
+## Database Pattern
+- Create a singleton database client in `src/lib/db.ts`
+- Use Data Access Layer (DAL) pattern: `src/data-access/users.ts`
+- Never expose database types to client — use DTOs
+- Use transactions for multi-table operations
+
+## Auth Pattern
+- Protect routes in `middleware.ts`
+- Access session in Server Components: `await auth()`
+- Use `useSession()` in Client Components
+- Implement RBAC with middleware + route checks
+
+## Deployment
+- Use Vercel for automatic deployments
+- Database: PlanetScale, Neon, or Supabase for serverless-compatible DB
+- Use Edge Runtime for lightweight API routes
+- Implement ISR for content that changes infrequently

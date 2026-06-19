@@ -1,0 +1,176 @@
+# Go with Gin Framework — Cursor Rules
+
+You are an expert Go developer building web applications and APIs with the Gin framework, following idiomatic Go patterns.
+
+## Code Style
+
+- Follow Go conventions strictly. Use `gofmt` or `goimports` for formatting. Never deviate from standard formatting.
+- Use `camelCase` for unexported identifiers, `PascalCase` for exported identifiers. No underscores in Go names.
+- Keep variable names short but descriptive in limited scope: `u` for a user in a 3-line block, `user` in longer blocks, `currentUser` for clarity.
+- Acronyms are all-caps: `userID`, `httpClient`, `parseJSON`, `apiURL`.
+- Use `error` as the last return value. Always check errors immediately after the call.
+- Write Go doc comments on all exported types, functions, and methods. Start with the name: `// UserService provides user management operations.`
+- Prefer returning values over using pointer receivers unless mutation is needed or the struct is large.
+- Group imports: stdlib, third-party, internal packages. Use `goimports` for automatic grouping.
+- Keep functions under 40 lines. If longer, extract sub-functions.
+- Use `errors.New()` for simple errors, `fmt.Errorf()` with `%w` for wrapped errors.
+
+## Gin Architecture
+
+- Structure the app in layers: Handlers (controllers) -> Services -> Repositories.
+- Handlers extract data from `*gin.Context`, call services, and write responses. No business logic in handlers.
+- Services contain business logic. They accept and return domain types, not Gin types.
+- Repositories handle database operations. They accept `context.Context` and return domain types + errors.
+- Use dependency injection via struct fields. Create structs with `New*` constructor functions.
+- Register routes in a `SetupRouter()` function that returns `*gin.Engine`.
+
+## Routing and Handlers
+
+- Group related routes: `v1 := r.Group("/api/v1")`, then `users := v1.Group("/users")`.
+- Use middleware at appropriate levels: global, group, or single route.
+- Handler signature: `func (h *UserHandler) GetUser(c *gin.Context)`.
+- Use `c.ShouldBindJSON(&input)` for request body parsing (returns error, doesn't abort).
+- Use `c.Param("id")` for path parameters, `c.Query("page")` for query parameters.
+- Return consistent JSON responses:
+  ```go
+  c.JSON(http.StatusOK, gin.H{"data": user})
+  c.JSON(http.StatusBadRequest, gin.H{"error": "invalid input", "details": errors})
+  ```
+- Use proper HTTP status codes from `net/http` constants.
+- Always call `c.Abort()` in middleware that short-circuits the request.
+
+## Error Handling
+
+- ALWAYS check errors. Never use `_` to discard errors unless you have documented the reason.
+- Use custom error types for domain-specific errors:
+  ```go
+  type NotFoundError struct { Resource string; ID string }
+  func (e *NotFoundError) Error() string { return fmt.Sprintf("%s %s not found", e.Resource, e.ID) }
+  ```
+- Use `errors.Is()` and `errors.As()` for error type checking. Wrap errors with `fmt.Errorf("context: %w", err)`.
+- Create an error-handling middleware that maps error types to HTTP status codes.
+- Log errors with context (request ID, user ID, operation). Use structured logging.
+- Return user-friendly error messages. Never expose internal error details in API responses.
+- Use sentinel errors for expected conditions: `var ErrNotFound = errors.New("not found")`.
+
+## Input Validation
+
+- Use `binding` struct tags for Gin validation: `json:"name" binding:"required,min=1,max=100"`.
+- Create custom validators for complex validation rules. Register them with Gin's validator.
+- Validate at the handler level before passing data to services.
+- Return structured validation errors: field name, expected constraint, actual value.
+- Use separate structs for create and update operations with different validation rules.
+
+## Database (GORM or sqlx)
+
+- Prefer `sqlx` for explicit SQL control. Use GORM for rapid prototyping with complex relationships.
+- Use `context.Context` for all database operations (pass from the handler through the service to the repo).
+- Use connection pooling: set `MaxOpenConns`, `MaxIdleConns`, `ConnMaxLifetime` on `*sql.DB`.
+- Use transactions for multi-step operations:
+  ```go
+  tx, err := db.BeginTx(ctx, nil)
+  defer tx.Rollback()
+  // ... operations ...
+  return tx.Commit()
+  ```
+- Use parameterized queries exclusively. Never concatenate user input into SQL.
+- Run database migrations with `golang-migrate/migrate` or `goose`.
+
+## Middleware
+
+- Create middleware as functions returning `gin.HandlerFunc`.
+- Authentication middleware: extract and validate token, set user in context with `c.Set("user", user)`.
+- Logging middleware: log request method, path, status, latency, client IP.
+- Recovery middleware: `gin.Recovery()` is built-in, but add custom recovery for structured error responses.
+- CORS middleware: use `github.com/gin-contrib/cors` with explicit configuration.
+- Rate limiting: implement per-IP or per-user rate limiting with a token bucket or sliding window.
+- Request ID middleware: generate or extract `X-Request-ID`, set it in context for tracing.
+
+## Logging
+
+- Use `slog` (Go 1.21+) or `zerolog` for structured logging. Never use `fmt.Println` or `log.Println` in production.
+- Log at appropriate levels: Error (failures), Warn (degraded), Info (significant events), Debug (development).
+- Include structured fields: `slog.Info("user created", "user_id", user.ID, "email", user.Email)`.
+- Create a logger middleware that logs every request with method, path, status, and latency.
+- Include the request ID in all log entries for tracing.
+- Never log sensitive data: passwords, tokens, full credit card numbers.
+
+## Testing
+
+- Use the standard `testing` package. Use `testify` for assertions and mocks.
+- Test handlers with `httptest.NewRecorder()` and Gin's test mode: `gin.SetMode(gin.TestMode)`.
+- Use interfaces for dependencies so they can be mocked in tests.
+- Create test helper functions for common setup (database, router, authenticated requests).
+- Use table-driven tests for testing multiple cases:
+  ```go
+  tests := []struct{ name string; input Input; want Output; wantErr bool }{ ... }
+  for _, tt := range tests { t.Run(tt.name, func(t *testing.T) { ... }) }
+  ```
+- Use `t.Parallel()` for tests that can run concurrently.
+- Use build tags or environment variables for integration tests that need a database.
+
+## File Structure
+
+```
+cmd/
+  server/
+    main.go             — Entry point, dependency wiring, server start
+internal/
+  config/
+    config.go           — Configuration loading (env vars, files)
+  handler/
+    user_handler.go     — HTTP handlers
+    user_handler_test.go
+    middleware.go        — Gin middleware
+  service/
+    user_service.go     — Business logic
+    user_service_test.go
+  repository/
+    user_repo.go        — Database access
+    user_repo_test.go
+  model/
+    user.go             — Domain models
+    errors.go           — Custom error types
+  dto/
+    user_dto.go         — Request/response DTOs with validation tags
+  router/
+    router.go           — Route registration
+pkg/
+  logger/
+    logger.go           — Logger setup
+  validator/
+    validator.go        — Custom validators
+migrations/
+  001_create_users.sql
+```
+
+## Concurrency
+
+- Use goroutines for concurrent I/O operations. Always use `sync.WaitGroup` or channels to coordinate.
+- Use `context.Context` for cancellation and timeout propagation. Pass it as the first parameter.
+- Use `errgroup.Group` from `golang.org/x/sync/errgroup` for concurrent tasks with error handling.
+- Never launch goroutines without a way to shut them down (context cancellation, done channels).
+- Use channels for communication between goroutines. Prefer unbuffered channels unless buffering is needed.
+- Use `sync.Mutex` for protecting shared state. Keep critical sections small.
+- Use `sync.Once` for one-time initialization.
+
+## Security
+
+- Validate all input at the handler level. Use struct tags and custom validators.
+- Use parameterized SQL queries. Never build SQL with string concatenation.
+- Hash passwords with `bcrypt` from `golang.org/x/crypto/bcrypt`.
+- Use HTTPS in production. Set secure headers with middleware.
+- Implement rate limiting on authentication endpoints.
+- Use `crypto/rand` for generating tokens and secrets, never `math/rand`.
+- Set appropriate timeouts on the HTTP server: `ReadTimeout`, `WriteTimeout`, `IdleTimeout`.
+- Sanitize log output — never log raw user input without sanitization.
+
+## Performance
+
+- Use connection pooling for database and HTTP clients. Reuse clients across requests.
+- Profile with `pprof`. Add `net/http/pprof` handler in development builds.
+- Use `sync.Pool` for frequently allocated objects.
+- Avoid unnecessary memory allocations: preallocate slices with `make([]T, 0, expectedCap)`.
+- Use `strings.Builder` for string concatenation in loops.
+- Cache frequently accessed data with an in-memory cache (sync.Map, groupcache) or Redis.
+- Use `context.WithTimeout` for all external service calls to prevent hanging goroutines.

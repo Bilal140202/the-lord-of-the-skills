@@ -1,0 +1,284 @@
+# MCP Server Development Rules (Python + FastMCP)
+
+You are helping build a production Model Context Protocol (MCP) server in Python using the official `mcp` SDK with FastMCP.
+
+## What MCP Is
+
+MCP (Model Context Protocol) lets an LLM client (Claude Desktop, Claude Code, IDEs) call your tools and read your resources via a standardized JSON-RPC protocol. Three primitives:
+
+- **Tools** — functions the LLM can invoke (`@mcp.tool()`).
+- **Resources** — read-only data the client can fetch (`@mcp.resource("uri://template/{id}")`).
+- **Prompts** — reusable prompt templates the user can pick (`@mcp.prompt()`).
+
+Default to tools. Use resources only for genuinely read-only blobs (file contents, doc pages). Use prompts only when the user benefits from a one-click template.
+
+## Project Layout
+
+```
+services/my-mcp/
+├── server.py        # FastMCP entrypoint
+├── README.md        # Tool descriptions, install, env vars
+├── requirements.txt # mcp[cli] + your deps
+└── .env.example     # Document required env, never commit real .env
+```
+
+Keep one server per logical capability. Don't conflate "memory" + "calendar" + "shell" into one server — each gets its own port and its own auth scope. Composition happens client-side.
+
+## Transport: Pick the Right One
+
+- **stdio** — local-only, single client (Claude Desktop). Default for personal use. Zero auth needed (process boundary is the trust boundary).
+- **streamable HTTP** — multi-client, network-accessible, requires bearer token auth. Use for shared/team servers.
+- **SSE (legacy)** — deprecated. Don't use for new servers.
+
+For HTTP servers:
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("my-server", host="0.0.0.0", port=8401)
+
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
+```
+
+## Tool Definition: The Docstring IS the Prompt
+
+The LLM client sees your tool's docstring as the description it uses to decide whether to call your tool. Write docstrings for the LLM, not for human developers.
+
+```python
+@mcp.tool()
+async def search_memory(query: str, limit: int = 10) -> str:
+    """Search the user's persistent memory graph for entries matching the query.
+
+    Use this when the user asks about prior decisions, past conversations,
+    or facts they've stored. Returns up to `limit` snippets ranked by relevance.
+
+    Do NOT use for: real-time data (use get_current_state), or to write new
+    memories (use add_fact).
+    """
+    ...
+```
+
+Rules for tool docstrings:
+- **First line**: imperative summary of what the tool does.
+- **When to use**: 1-2 sentences telling the LLM the right use case.
+- **When NOT to use**: 1 sentence steering it away from misuse — this prevents tool confusion when you have many tools.
+- **Return shape**: describe what the LLM gets back so it can use the response.
+
+## Type Hints Become JSON Schema
+
+Parameter types map directly to the schema the client sees. Be precise:
+
+```python
+from typing import Optional, Literal
+
+@mcp.tool()
+async def list_contacts(
+    active_only: bool = True,
+    role: Optional[Literal["client", "lead", "mentor"]] = None,
+    limit: int = 25,
+) -> str:
+    ...
+```
+
+`Literal` types become enum constraints — the LLM can only pass valid values. Use them for any parameter with a fixed set of choices. `Optional[T]` makes a parameter nullable; default values make it optional. Don't use `Any` — the LLM gets no guidance.
+
+## Auth at the HTTP Layer (When Using HTTP Transport)
+
+FastMCP doesn't provide auth out of the box for streamable HTTP. Add a middleware:
+
+```python
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+class BearerAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path.startswith("/health"):
+            return await call_next(request)
+        token = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+        if not token or token != EXPECTED_TOKEN:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        return await call_next(request)
+
+mcp.app.add_middleware(BearerAuthMiddleware)
+```
+
+Issue tokens per-client, not a shared secret. Store hashed tokens, support rotation, and log auth failures.
+
+## Env Var Loading: The Multi-Candidate Pattern
+
+MCP servers run under different parents (Claude Desktop, systemd, dev shell). Don't trust any single .env location. Try multiple, in order:
+
+```python
+import os
+
+_env_candidates = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"),
+    os.path.expanduser("~/.env"),
+    "/etc/myapp/env",
+]
+for _env_path in _env_candidates:
+    if os.path.isfile(_env_path):
+        with open(_env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line and not os.environ.get(line.split("=", 1)[0]):
+                    k, v = line.split("=", 1)
+                    os.environ[k] = v.strip().strip("\"'")
+        break
+```
+
+Don't overwrite already-set env vars — let the parent process win. Required vars should fail loudly at startup, not silently degrade.
+
+## Sanitize Between Data Store and Tool Output
+
+The data layer often holds fields the LLM should never see (PII, internal IDs, raw passwords, foreign-key clutter). Add an explicit sanitize step:
+
+```python
+def _sanitize_contact(contact: dict) -> dict:
+    return {
+        "name": contact.get("display_name"),
+        "role": contact.get("role"),
+        "last_contact": contact.get("last_interaction_at"),
+    }
+```
+
+Never `return contact` directly from a query. The sanitize function is the privacy contract — review it like you'd review an external API response.
+
+## Errors: Return Strings, Not Exceptions
+
+If a tool raises, the client sees a generic protocol error and the LLM has no context for retry. Catch at the tool boundary and return an actionable string:
+
+```python
+@mcp.tool()
+async def get_facts(subject: str) -> str:
+    try:
+        result = await _api_get(f"/facts/{subject}")
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return f"No facts found for subject '{subject}'. Try `list_subjects()` to see available subjects."
+        return f"API error ({e.response.status_code}): {e.response.text[:200]}"
+    except httpx.RequestError as e:
+        return f"Could not reach memory API: {e}. Check MEMORY_API_URL and that the service is running."
+    return _format_facts(result)
+```
+
+The LLM uses your error message to decide whether to retry, ask the user, or move on. Vague errors waste turns.
+
+## Tool Output: Format for an LLM, Not a Terminal
+
+The LLM consumes your output as text in its context window. Optimize for that:
+
+- **Markdown is fine** — headings and bullets help the LLM section-scan.
+- **JSON is fine** — predictable structure helps the LLM extract fields.
+- **ANSI color codes are NOT fine** — they're tokens with no meaning.
+- **Truncate aggressively** — if you have 1000 results, return top 20 + a count. The LLM has finite context.
+- **Include counts and timestamps** — "Found 3 of 47 matches (showing top 3 by relevance)" lets the LLM tell the user there's more.
+
+## Async Everywhere
+
+FastMCP tools should be `async def` even if the body is sync. Mixing blocking calls with async causes the server to stall under concurrent client requests:
+
+```python
+import httpx
+
+_client = httpx.AsyncClient(timeout=10.0)
+
+@mcp.tool()
+async def fetch_doc(url: str) -> str:
+    r = await _client.get(url)
+    r.raise_for_status()
+    return r.text[:5000]
+```
+
+Reuse a module-level `httpx.AsyncClient` — don't create one per call. Set explicit timeouts; MCP clients give up after ~30s.
+
+## Don't Over-Tool
+
+Resist the urge to expose every internal function as a tool. Each tool you add:
+- Eats client context (the descriptions are sent on every request).
+- Increases the chance of tool confusion (LLM picks the wrong one).
+- Adds to your audit/security surface.
+
+Aim for 5-10 tools per server. If you have more, you probably need to split the server or consolidate tools (one tool with a `mode` param often beats three separate tools).
+
+## Testing Tools Directly
+
+Before shipping, exercise each tool from a real MCP client (Claude Desktop, the `mcp` CLI, or `mcp inspector`):
+
+```bash
+mcp dev services/my-mcp/server.py
+```
+
+Manual checklist:
+- Tool appears with correct name + description
+- Parameters validate (try invalid types, missing required, out-of-enum values)
+- Auth rejects bad tokens with 401
+- Error paths return useful strings
+- Output renders cleanly in the client
+
+Don't ship tools you haven't called from an actual LLM session.
+
+## Logging
+
+Log to stderr (stdout belongs to the protocol on stdio transport):
+
+```python
+import sys, logging
+logging.basicConfig(stream=sys.stderr, level=logging.INFO,
+                    format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("my-mcp")
+```
+
+Log: tool invocations (name + sanitized args), auth failures, downstream API errors. Never log: bearer tokens, full request bodies, user PII.
+
+## Deploy Pattern (HTTP transport)
+
+systemd unit for production:
+
+```ini
+[Unit]
+Description=My MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=mcpuser
+WorkingDirectory=/opt/my-mcp
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/my-mcp/env
+ExecStart=/opt/my-mcp/.venv/bin/python server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+For client config (Claude Desktop), point at the HTTP endpoint with bearer token in the `headers` field.
+
+## Common Mistakes to Avoid
+
+1. **Returning Python objects instead of strings/dicts** — MCP serializes via JSON. Return primitives, dicts, or strings.
+2. **Loading .env after `MEMORY_API_KEY = os.environ.get(...)`** — read env after the loader runs, not at module-import time before.
+3. **Case-mismatched env var names** between .env and code — be exact, env vars are case-sensitive.
+4. **Sharing one bearer token across all clients** — you can't revoke selectively. Issue per-client tokens.
+5. **Putting secrets in tool descriptions** — descriptions go to every client; treat them as public.
+6. **Long-running tools without progress** — the LLM waits the full duration. Either return fast with a "job queued" message + a status tool, or stream progress.
+7. **Conflating tools and resources** — if it has side effects or takes args that change behavior, it's a tool. If it's a stable URL returning data, it's a resource.
+
+## When to Use This vs. a REST API
+
+MCP is the right choice when:
+- The consumer is an LLM agent (not a frontend or a script).
+- You want client-side discovery (the LLM picks tools based on descriptions).
+- You're integrating with Claude Desktop, Claude Code, or another MCP client.
+
+Use a plain REST/GraphQL API when:
+- Multiple non-LLM consumers (frontends, mobile, scripts) also need the data.
+- You need fine-grained access control beyond bearer tokens.
+- You need request/response patterns MCP doesn't model well (file uploads, websockets for non-LLM streams).
+
+It's fine to expose the same backend through both: a REST API for apps and a thin MCP server that proxies to it for LLM clients. That's the architecture this rules file is grounded in.

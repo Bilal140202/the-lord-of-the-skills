@@ -1,0 +1,130 @@
+---
+description: "Guidelines for using Supabase Auth, Database (Postgres migrations), Storage, Realtime, Edge Functions, and AI/Vectors."
+globs: "supabase/migrations/**/*.sql,supabase/seed.sql,supabase/functions/**/*,lib/supabase*.ts,lib/supabase*.js,*supabase*,*pgvector*"
+alwaysApply: false
+---
+
+# Supabase Development Guidelines
+
+You are an expert developer working with Supabase, covering its core features like Database, Auth, Storage, Realtime, Edge Functions, and AI.
+
+## General
+
+- Use Supabase client libraries (`@supabase/supabase-js` is primary, but libraries exist for Flutter, Python, C#, Swift, Kotlin) for interacting with services.
+- Manage environment variables securely (e.g., `.env` file with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+- Prefer local development using the Supabase CLI (`supabase start`, `supabase db diff`, `supabase db reset`, `supabase functions serve`, etc.).
+- Consult the official Supabase documentation (<https://supabase.com/docs>) for detailed API references and guides.
+
+## Database (Postgres Migrations)
+
+You are a Postgres Expert creating secure database schemas using Supabase migrations.
+
+Directory: All migration files belong in `supabase/migrations/`.
+
+Workflow:
+1. Make schema changes locally (e.g., using Supabase Studio at `localhost:54323` after `supabase start`).
+2. Generate a migration file using the CLI: `supabase db diff -f "short_description"`.
+3. Review and potentially edit the generated SQL migration file.
+4. Apply and test locally: `supabase db reset`.
+5. Commit the migration file to Git.
+
+Migration File Naming:
+- Files MUST be named `YYYYMMDDHHmmss_short_description.sql`.
+- Timestamp components (`YYYY`, `MM`, `DD`, `HH`, `mm`, `ss`) must use UTC time and have correct padding (e.g., `20240507090530_add_profiles_table.sql`).
+
+SQL Guidelines:
+- Write standard, lowercase Postgres-compatible SQL.
+- Header Comment: Include metadata (purpose, affected tables/columns, considerations).
+```sql
+-- Migration: Create user profiles table
+--
+-- Adds a table to store user profile information linked to auth.users.
+--
+```
+- Detailed Comments: Explain the purpose of each significant step.
+- Destructive Operations: Add explicit, clear comments before `DROP`, `TRUNCATE`, or `ALTER` commands that might cause data loss.
+- Row Level Security (RLS):
+    - MUST enable RLS on all new tables: `alter table your_table enable row level security;`
+    - MUST create granular RLS policies covering relevant actions (`SELECT`, `INSERT`, `UPDATE`, `DELETE`).
+    - Create separate policies for `anon` and `authenticated` roles, even if the logic is identical.
+    - For public read access: `create policy "Allow public read access" on your_table for select using (true);`
+    - For user-specific access (example): `create policy "Allow individual insert access" on your_table for insert with check (auth.uid() = user_id);`
+    - Include comments explaining the rationale for each policy.
+- DO NOT use `migra` limitations: Avoid `INSERT`/`UPDATE`/`DELETE`, complex `ALTER POLICY`, `COMMENT ON`, partitions, `ALTER PUBLICATION`, `CREATE DOMAIN` directly in schema definitions meant for `db diff`. Use explicit migration files for these.
+
+## Auth
+
+- RLS Integration: Auth is tightly coupled with Database RLS. Policies often use `auth.uid()` to check the logged-in user's ID and `auth.role()` for `anon` or `authenticated` status.
+- Client Libraries: Use `@supabase/supabase-js` (or other language-specific libraries) for sign-up, sign-in, sign-out, session management, password reset, OAuth, etc.
+- Server-Side: Use the service role key (`SUPABASE_SERVICE_ROLE_KEY`) for admin operations or bypassing RLS when necessary (use with extreme caution).
+
+## Storage
+
+- Purpose: Store and serve large files like images, videos, and other assets.
+- Buckets: Organize files into buckets (e.g., `avatars`, `public_assets`).
+- RLS Integration: Access control is managed via Postgres RLS policies on the `storage.objects` table.
+    - Example public read access: `create policy "Public read access" on storage.objects for select using ( bucket_id = 'public_assets' );`
+    - Example user-specific upload: `create policy "Allow authenticated uploads" on storage.objects for insert with check ( auth.role() = 'authenticated' );`
+- Client Libraries: Use `supabase.storage.from('bucket_name').upload()`, `.download()`, `.getPublicUrl()`, etc.
+- Transformations: Image transformations (resizing, cropping, format changes) are available via URL parameters on public URLs.
+
+## Realtime
+
+- Purpose: Listen to database changes (inserts, updates, deletes), broadcast messages, and track user presence.
+- Subscriptions: Use `supabase.channel('channel_name').on('postgres_changes', { event: '*', schema: 'public', table: 'table_name' }, payload => {...}).subscribe()` to listen for DB events.
+- Broadcast: Send ephemeral messages to clients subscribed to the same channel: `channel.send({ type: 'broadcast', event: 'message', payload: {...} })`.
+- Presence: Track and sync shared user state on a channel: `channel.track({ user: userId, online_at: new Date().toISOString() })`, listen with `channel.on('presence', { event: 'sync' }, () => {...})`.
+- RLS: Database changes broadcasted via Realtime still respect RLS policies.
+
+## Edge Functions
+
+- Purpose: Deploy serverless Deno functions globally for low-latency backend logic (e.g., webhooks, secure API calls, custom auth flows, embedding generation).
+- Directory: Functions reside in `supabase/functions/`.
+- Development: Use `supabase functions serve --env-file ./supabase/.env.local` for local testing.
+- Deployment: Deploy using `supabase functions deploy function_name`.
+- Invocation: Can be called via HTTP requests or using Supabase client libraries (`supabase.functions.invoke('function_name', { body: {...} })`).
+- Secrets: Manage secrets using `supabase secrets set NAME VALUE`.
+
+## AI / Vectors (pgvector)
+
+- Setup: Requires enabling the `vector` extension in Postgres.
+```sql
+-- In a migration file or SQL editor
+create extension if not exists vector with schema extensions;
+```
+- Data Type: Use the `vector(DIMENSION)` data type for storing embeddings (e.g., `vector(1536)` for OpenAI `text-embedding-ada-002`).
+- Indexing: Create an index for efficient similarity search (IVFFlat or HNSW are common).
+```sql
+-- Example IVFFlat index (adjust lists based on table size)
+create index on items
+ using ivfflat (embedding vector_cosine_ops)
+ with (lists = 100);
+
+-- Example HNSW index (often better for high recall)
+create index on items
+ using hnsw (embedding vector_cosine_ops);
+```
+- Similarity Search: Use operators like `<->` (Euclidean), `<#>` (negative inner product), or `<=>` (cosine distance) in `ORDER BY` clauses.
+```sql
+-- Example Cosine Similarity Search
+select id, content
+from items
+order by embedding <=> query_embedding::vector
+limit 5;
+```
+- Edge Functions: Often used for generating embeddings (calling OpenAI, etc.) before saving to the database or for performing searches securely.
+- Embedding Generation: Can be done client-side (less common for secrets), in Edge Functions, or via scripts (e.g., build-time script using `generate-embeddings.ts` example).
+
+## Other Modules / Features
+
+- Cron Jobs: Schedule Edge Functions to run periodically using `pg_cron` (managed via dashboard or migrations).
+- Queues: Background job processing using `pg_net` (often used with Edge Functions).
+
+## Best Practices
+
+- Local First: Always develop and test migrations and functions locally before deploying.
+- Atomic Migrations: Keep migrations focused on a single logical change.
+- RLS is Mandatory: Secure your data and storage by default.
+- Comment Extensively: Explain your SQL, especially migrations and policies.
+- Edge Functions for Backend Logic: Use Edge Functions for tasks requiring secure environment variables or complex server-side operations.
+- Understand Indexing: Choose appropriate vector indexes (IVFFlat vs. HNSW) based on your data size and query needs.

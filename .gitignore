@@ -1,0 +1,29 @@
+# Cache and intermediate files (not for version control)
+_cache/
+_raw/
+*.log
+crawler_state.json
+
+# Large manifest — keep out of git, available in releases
+_manifest.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Generated PDFs/Excels (regenerable)
+# Note: We DO keep the catalogs/ PDF and xlsx so users can preview without cloning the crawler

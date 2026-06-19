@@ -1,0 +1,18 @@
+# Lord of the Skills — Crontab file
+# ===================================
+# Install with:
+#   crontab /home/z/my-project/scripts/lord_of_the_skills.cron
+#
+# Or merge into your existing crontab:
+#   crontab -l | cat - /home/z/my-project/scripts/lord_of_the_skills.cron | crontab -
+#
+# Schedule: 1st of every month at 03:00 IST (21:30 UTC on the last day of the month).
+# This uses the "last day of month + check tomorrow is 01" pattern to be portable
+# across timezones without relying on TZ-aware cron.
+#
+# The refresh script is fully resumable — if it fails partway through, the next
+# run will pick up where it left off (cached git repos are kept; only phase-
+# completion state is reset).
+
+# m   h  dom    mon   dow   command
+30 21 28-31 * * [ "$(date +\%-d -d 'tomorrow')" = "01" ] && /home/z/my-project/scripts/refresh_lord_of_skills.sh >> /home/z/my-project/the-lord-of-the-skills/_cache/cron.log 2>&1

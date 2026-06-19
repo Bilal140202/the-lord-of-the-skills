@@ -1,0 +1,32 @@
+---
+description: Terraform IaC modules, state management, and multi-environment patterns
+globs: "**/*.tf, **/*.tfvars"
+alwaysApply: false
+---
+
+# Terraform Cursor Rules
+
+## Structure
+- Organize by environment: `environments/dev/`, `environments/prod/`
+- Use modules for reusable infrastructure components
+- Keep root module clean — delegate to child modules
+- Files: `main.tf`, `variables.tf`, `outputs.tf`, `providers.tf`, `versions.tf`
+
+## State Management
+- Use remote backend (S3, GCS, Terraform Cloud) — never local state in production
+- Enable state locking to prevent concurrent modifications
+- Use workspaces for environment separation (simple) or separate state files (complex)
+
+## Best Practices
+- DO: Pin provider versions: `required_providers { aws = { version = "~> 5.0" } }`
+- DO: Use `terraform plan` before every `apply`
+- DO: Use `data` sources for referencing existing resources
+- DO: Tag all resources with `environment`, `project`, `managed_by`
+- DON'T: Hardcode values — use variables and `tfvars`
+- DON'T: Store secrets in `.tf` files — use vault or SSM
+
+## Modules
+- Create focused modules: one module per logical component
+- Define clear inputs (`variables.tf`) and outputs (`outputs.tf`)
+- Version modules with Git tags
+- Document module usage in a README

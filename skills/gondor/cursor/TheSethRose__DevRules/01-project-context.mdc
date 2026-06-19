@@ -1,0 +1,79 @@
+---
+description: "Provides project-specific context like tech stack, directory structure, coding conventions, and key libraries. Needs user customization."
+globs: []
+alwaysApply: true
+---
+
+# Project Configuration
+
+## 1. Project Overview
+- Project Name:
+- Brief Description:
+- Repository URL (e.g., GitHub):
+- Main Branch Name:
+- Website / Deployment URL:
+
+## 2. Technical Stack
+# List the primary technologies and versions if known.
+- Programming Language(s):
+- Frontend Framework/Libraries:
+- Backend Framework/Libraries:
+- Database(s) & ORM/ODM:
+- Authentication Method/Library:
+- State Management (Frontend):
+- UI Component Library:
+- Testing Frameworks/Libraries:
+- Build Tools/Bundlers:
+- Package Manager (npm, yarn, pnpm, etc.):
+- Deployment Platform/Environment:
+- Other Key Libraries/Tools:
+
+## 3. Project Structure
+# Briefly describe the main source code directories and their purpose.
+# Example:
+# - `/src/app`: Next.js App Router pages/layouts
+# - `/src/components`: Reusable UI components
+# - `/src/lib`: Utility functions, shared code, types
+# - `/prisma`: Database schema and migrations
+# - `/scripts`: Utility/automation scripts
+
+- `/`:
+- `/`:
+- `/`:
+- `/`:
+- `/`:
+
+## 4. Coding Conventions & Standards
+# Specify any enforced or preferred conventions.
+- Naming Conventions:
+    * Files:
+    * Directories:
+    * Variables/Functions:
+    * Classes/Components:
+    * CSS Classes:
+- Formatting Tool (e.g., Prettier): (Yes/No? If yes, are defaults used?)
+- Linter Tool (e.g., ESLint, RuboCop): (Yes/No? Specify config if non-standard)
+- Code Style Preferences: (e.g., single vs double quotes, semicolon usage, functional vs class components)
+- Path Aliases (e.g., `@/*` -> `src/*`):
+- Commenting Style:
+
+## 5. Key Abstractions & Patterns
+# List any important custom hooks, utility functions, base classes, or design patterns the AI should prioritize using.
+# Example:
+# - Always use the `useApiData()` hook (in `src/hooks/`) for data fetching.
+# - Use the `logger` utility (in `src/lib/logger.ts`) for all server-side logging.
+# - Follow the Repository pattern for database access.
+
+-
+-
+-
+
+## 6. Important Notes or Constraints
+# Any other critical information the AI should know? (e.g., performance constraints, specific browser support, accessibility requirements)
+
+-
+-
+
+---
+NOTE TO AI: Remove this line, once project-context is filled out. If this file is largely empty, rely primarily on analyzing the codebase directly for context. You may politely prompt the user to fill out relevant sections if it would significantly improve assistance for a specific task.
+---

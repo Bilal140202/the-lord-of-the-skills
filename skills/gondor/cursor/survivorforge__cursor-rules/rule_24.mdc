@@ -1,0 +1,119 @@
+---
+description: "React 18+ with TypeScript best practices"
+alwaysApply: false
+globs: "**/*.tsx,**/*.jsx"
+---
+
+# React 18+ with TypeScript — Cursor Rules
+
+You are an expert React developer using TypeScript, functional components, hooks, and modern patterns.
+
+## Code Style
+
+- Use TypeScript strict mode. Never use `any` — prefer `unknown` with type guards or proper typing.
+- Use `const` arrow functions for components: `const UserCard = ({ name, email }: UserCardProps) => { ... }`.
+- Define prop types with `interface` directly above the component: `interface UserCardProps { ... }`.
+- Use named exports for all components. Reserve default exports only for lazy-loaded route components.
+- Destructure props in the function signature, not inside the body.
+- Import order: React, third-party, project aliases (@/), relative imports, styles. Separate with blank lines.
+- Use `type` keyword for type-only imports.
+- File naming: PascalCase for component files (`UserCard.tsx`), camelCase for utilities (`formatDate.ts`), kebab-case for style files (`user-card.module.css`).
+
+## Component Patterns
+
+- Prefer composition over prop drilling. Use children and render props for flexible components.
+- Keep components small and focused. If a component exceeds 150 lines, split it.
+- Separate container (logic) components from presentational (UI) components.
+- Use custom hooks to extract reusable logic from components. Prefix with `use`: `useAuth`, `useDebounce`.
+- Never mutate state directly. Use immutable update patterns with spread operators or `structuredClone`.
+- Prefer controlled components for forms. Use `onChange` + state, not refs for form values.
+- Avoid inline function definitions in JSX when they cause unnecessary re-renders. Extract them or use `useCallback`.
+
+## Hooks
+
+- Follow the Rules of Hooks: only call at the top level, only call in React functions or custom hooks.
+- Use `useState` for simple local state. Use `useReducer` for complex state with multiple sub-values.
+- Use `useMemo` for expensive computations. Use `useCallback` for stable function references passed to memoized children.
+- Do not over-memoize. Only use `useMemo`/`useCallback` when there is a measurable performance benefit.
+- Use `useEffect` sparingly. Prefer derived state (compute from existing state during render) over syncing with effects.
+- Always include a cleanup function in `useEffect` when subscribing to external events or timers.
+- Use `useRef` for DOM references and mutable values that don't trigger re-renders.
+- Use `useId` for generating unique IDs for accessibility attributes (htmlFor, aria-describedby).
+
+## State Management
+
+- Start with local state (useState). Lift state only when multiple components need it.
+- Use React Context for low-frequency updates (theme, auth, locale). Avoid Context for high-frequency state.
+- For complex client state, prefer Zustand or Jotai over Redux. Use Redux Toolkit only if already in the project.
+- For server state, use TanStack Query (React Query) — never manually manage loading/error/data states for API calls.
+- Colocate state with the components that use it. Global state should be truly global (auth, theme).
+
+## TypeScript Patterns
+
+- Define component props with `interface`. Extend HTML attributes when wrapping native elements:
+  `interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> { variant: 'primary' | 'secondary' }`
+- Use `React.FC` sparingly — prefer explicit return types or let TypeScript infer.
+- Use discriminated unions for component variants: `type AlertProps = { type: 'success'; data: Result } | { type: 'error'; message: string }`.
+- Type event handlers explicitly: `const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => { ... }`.
+- Use `as const` for static configuration objects to get literal types.
+- Use `Record<string, T>` for dictionary types, `Partial<T>` for optional fields, `Pick<T, K>` and `Omit<T, K>` for derived types.
+
+## Error Handling
+
+- Use Error Boundaries to catch rendering errors. Create a reusable `ErrorBoundary` component.
+- For async operations, always handle loading, success, and error states. Use TanStack Query's built-in states.
+- Display user-friendly error messages. Log detailed errors to a monitoring service.
+- Use `try/catch` in event handlers and async functions. Never let errors silently fail.
+- Validate external data (API responses) at the boundary with Zod or a similar runtime validator.
+
+## Performance
+
+- Use `React.memo()` for components that receive the same props frequently but their parent re-renders often.
+- Use `React.lazy()` and `Suspense` for code-splitting route-level components.
+- Avoid anonymous objects/arrays as props — they create new references every render.
+- Use `key` prop correctly in lists. Prefer stable unique IDs over array indices.
+- Virtualize long lists with `@tanstack/react-virtual` or `react-window`.
+- Profile with React DevTools Profiler before optimizing. Measure, don't guess.
+
+## Accessibility
+
+- Every interactive element must be keyboard accessible. Use native HTML elements (`button`, `a`, `input`) before custom implementations.
+- Use semantic HTML: `nav`, `main`, `section`, `article`, `aside`, `header`, `footer`.
+- Provide `aria-label` or `aria-labelledby` for elements without visible text labels.
+- Ensure color contrast meets WCAG AA standards (4.5:1 for text, 3:1 for large text).
+- Manage focus: when opening modals, move focus inside. When closing, return focus to the trigger.
+- Use `role` attributes only when native HTML semantics don't apply. Prefer semantic elements.
+
+## Testing
+
+- Use Vitest + React Testing Library for component tests. Test behavior, not implementation details.
+- Query elements by role, label, placeholder, or text — not by test IDs or CSS classes.
+- Test user interactions: clicks, typing, form submissions. Use `userEvent` over `fireEvent`.
+- Mock API calls with MSW (Mock Service Worker) for integration tests.
+- Colocate tests: `UserCard.test.tsx` next to `UserCard.tsx`.
+- Aim for meaningful coverage — test complex logic and user flows, not trivial getters.
+
+## File Structure
+
+```
+src/
+  components/
+    ui/             — Reusable primitives (Button, Input, Modal, Card)
+    features/       — Feature-specific components
+    layout/         — Layout components (Header, Sidebar, Footer)
+  hooks/            — Custom hooks
+  pages/ or routes/ — Route-level components
+  services/         — API client functions
+  stores/           — State management (Zustand stores, contexts)
+  types/            — Shared TypeScript interfaces and types
+  utils/            — Pure utility functions
+  constants/        — App-wide constants
+  assets/           — Static files (images, fonts)
+```
+
+## Security
+
+- Sanitize user-generated content before rendering. Use `DOMPurify` if you must render HTML with `dangerouslySetInnerHTML`.
+- Never store sensitive data (tokens, secrets) in localStorage. Use httpOnly cookies via the backend.
+- Validate all user input on both client (UX) and server (security).
+- Use Content Security Policy headers to prevent XSS attacks.

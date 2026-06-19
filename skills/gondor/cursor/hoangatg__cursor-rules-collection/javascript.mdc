@@ -1,0 +1,40 @@
+---
+description: Modern JavaScript ES2024 development patterns
+globs: "**/*.js, **/*.mjs"
+alwaysApply: false
+---
+
+# JavaScript ES2024 Cursor Rules
+
+## Modern Syntax
+- Use `const` by default, `let` when reassignment needed, never `var`
+- Use arrow functions for callbacks and non-method functions
+- Use template literals for string interpolation
+- Use optional chaining `?.` and nullish coalescing `??`
+- Use `structuredClone()` for deep cloning (not `JSON.parse(JSON.stringify())`)
+- Use `Object.groupBy()` and `Map.groupBy()` for grouping (ES2024)
+
+## Async Patterns
+- Use `async/await` over `.then()` chains
+- Use `Promise.all()` for parallel operations
+- Use `Promise.allSettled()` when failures shouldn't block others
+- Always handle errors with try/catch in async functions
+- Use `AbortController` for cancellable operations
+
+## Array Methods
+- Use `.map()`, `.filter()`, `.reduce()` over manual loops
+- Use `.find()` / `.findIndex()` instead of filter + first element
+- Use `.at(-1)` for last element (not `arr[arr.length - 1]`)
+- Use `Array.from()` to convert iterables
+- Use `.flatMap()` for map + flatten operations
+
+## Modules
+- Use ES modules (`import/export`) exclusively
+- Use named exports for utilities, default exports for main components
+- Use dynamic `import()` for code splitting
+- Avoid circular dependencies
+
+## Error Handling
+- Create custom Error classes for domain-specific errors
+- Always provide meaningful error messages
+- Use structured errors with `cause` property: `new Error('msg', { cause: originalError })`

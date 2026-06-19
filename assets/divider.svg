@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="30" viewBox="0 0 800 30">
+  <defs>
+    <linearGradient id="dgold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a0f08" stop-opacity="0"/>
+      <stop offset="30%" stop-color="#B8860B" stop-opacity="1"/>
+      <stop offset="50%" stop-color="#FFD700" stop-opacity="1"/>
+      <stop offset="70%" stop-color="#B8860B" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#1a0f08" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <line x1="0" y1="15" x2="350" y2="15" stroke="url(#dgold)" stroke-width="1"/>
+  <line x1="450" y1="15" x2="800" y2="15" stroke="url(#dgold)" stroke-width="1"/>
+  <text x="400" y="20" text-anchor="middle" font-family="serif" font-size="16" fill="#FFD700">⚜ ⚔ ⚜</text>
+</svg>

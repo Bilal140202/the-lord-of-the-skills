@@ -1,0 +1,205 @@
+# Full-Stack Next.js + Prisma + PostgreSQL + Tailwind — Cursor Rules
+# End-to-end patterns for modern full-stack Next.js applications
+
+# Project Context
+You are building a full-stack web application with Next.js 14+ (App Router), Prisma ORM with
+PostgreSQL, and Tailwind CSS. The project uses TypeScript throughout, Server Components for data
+fetching, Server Actions for mutations, and follows full-stack best practices.
+
+# Project Structure
+```
+src/
+  app/
+    (auth)/               # Auth route group (login, register)
+    (dashboard)/          # Dashboard route group
+    api/                  # API routes (webhooks, external integrations only)
+    layout.tsx
+    page.tsx
+  actions/                # Server Actions
+    user.actions.ts
+    project.actions.ts
+  components/
+    ui/                   # Generic UI components (Button, Input, Card)
+    forms/                # Form components with validation
+    layouts/              # Layout components
+  lib/
+    db.ts                 # Prisma client singleton
+    auth.ts               # Auth utilities (NextAuth or custom)
+    validations/          # Zod schemas
+    utils.ts              # Shared utilities
+  types/                  # TypeScript types (non-Prisma)
+prisma/
+  schema.prisma           # Prisma schema
+  migrations/             # Generated migrations
+  seed.ts                 # Database seed script
+```
+
+# Prisma Schema Patterns
+- Use meaningful model names (singular, PascalCase): `User`, `Project`, `Comment`.
+- Always define `createdAt` and `updatedAt` on every model:
+  ```prisma
+  model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    name      String?
+    role      Role     @default(USER)
+    posts     Post[]
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([email])
+    @@map("users")
+  }
+  ```
+- Use `cuid()` or `uuid()` for IDs — not auto-increment integers (security + distributed-friendly).
+- Add `@@index` on fields used in WHERE clauses and foreign keys.
+- Use enums for fixed sets of values: `enum Role { USER ADMIN MODERATOR }`.
+- Use `@@map("table_name")` to control database table names (plural, snake_case).
+- Use `@map("column_name")` for column name mapping when conventions differ.
+
+# Prisma Client Singleton
+- Create a single Prisma client instance to avoid connection pool exhaustion:
+  ```typescript
+  // lib/db.ts
+  import { PrismaClient } from '@prisma/client';
+
+  const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+  export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+  if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+  ```
+- Import from `@/lib/db` everywhere — never create new `PrismaClient()` instances.
+
+# Data Fetching in Server Components
+- Fetch data directly in Server Components using Prisma:
+  ```typescript
+  // app/dashboard/page.tsx
+  import { prisma } from '@/lib/db';
+
+  export default async function DashboardPage() {
+    const projects = await prisma.project.findMany({
+      where: { userId: session.user.id },
+      include: { tasks: { where: { completed: false } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return <ProjectList projects={projects} />;
+  }
+  ```
+- Use `select` to fetch only needed fields (reduces data transfer).
+- Use `include` sparingly — only load relations you actually render.
+- DON'T: Create API routes to fetch data for your own pages — use Server Components.
+- DON'T: Use Prisma on the client — it's server-only.
+
+# Server Actions for Mutations
+- Define actions in dedicated files with `"use server"` directive:
+  ```typescript
+  // actions/project.actions.ts
+  "use server";
+  import { z } from 'zod';
+  import { prisma } from '@/lib/db';
+  import { revalidatePath } from 'next/cache';
+
+  const createProjectSchema = z.object({
+    name: z.string().min(1).max(100),
+    description: z.string().max(500).optional(),
+  });
+
+  export async function createProject(formData: FormData) {
+    const session = await getSession();
+    if (!session) throw new Error('Unauthorized');
+
+    const parsed = createProjectSchema.safeParse({
+      name: formData.get('name'),
+      description: formData.get('description'),
+    });
+    if (!parsed.success) return { error: parsed.error.flatten() };
+
+    const project = await prisma.project.create({
+      data: { ...parsed.data, userId: session.user.id },
+    });
+
+    revalidatePath('/dashboard');
+    return { data: project };
+  }
+  ```
+- Always validate input with zod before database operations.
+- Always verify authentication and authorization in every action.
+- Use `revalidatePath()` after mutations to refresh cached data.
+- Return structured results, not throw errors (for form state handling).
+
+# Tailwind CSS Patterns
+- Use Tailwind utility classes directly in JSX.
+- Extract repeated patterns into components, not CSS classes:
+  ```typescript
+  // DO: Create a reusable component
+  function Card({ children }: { children: React.ReactNode }) {
+    return <div className="rounded-lg border bg-white p-6 shadow-sm">{children}</div>;
+  }
+  // DON'T: @apply in CSS (defeats the purpose of utility-first)
+  ```
+- Use `cn()` utility (clsx + tailwind-merge) for conditional classes:
+  ```typescript
+  import { clsx, type ClassValue } from 'clsx';
+  import { twMerge } from 'tailwind-merge';
+  export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+  ```
+- Use Tailwind's `@screen` breakpoints: `sm:`, `md:`, `lg:`, `xl:`, `2xl:`.
+- Design mobile-first: base styles for mobile, add breakpoint prefixes for larger screens.
+
+# Authentication Pattern
+- Use NextAuth.js (Auth.js) or implement custom auth with JWT.
+- Protect Server Components by checking session in the component:
+  ```typescript
+  const session = await getServerSession(authOptions);
+  if (!session) redirect('/login');
+  ```
+- Protect Server Actions by verifying session at the start of every action.
+- Store session data in a secure HttpOnly cookie.
+- Use middleware.ts for route-level protection (redirect unauthenticated users).
+
+# Form Handling
+- Use Server Actions with progressive enhancement:
+  ```tsx
+  <form action={createProject}>
+    <input name="name" required />
+    <SubmitButton />
+  </form>
+  ```
+- Use `useFormState` and `useFormStatus` for client-side form state and pending UI.
+- Show validation errors returned from Server Actions.
+- Use optimistic updates with `useOptimistic` for better UX.
+
+# Database Migrations
+- Run `npx prisma migrate dev --name descriptive-name` for development migrations.
+- Run `npx prisma migrate deploy` in production (CI/CD).
+- Never edit existing migrations — create new ones.
+- Use `prisma db seed` for development data. Configure in package.json.
+
+# Performance
+- Use Prisma's `select` to fetch only needed fields.
+- Add database indexes for common query patterns.
+- Use Next.js caching: `unstable_cache()` for database queries.
+- Implement pagination for list queries — never load unbounded result sets.
+- Use `<Suspense>` with loading.tsx for streaming SSR.
+- Use `loading.tsx` at route segments for instant loading states.
+
+# Security
+- Validate ALL input with zod at the Server Action boundary.
+- Use parameterized queries (Prisma does this by default — never use `$queryRawUnsafe`).
+- Implement rate limiting on sensitive actions (login, registration).
+- Sanitize user-generated content before rendering.
+- Use CSRF protection (Next.js Server Actions handle this automatically).
+
+# Testing
+- Use Vitest for unit tests (faster than Jest with TypeScript).
+- Test Server Actions by calling them directly with mock FormData.
+- Use Playwright for E2E tests of critical flows.
+- Use a test database with `prisma migrate reset` between test suites.
+- Mock Prisma client for unit tests using `vitest-mock-extended`.
+
+# Common Mistakes to Avoid
+- DON'T: Import Prisma client in Client Components — it only works server-side.
+- DON'T: Create API routes for your own data fetching — use Server Components.
+- DON'T: Skip input validation in Server Actions — forms can be submitted with any data.
+- DON'T: Use `findFirst` without `where` — it returns a random record.
+- DON'T: Forget `revalidatePath` after mutations — the UI won't update.
+- DON'T: Store Prisma-generated types in your own types file — import from `@prisma/client`.

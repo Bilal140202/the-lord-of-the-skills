@@ -1,0 +1,43 @@
+---
+description: FastAPI async development with Pydantic v2 and dependency injection
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# FastAPI Cursor Rules
+
+## Architecture
+- Organize with APIRouter for modular routes
+- Use dependency injection for shared logic (auth, DB sessions)
+- Structure: `app/routers/`, `app/models/`, `app/schemas/`, `app/services/`, `app/core/`
+- Separate Pydantic schemas (API) from SQLAlchemy models (DB)
+
+## Pydantic v2
+- Use `BaseModel` for request/response schemas
+- Use `model_validator` for complex validation
+- Use `Field()` for constraints: `Field(min_length=1, max_length=100)`
+- Use `ConfigDict` instead of `class Config`
+- Use `model_dump()` instead of `.dict()` (v2 migration)
+
+## Async Patterns
+- Use `async def` for I/O-bound endpoints (DB, HTTP calls)
+- Use `def` (sync) for CPU-bound operations (FastAPI runs them in threadpool)
+- Use `httpx.AsyncClient` for async HTTP requests
+- Use async database drivers: `asyncpg`, `aiosqlite`
+
+## Dependency Injection
+- Use `Depends()` for reusable dependencies
+- Create dependency chains for auth → user → permissions
+- Use `yield` dependencies for resource cleanup (DB sessions)
+- Scope dependencies: request-level or app-level
+
+## Error Handling
+- Use `HTTPException` with specific status codes
+- Create custom exception handlers for domain errors
+- Return consistent error responses: `{ detail: string | object }`
+
+## Security
+- Use OAuth2 with Password Bearer for auth
+- Hash passwords with `passlib` + `bcrypt`
+- Use `Security()` dependencies for permission checks
+- Validate all inputs through Pydantic schemas

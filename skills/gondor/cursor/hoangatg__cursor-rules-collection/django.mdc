@@ -1,0 +1,40 @@
+---
+description: Django 5 ORM, views, REST framework, and security patterns
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Django 5 Cursor Rules
+
+## Architecture
+- Follow Django's app-based architecture: one app per domain
+- Use class-based views (CBVs) for CRUD, function-based views (FBVs) for custom logic
+- Keep views thin — business logic in models or service layer
+- Use Django REST Framework (DRF) for API endpoints
+
+## Models & ORM
+- Use descriptive model names (singular): `Article`, `UserProfile`
+- Define `__str__()` and `Meta` class on every model
+- Use `select_related()` for ForeignKey, `prefetch_related()` for M2M (avoid N+1)
+- Add indexes for frequently queried fields
+- Use Django migrations — never modify DB schema manually
+
+## Django REST Framework
+- Use `ModelSerializer` for standard CRUD
+- Use `viewsets.ModelViewSet` for full CRUD endpoints
+- Override `get_queryset()` for filtered queries
+- Use `permission_classes` for access control
+- Use pagination: `PageNumberPagination` or `CursorPagination`
+
+## Security
+- Use Django's built-in CSRF protection
+- Use `django.contrib.auth` for authentication
+- Never store secrets in `settings.py` — use `django-environ`
+- Use `@login_required` / `IsAuthenticated` permission class
+- Enable HSTS, secure cookies, and XSS protection in production
+
+## Testing
+- Use `TestCase` for DB tests, `SimpleTestCase` for non-DB
+- Use `APITestCase` for DRF endpoint tests
+- Use factories (factory_boy) over fixtures
+- Test permissions and edge cases, not just happy paths

@@ -1,0 +1,37 @@
+---
+description: React Native development with navigation, native modules, and Expo
+globs: "**/*.tsx, **/*.ts"
+alwaysApply: false
+---
+
+# React Native Cursor Rules
+
+## Architecture
+- Use Expo for most projects (managed workflow), eject only when needed
+- Use file-based routing with Expo Router
+- Organize by features: `features/auth/`, `features/home/`
+- Separate platform-specific code: `Component.ios.tsx`, `Component.android.tsx`
+
+## Navigation (Expo Router)
+- Use file-based routing in `app/` directory
+- Use `<Stack>` for stack navigation, `<Tabs>` for tab navigation
+- Use `useRouter()` for programmatic navigation
+- Deep link support is automatic with Expo Router
+
+## Performance
+- Use `FlatList` for long lists (not `ScrollView` with `.map()`)
+- Use `React.memo` for list items to prevent re-renders
+- Use `useCallback` for event handlers passed as props
+- Avoid inline styles — use `StyleSheet.create()`
+- Use `Hermes` engine (default in Expo) for faster startup
+
+## Styling
+- Use `StyleSheet.create()` for type-safe, optimized styles
+- Use `Dimensions` or `useWindowDimensions()` for responsive layouts
+- Use NativeWind (Tailwind for RN) for utility-first styling
+- Support both iOS and Android design conventions
+
+## Native Modules
+- Use Expo modules first (Camera, Location, Notifications)
+- Use `expo-modules-core` for custom native modules
+- Test on real devices, not just simulators

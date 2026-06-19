@@ -1,0 +1,257 @@
+---
+description: "Go API development patterns"
+alwaysApply: false
+globs: "**/*.go"
+---
+
+# Go API Development — Cursor Rules
+# Comprehensive rules for building APIs in Go
+
+## Project Context
+You are working on a Go API application. The codebase follows Go idioms and conventions,
+uses the standard library where practical, and emphasizes simplicity, explicit error
+handling, and strong typing. The project uses Go modules for dependency management.
+
+## Tech Stack
+- Go 1.22+ (latest stable)
+- Standard library `net/http` with `http.ServeMux` (Go 1.22+) or chi/gorilla for routing
+- `database/sql` with pgx driver for PostgreSQL
+- `encoding/json` for JSON marshaling
+- `slog` for structured logging (Go 1.21+)
+- `testing` package with table-driven tests
+- Docker for containerization
+
+## Coding Style
+
+### Naming Conventions
+- Packages: short, lowercase, single word (e.g., `user`, `order`, `auth`)
+- Exported types: PascalCase (e.g., `UserService`, `OrderHandler`)
+- Unexported: camelCase (e.g., `validateEmail`, `parseToken`)
+- Interfaces: describe behavior, often `-er` suffix (e.g., `Reader`, `UserStore`, `Authenticator`)
+- Errors: `Err` prefix for sentinel errors (e.g., `ErrNotFound`, `ErrUnauthorized`)
+- Constructors: `New` prefix (e.g., `NewUserService`, `NewRouter`)
+- HTTP handlers: verb-noun (e.g., `HandleCreateUser`, `HandleListOrders`)
+- Files: snake_case (e.g., `user_handler.go`, `order_service.go`)
+- Test files: `*_test.go` adjacent to the code being tested
+- Acronyms: all caps (e.g., `userID`, `httpClient`, `parseURL`)
+
+### Project Structure
+```
+cmd/
+  api/
+    main.go              # Entry point
+internal/
+  config/                # Configuration loading
+    config.go
+  handler/               # HTTP handlers (transport layer)
+    user.go
+    order.go
+    middleware.go
+  service/               # Business logic
+    user.go
+    order.go
+  store/                 # Data access (repository pattern)
+    user.go
+    order.go
+    postgres.go          # Database connection setup
+  model/                 # Domain types
+    user.go
+    order.go
+  middleware/             # HTTP middleware
+    auth.go
+    logging.go
+    recovery.go
+pkg/                     # Public, reusable packages (if any)
+migrations/              # SQL migration files
+```
+
+## Go Idioms
+
+### Error Handling
+```go
+// Always handle errors explicitly. Never use _ for errors.
+user, err := s.store.GetUser(ctx, id)
+if err != nil {
+    if errors.Is(err, store.ErrNotFound) {
+        return nil, ErrUserNotFound
+    }
+    return nil, fmt.Errorf("get user %d: %w", id, err)
+}
+
+// Define sentinel errors for expected conditions
+var (
+    ErrNotFound     = errors.New("not found")
+    ErrUnauthorized = errors.New("unauthorized")
+    ErrConflict     = errors.New("conflict")
+)
+
+// Wrap errors with context using %w for unwrapping
+func (s *UserService) Delete(ctx context.Context, id int64) error {
+    if err := s.store.DeleteUser(ctx, id); err != nil {
+        return fmt.Errorf("delete user %d: %w", id, err)
+    }
+    return nil
+}
+```
+
+### Interface Design
+```go
+// Define interfaces where they are USED, not where they are implemented.
+// Keep interfaces small — one or two methods.
+
+// In handler package:
+type UserService interface {
+    GetUser(ctx context.Context, id int64) (*model.User, error)
+    CreateUser(ctx context.Context, input model.CreateUserInput) (*model.User, error)
+    ListUsers(ctx context.Context, opts model.ListOptions) ([]model.User, error)
+}
+
+// In service package:
+type UserStore interface {
+    GetUser(ctx context.Context, id int64) (*model.User, error)
+    InsertUser(ctx context.Context, u *model.User) error
+    ListUsers(ctx context.Context, opts model.ListOptions) ([]model.User, int, error)
+}
+```
+
+### HTTP Handler Pattern
+```go
+type UserHandler struct {
+    svc    UserService
+    logger *slog.Logger
+}
+
+func NewUserHandler(svc UserService, logger *slog.Logger) *UserHandler {
+    return &UserHandler{svc: svc, logger: logger}
+}
+
+func (h *UserHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) {
+    id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+    if err != nil {
+        writeError(w, http.StatusBadRequest, "invalid user ID")
+        return
+    }
+
+    user, err := h.svc.GetUser(r.Context(), id)
+    if err != nil {
+        switch {
+        case errors.Is(err, service.ErrUserNotFound):
+            writeError(w, http.StatusNotFound, "user not found")
+        default:
+            h.logger.Error("get user", "error", err, "user_id", id)
+            writeError(w, http.StatusInternalServerError, "internal error")
+        }
+        return
+    }
+
+    writeJSON(w, http.StatusOK, user)
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(status)
+    json.NewEncoder(w).Encode(v)
+}
+
+func writeError(w http.ResponseWriter, status int, message string) {
+    writeJSON(w, status, map[string]string{"error": message})
+}
+```
+
+### Middleware Pattern
+```go
+func LoggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            start := time.Now()
+            wrapped := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+            next.ServeHTTP(wrapped, r)
+            logger.Info("request",
+                "method", r.Method,
+                "path", r.URL.Path,
+                "status", wrapped.status,
+                "duration", time.Since(start),
+            )
+        })
+    }
+}
+```
+
+## Concurrency
+- Use `context.Context` for cancellation and timeouts on all I/O operations
+- Prefer `sync.WaitGroup` and channels over raw goroutines
+- Use `errgroup.Group` for concurrent operations that can fail
+- Never start goroutines without a plan for shutdown
+- Use `sync.Once` for one-time initialization
+- Avoid goroutine leaks — always have a cancellation path
+
+## Testing
+```go
+func TestUserService_GetUser(t *testing.T) {
+    tests := []struct {
+        name    string
+        id      int64
+        mock    func(*MockUserStore)
+        want    *model.User
+        wantErr error
+    }{
+        {
+            name: "existing user",
+            id:   1,
+            mock: func(s *MockUserStore) {
+                s.On("GetUser", mock.Anything, int64(1)).Return(&model.User{ID: 1, Name: "Alice"}, nil)
+            },
+            want: &model.User{ID: 1, Name: "Alice"},
+        },
+        {
+            name:    "user not found",
+            id:      999,
+            mock:    func(s *MockUserStore) { s.On("GetUser", mock.Anything, int64(999)).Return(nil, store.ErrNotFound) },
+            wantErr: service.ErrUserNotFound,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            store := new(MockUserStore)
+            tt.mock(store)
+            svc := service.NewUserService(store)
+            got, err := svc.GetUser(context.Background(), tt.id)
+            if tt.wantErr != nil {
+                assert.ErrorIs(t, err, tt.wantErr)
+                return
+            }
+            assert.NoError(t, err)
+            assert.Equal(t, tt.want, got)
+        })
+    }
+}
+```
+
+## Performance Guidelines
+- Use `sync.Pool` for frequently allocated objects
+- Buffer channels when the producer/consumer rate is known
+- Use `strings.Builder` for string concatenation in loops
+- Profile with `pprof` before optimizing
+- Use connection pooling for database (pgx pool)
+- Set appropriate timeouts on HTTP server and clients
+- Use `json.Decoder` for streaming large JSON payloads
+
+## Security
+- Validate all input at the handler layer
+- Use parameterized SQL queries (never concatenate user input)
+- Set timeouts on the HTTP server: `ReadTimeout`, `WriteTimeout`, `IdleTimeout`
+- Use TLS in production
+- Hash passwords with `golang.org/x/crypto/bcrypt`
+- Rate limit endpoints with middleware
+- Sanitize log output — never log passwords or tokens
+
+## Common Pitfalls
+- Forgetting to check `err` — this is Go's most important convention
+- Not closing `resp.Body` after `http.Get` (use `defer resp.Body.Close()`)
+- Data races from sharing state between goroutines without synchronization
+- Using `json.Marshal` with unexported fields (they are silently omitted)
+- Nil pointer dereference — always check interface values and pointers
+- Forgetting to call `rows.Close()` in database queries (deferred or explicit)
+- Shadowing variables with `:=` in inner scopes
+- Using `time.Sleep` instead of proper synchronization

@@ -1,0 +1,255 @@
+# Docker & Containerization — Cursor Rules
+# Comprehensive rules for Docker, Docker Compose, and container best practices
+
+## Project Context
+You are working on a project that uses Docker for containerization. Containers are used
+for local development, CI/CD pipelines, and production deployment. The codebase includes
+Dockerfiles for application services and docker-compose files for orchestrating
+multi-container environments.
+
+## Tech Stack
+- Docker Engine 24+
+- Docker Compose v2
+- Multi-stage builds
+- Container registries (Docker Hub, GitHub Container Registry, ECR)
+- Orchestration: Docker Compose (dev), Kubernetes or ECS (production)
+
+## Dockerfile Best Practices
+
+### Multi-Stage Build Pattern
+```dockerfile
+# Stage 1: Build
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# Install dependencies first (better cache utilization)
+COPY package.json package-lock.json ./
+RUN npm ci --production=false
+
+# Copy source and build
+COPY . .
+RUN npm run build
+
+# Stage 2: Production
+FROM node:20-alpine AS production
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Copy only production dependencies and built artifacts
+COPY --from=builder /app/package.json /app/package-lock.json ./
+RUN npm ci --production && npm cache clean --force
+
+COPY --from=builder /app/dist ./dist
+
+# Switch to non-root user
+USER appuser
+
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/server.js"]
+```
+
+### Python Multi-Stage
+```dockerfile
+FROM python:3.12-slim AS builder
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-editable
+
+COPY . .
+
+FROM python:3.12-slim AS production
+WORKDIR /app
+
+RUN useradd --create-home --no-log-init appuser
+COPY --from=builder /app/.venv .venv
+COPY --from=builder /app/src ./src
+
+USER appuser
+ENV PATH="/app/.venv/bin:$PATH"
+
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+## Dockerfile Rules
+
+### Layer Ordering (Most to Least Frequently Changed)
+1. Base image
+2. System dependencies
+3. Create user
+4. Copy dependency manifests (package.json, requirements.txt)
+5. Install dependencies
+6. Copy source code
+7. Build step
+8. Runtime configuration (ENV, EXPOSE, HEALTHCHECK, CMD)
+
+### Image Size Optimization
+- Use `-alpine` or `-slim` base images
+- Use multi-stage builds to exclude build tools from production
+- Combine `RUN` commands to reduce layers: `RUN apt-get update && apt-get install -y ... && rm -rf /var/lib/apt/lists/*`
+- Use `.dockerignore` to exclude unnecessary files
+- Remove caches after installing packages: `npm cache clean --force`, `pip --no-cache-dir`
+- Don't install dev dependencies in production: `npm ci --production`
+
+### .dockerignore
+```
+node_modules
+.git
+.env
+.env.*
+*.md
+.vscode
+.idea
+coverage
+.nyc_output
+dist
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+docker-compose*.yml
+Dockerfile*
+```
+
+### Security
+- Never run as root — create and switch to a non-root user
+- Don't store secrets in the image (use environment variables or secrets manager)
+- Pin base image versions: `node:20.11-alpine` not `node:latest`
+- Scan images for vulnerabilities: `docker scout cves`
+- Use `COPY` instead of `ADD` (ADD has extra behaviors: URL fetch, tar extraction)
+- Don't install unnecessary packages (no `vim`, `curl` in production unless needed for healthcheck)
+- Set read-only filesystem where possible: `--read-only`
+
+## Docker Compose
+
+### Development Setup
+```yaml
+# docker-compose.yml
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder          # Use build stage for development
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app                 # Mount source for hot reload
+      - /app/node_modules      # Prevent overwriting container's node_modules
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/appdb
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npm run dev
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+```
+
+### Compose Best Practices
+- Use `depends_on` with `condition: service_healthy` for startup ordering
+- Define healthchecks on all services
+- Use named volumes for persistent data
+- Use `.env` file for environment variables
+- Override with `docker-compose.override.yml` for local customizations
+- Use `profiles` for optional services (like monitoring tools)
+
+## Container Runtime
+
+### Environment Variables
+- Use `ENV` in Dockerfile for build-time defaults
+- Use `environment` in docker-compose for runtime configuration
+- Use Docker secrets or external secret managers for sensitive values
+- Never hardcode secrets in Dockerfiles or compose files
+
+### Networking
+- Use Docker Compose service names as hostnames (`db`, `redis`)
+- Only expose ports that need external access
+- Use internal networks for service-to-service communication
+- Define custom networks for service isolation
+
+### Health Checks
+- Every service must have a health check
+- Health checks should be lightweight and fast
+- Test the actual service (HTTP endpoint, database ping), not just process existence
+- Set reasonable intervals (10-30s) and retries (3-5)
+
+## Development Workflow
+```bash
+# Build and start all services
+docker compose up --build
+
+# Run in background
+docker compose up -d
+
+# View logs
+docker compose logs -f app
+
+# Execute command in running container
+docker compose exec app npm run test
+
+# Rebuild a single service
+docker compose up --build app
+
+# Clean up everything
+docker compose down -v --rmi local
+```
+
+## Production Considerations
+- Use specific image tags, never `latest`
+- Set resource limits (memory, CPU)
+- Use restart policies: `restart: unless-stopped`
+- Log to stdout/stderr (Docker captures and forwards)
+- Use read-only root filesystem with tmpfs for writable needs
+- Implement graceful shutdown (handle SIGTERM)
+- Use init process: `--init` flag or `tini`
+
+## Common Pitfalls
+- Using `latest` tag in production (unpredictable builds)
+- Running as root (security risk)
+- Not using `.dockerignore` (large image, slow builds, secrets leaked)
+- Installing dev dependencies in production images
+- Not using multi-stage builds (bloated production images)
+- Copying `node_modules` from host into container (platform mismatch)
+- Not setting healthchecks (orchestrator can't detect unhealthy containers)
+- Hardcoding configuration instead of using environment variables
+- Not handling SIGTERM (container takes 10s to stop instead of shutting down gracefully)
+- Storing state in the container filesystem (data lost on restart)

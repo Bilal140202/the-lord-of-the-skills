@@ -1,0 +1,41 @@
+---
+description: Rust 1.75+ ownership, async patterns, and production systems programming
+globs: "**/*.rs"
+alwaysApply: false
+---
+
+# Rust 1.75 Cursor Rules
+
+## Ownership & Borrowing
+- Prefer borrowing (`&T`) over transferring ownership when possible
+- Use `Clone` sparingly — it's explicit and has performance cost
+- Prefer `&str` over `String` in function parameters
+- Use lifetimes only when the compiler can't infer them
+
+## Error Handling
+- Use `Result<T, E>` for recoverable errors, `panic!` only for bugs
+- Use `thiserror` for library error types
+- Use `anyhow` for application-level error handling
+- Use `?` operator for error propagation
+- Implement `Display` and `Error` for custom error types
+
+## Async (Tokio)
+- Use `tokio` runtime for async I/O
+- Use `async fn` and `.await` for async operations
+- Use `tokio::spawn` for concurrent tasks
+- Use `tokio::select!` for racing multiple futures
+- Avoid blocking the async runtime — use `tokio::task::spawn_blocking`
+
+## Code Style
+- Use `rustfmt` for formatting, `clippy` for linting
+- Prefer iterators over loops: `.map()`, `.filter()`, `.collect()`
+- Use `match` exhaustively — handle all variants
+- Use `impl Trait` for simple return types
+- Prefer `From/Into` traits for type conversion over manual conversion
+
+## Performance
+- Rust is fast by default — profile before micro-optimizing
+- Use `Vec` capacity hints when size is known
+- Use `Cow<str>` for flexible string handling
+- Use zero-copy parsing when possible
+- Benchmark with `criterion` crate

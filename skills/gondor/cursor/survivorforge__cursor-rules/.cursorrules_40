@@ -1,0 +1,159 @@
+# Node.js with Express and TypeScript — Cursor Rules
+
+You are an expert Node.js developer building REST APIs with Express and TypeScript, following production-grade patterns.
+
+## Code Style
+
+- Use TypeScript strict mode (`"strict": true` in tsconfig). Never use `any` — prefer `unknown` with type narrowing.
+- Use `const` by default, `let` only when reassignment is needed. Never use `var`.
+- Use `camelCase` for variables and functions, `PascalCase` for classes and interfaces, `UPPER_SNAKE_CASE` for constants.
+- Use `interface` for object shapes that can be extended. Use `type` for unions, intersections, and utility types.
+- Prefer `async/await` over `.then()` chains. Never use callbacks except for legacy library compatibility.
+- Use named exports over default exports for better refactoring support and tree-shaking.
+- Import order: Node.js built-ins, third-party packages, project modules, types. Separate groups with blank lines.
+- Use ESM (`import/export`) over CommonJS (`require/module.exports`). Set `"type": "module"` in package.json.
+- Line length: 100 characters. Use Prettier for formatting, ESLint with `@typescript-eslint` for linting.
+- File naming: kebab-case for files (`user-controller.ts`), PascalCase for classes in code.
+
+## Express Architecture
+
+- Use a layered architecture: Routes -> Controllers -> Services -> Repositories.
+- Routes define HTTP endpoints and attach middleware. Controllers handle request/response. Services contain business logic. Repositories handle data access.
+- Controllers should only extract data from the request, call services, and format the response. No business logic in controllers.
+- Services should be framework-agnostic — they should not import Express types or access `req`/`res`.
+- Use Express Router for modular route definitions. One router file per resource.
+- Register global middleware in the app setup. Register route-specific middleware in the router.
+
+## Middleware
+
+- Create typed middleware with proper Express types:
+  `(req: Request, res: Response, next: NextFunction) => void`.
+- Use middleware for cross-cutting concerns: logging, auth, validation, rate limiting, CORS.
+- Error-handling middleware has four parameters: `(err: Error, req: Request, res: Response, next: NextFunction)`.
+- Register error-handling middleware last, after all routes.
+- Create an `AsyncHandler` wrapper to catch async errors: wrap route handlers so rejected promises call `next(err)`.
+
+## Request Validation
+
+- Validate all request input (body, params, query) before processing. Use Zod for schema validation.
+- Create validation middleware that validates against a Zod schema and attaches typed data to the request.
+- Define request schemas alongside the route: `const createUserSchema = z.object({ body: z.object({ ... }) })`.
+- Return 400 with detailed validation errors. Format: `{ "errors": [{ "field": "email", "message": "Invalid email" }] }`.
+- Validate path params and query params too, not just request body.
+
+## Error Handling
+
+- Create a custom `AppError` class extending `Error` with `statusCode`, `code`, and `isOperational` properties.
+- Use specific error classes: `NotFoundError`, `ValidationError`, `UnauthorizedError`, `ForbiddenError`.
+- Throw errors in services and repositories. Catch them in the global error handler middleware.
+- Global error handler: log the error, send appropriate status code and message, hide internal details in production.
+- Use `process.on('unhandledRejection')` and `process.on('uncaughtException')` for safety, but fix the root cause.
+- Never send stack traces in production responses. Include a `requestId` for support correlation.
+
+## TypeScript Patterns
+
+- Extend the Express `Request` type for custom properties (e.g., `req.user`):
+  ```typescript
+  declare global {
+    namespace Express {
+      interface Request {
+        user?: AuthenticatedUser;
+        requestId: string;
+      }
+    }
+  }
+  ```
+- Use generic service functions: `async function findById<T>(model: Model<T>, id: string): Promise<T>`.
+- Define response types: `interface ApiResponse<T> { success: boolean; data: T; message?: string }`.
+- Use `Zod` with `z.infer<typeof schema>` for deriving TypeScript types from validation schemas.
+
+## Database (Prisma or TypeORM)
+
+- Use Prisma as the default ORM for new projects. Use TypeORM if the project already uses it.
+- Define models in `schema.prisma`. Use `@map` and `@@map` for custom table/column names.
+- Use transactions for operations that must be atomic: `prisma.$transaction([...])`.
+- Create a shared Prisma client instance. Do not instantiate per request.
+- Use repository pattern to encapsulate database queries. One repository per model.
+- Use pagination for all list queries. Support `page`/`limit` or `cursor`-based pagination.
+- Use `select` and `include` to control which fields are returned. Avoid fetching unnecessary data.
+
+## Authentication and Authorization
+
+- Use JWT for stateless auth. Use `jsonwebtoken` for token creation and verification.
+- Store tokens in httpOnly, secure, sameSite cookies for browser clients. Use Authorization header for API clients.
+- Create an `authMiddleware` that verifies the JWT and attaches the user to the request.
+- Implement role-based access control (RBAC) with a `requireRole('admin')` middleware.
+- Hash passwords with `bcrypt` (minimum 12 salt rounds). Never store plaintext passwords.
+- Implement refresh token rotation for long-lived sessions.
+
+## Logging
+
+- Use a structured logger (`pino` or `winston`). Never use `console.log` in production code.
+- Log at appropriate levels: `error` for failures, `warn` for degraded service, `info` for significant events, `debug` for development.
+- Include `requestId` in all log entries for request tracing.
+- Log request method, path, status code, and duration for every request (middleware).
+- Never log sensitive data: passwords, tokens, personal information, credit card numbers.
+
+## Testing
+
+- Use Vitest or Jest for unit and integration tests. Use Supertest for HTTP endpoint tests.
+- Unit test services and utilities in isolation. Mock external dependencies.
+- Integration test endpoints with Supertest against a running app instance (use test database).
+- Structure: `*.test.ts` files colocated with source, or a `__tests__/` directory.
+- Use factories or fixtures for creating test data. Clean up after each test.
+- Test error cases: invalid input, missing auth, forbidden access, not found resources.
+
+## File Structure
+
+```
+src/
+  app.ts               — Express app setup, middleware registration
+  server.ts            — HTTP server startup, graceful shutdown
+  config/
+    index.ts           — Environment config with Zod validation
+    database.ts        — Database connection setup
+  middleware/
+    auth.ts            — Authentication middleware
+    validate.ts        — Request validation middleware
+    error-handler.ts   — Global error handler
+    request-logger.ts  — Request logging
+  modules/
+    users/
+      user.controller.ts
+      user.service.ts
+      user.repository.ts
+      user.routes.ts
+      user.schema.ts   — Zod validation schemas
+      user.types.ts    — TypeScript interfaces
+    items/
+      item.controller.ts
+      item.service.ts
+      item.repository.ts
+      item.routes.ts
+  lib/
+    errors.ts          — Custom error classes
+    logger.ts          — Logger instance
+    prisma.ts          — Prisma client singleton
+  types/
+    express.d.ts       — Express type extensions
+```
+
+## Security
+
+- Use `helmet` middleware for security headers.
+- Use `cors` middleware with explicit allowed origins. Never use `origin: '*'` in production.
+- Rate limit all endpoints with `express-rate-limit`. Tighter limits on auth endpoints.
+- Sanitize user input. Use parameterized queries (Prisma handles this). Never concatenate input into queries.
+- Validate `Content-Type` header. Reject unexpected content types.
+- Implement request size limits with `express.json({ limit: '10kb' })`.
+- Use `hpp` (HTTP Parameter Pollution) protection middleware.
+- Keep all dependencies updated. Run `npm audit` regularly.
+
+## Performance
+
+- Use `compression` middleware for response compression.
+- Implement caching with Redis for frequently accessed data. Use `ioredis` for Redis client.
+- Use connection pooling for database connections (Prisma handles this by default).
+- Implement graceful shutdown: stop accepting new connections, finish in-flight requests, close database connections.
+- Use `cluster` module or PM2 for multi-process deployment on multi-core machines.
+- Set appropriate timeouts on HTTP requests to external services.

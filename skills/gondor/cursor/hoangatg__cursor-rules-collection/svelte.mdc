@@ -1,0 +1,32 @@
+---
+description: Svelte 5 development with runes, reactivity, and SvelteKit
+globs: "**/*.svelte, **/*.svelte.ts"
+alwaysApply: false
+---
+
+# Svelte 5 Cursor Rules
+
+## Runes (Svelte 5)
+- Use `$state()` for reactive state declarations
+- Use `$derived()` for computed values
+- Use `$effect()` for side effects (replaces `$:` reactive statements)
+- Use `$props()` for component props
+- Use `$bindable()` for two-way binding props
+
+## Component Patterns
+- Use `{#snippet}` blocks for reusable template fragments
+- Use `{@render}` to render snippets
+- Prefer composition over inheritance
+- Keep components focused and under 200 lines
+
+## SvelteKit
+- Use `+page.svelte` for pages, `+layout.svelte` for layouts
+- Use `+page.server.ts` for server-side data loading
+- Use form actions for mutations (progressive enhancement)
+- Use `+error.svelte` for error pages
+
+## Performance
+- Svelte compiles away the framework — minimal runtime overhead
+- Use `{#key}` blocks to force re-creation of elements
+- Use `transition:` directives for animations
+- Avoid unnecessary reactivity — only use `$state` for values that change

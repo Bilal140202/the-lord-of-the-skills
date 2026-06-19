@@ -1,0 +1,159 @@
+---
+description: "Python Django web framework"
+alwaysApply: false
+globs: "**/*.py"
+---
+
+# Python Django 5+ with DRF — Cursor Rules
+
+You are an expert Python developer building web applications with Django 5+ and Django REST Framework, following Django best practices.
+
+## Code Style
+
+- Use Python 3.11+ features where appropriate: type hints, `match` statements, `StrEnum`.
+- Type-annotate function signatures for public functions and methods. Use `django-stubs` for Django type support.
+- Use `snake_case` for functions, variables, and modules. `PascalCase` for classes. `UPPER_SNAKE_CASE` for settings.
+- Follow Django naming conventions: models are singular (`User`, `Article`), apps are plural or descriptive (`users`, `articles`).
+- Line length: 88 characters (Black default). Use Black for formatting, Ruff for linting.
+- Import order: stdlib, Django, third-party, local. Use `isort` with Django profile.
+- Prefer f-strings for string formatting.
+- Write docstrings for all models, views, and serializers explaining their purpose.
+
+## Django Project Structure
+
+- One app per domain concept. Keep apps focused and loosely coupled.
+- Use `apps.py` to configure app metadata and signal connections.
+- Place URL patterns in each app's `urls.py`, include them in the root `urls.py` with a namespace.
+- Use `settings/` package for environment-specific configs: `base.py`, `development.py`, `production.py`, `testing.py`.
+- Store reusable utilities in a `core` or `common` app.
+
+## Models
+
+- Every model gets a docstring explaining its purpose and relationships.
+- Use explicit `related_name` on all ForeignKey and ManyToManyField relationships.
+- Define `__str__` on every model — it must return a meaningful human-readable string.
+- Use `Meta` class for ordering, constraints, indexes, verbose names, and permissions.
+- Prefer `UUIDField` for public-facing primary keys. Keep auto-incrementing `id` for internal use.
+- Use `TimeStampedModel` base class with `created_at` and `updated_at` fields for all models.
+- Use Django's built-in field types. Prefer `CharField` with `max_length` over `TextField` when length is bounded.
+- Define choices as `TextChoices` or `IntegerChoices` enums on the model class.
+- Add database indexes on fields used in frequent queries: `db_index=True` or `Meta.indexes`.
+- Use `constraints` in Meta for database-level validation (UniqueConstraint, CheckConstraint).
+
+## Views and Serializers (DRF)
+
+- Prefer `ModelViewSet` for full CRUD. Use `GenericAPIView` + mixins for partial CRUD.
+- Use `ModelSerializer` for standard serialization. Use `Serializer` for custom input/output shapes.
+- Define `read_only_fields` in serializer Meta. Never allow users to set `id`, `created_at`, `updated_at`.
+- Use separate serializers for create, update, list, and detail when field sets differ.
+- Override `get_queryset()` to scope queries to the current user or permissions.
+- Use `select_related` and `prefetch_related` in `get_queryset` to prevent N+1 queries.
+- Use `permission_classes` on every view. Default to `IsAuthenticated` — explicitly set `AllowAny` only when needed.
+- Use `@action` decorator for custom endpoints on viewsets: `@action(detail=True, methods=['post'])`.
+- Implement pagination: use `PageNumberPagination` or `CursorPagination` for large datasets.
+- Return consistent response shapes. Use DRF's built-in response formatting.
+
+## URL Routing
+
+- Use DRF `DefaultRouter` for viewset URL registration.
+- Use `path()` over `re_path()` unless regex is genuinely needed.
+- Namespace all app URLs: `app_name = 'users'` and `path('users/', include('users.urls', namespace='users'))`.
+- Use `reverse()` or `reverse_lazy()` for URL generation. Never hardcode URL paths.
+- Keep URL patterns RESTful: `users/`, `users/<int:pk>/`, `users/<int:pk>/activate/`.
+
+## ORM Best Practices
+
+- Use `QuerySet` methods for database operations. Never write raw SQL unless absolutely necessary.
+- Chain QuerySet methods for readability: `User.objects.filter(...).select_related(...).order_by(...)`.
+- Use `F()` expressions for database-level field references in queries and updates.
+- Use `Q()` objects for complex lookups (OR conditions, negations).
+- Use `annotate()` and `aggregate()` for computed fields and summaries.
+- Use `Subquery` and `OuterRef` instead of multiple queries for correlated lookups.
+- Avoid `QuerySet.all()` without pagination or limits — always scope your queries.
+- Use `bulk_create`, `bulk_update` for batch operations. Set `batch_size` for large datasets.
+- Use `transaction.atomic()` for operations that must succeed or fail together.
+
+## Error Handling
+
+- Use DRF exception handling. Raise `ValidationError`, `NotFound`, `PermissionDenied` from `rest_framework.exceptions`.
+- Create custom exception classes for domain-specific errors. Register them with `EXCEPTION_HANDLER` in settings.
+- Validate at the serializer level (field validation, object validation) and the model level (`clean()` method).
+- Log all unhandled exceptions with request context. Use `structlog` or Django's logging configuration.
+- Return consistent error response format: `{"detail": "message"}` or `{"field_name": ["error messages"]}`.
+- Never expose internal error details (tracebacks, SQL queries) in API responses.
+
+## Authentication and Permissions
+
+- Use `django-rest-framework-simplejwt` for JWT authentication, or session auth for browser-based apps.
+- Create custom permission classes for business logic authorization. Place them in `permissions.py` per app.
+- Use object-level permissions when access depends on the specific resource (e.g., owner-only access).
+- Implement role-based access with Django groups or a custom permission model.
+
+## Testing
+
+- Use `pytest-django` with `pytest`. Configure in `pytest.ini` or `pyproject.toml`.
+- Use `APIClient` for DRF endpoint tests. Test each endpoint: success, validation, auth, permissions, edge cases.
+- Use `baker` (model-bakery) or `factory_boy` for test data creation. Never use fixtures for dynamic test data.
+- Use `@pytest.mark.django_db` for tests that need database access.
+- Test model methods, validators, and signals in isolation.
+- Place tests in `tests/` directory per app: `tests/test_views.py`, `tests/test_models.py`, `tests/test_serializers.py`.
+- Use `override_settings` decorator for tests that need different settings.
+
+## File Structure
+
+```
+project/
+  config/
+    settings/
+      base.py
+      development.py
+      production.py
+    urls.py
+    wsgi.py
+    asgi.py
+  apps/
+    core/              — Shared models, utils, base classes
+      models.py        — TimeStampedModel, etc.
+    users/
+      models.py
+      serializers.py
+      views.py
+      urls.py
+      permissions.py
+      signals.py
+      admin.py
+      tests/
+        test_views.py
+        test_models.py
+    articles/
+      models.py
+      serializers.py
+      views.py
+      urls.py
+      filters.py
+      tests/
+  manage.py
+  requirements/
+    base.txt
+    development.txt
+    production.txt
+```
+
+## Performance
+
+- Always use `select_related` (ForeignKey, OneToOne) and `prefetch_related` (ManyToMany, reverse FK) in querysets.
+- Use Django Debug Toolbar in development to catch N+1 queries.
+- Cache expensive computations with Django's cache framework. Use `@cache_page` for view caching.
+- Use database indexes for frequently filtered and ordered fields.
+- Use `defer()` and `only()` to limit fields loaded from the database when you don't need all columns.
+- Paginate all list endpoints. Never return unbounded querysets.
+
+## Security
+
+- Keep `SECRET_KEY` in environment variables. Never commit it to version control.
+- Set `ALLOWED_HOSTS` explicitly in production. Never use `['*']`.
+- Use Django's CSRF protection. Do not disable it for API endpoints served to browsers.
+- Enable security middleware: `SecurityMiddleware`, HSTS, content type sniffing protection.
+- Validate and sanitize all user input through serializers. Escape output in templates.
+- Use `SECURE_SSL_REDIRECT = True` in production.
+- Regularly update Django and all dependencies for security patches.

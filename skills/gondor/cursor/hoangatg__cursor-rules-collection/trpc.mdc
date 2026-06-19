@@ -1,0 +1,37 @@
+---
+description: tRPC v11 type-safe API development with React Query integration
+globs: "**/*.ts, **/*.tsx"
+alwaysApply: false
+---
+
+# tRPC v11 Cursor Rules
+
+## Architecture
+- Define procedures in routers: `router({ procedureName: procedure... })`
+- Use `publicProcedure` for unauthenticated, `protectedProcedure` for authenticated
+- Organize routers by domain: `userRouter`, `postRouter`
+- Merge routers in `appRouter`
+
+## Procedures
+- Use `.input()` with Zod schema for input validation
+- Use `.query()` for reads, `.mutation()` for writes
+- Use `.subscription()` for real-time data
+- Keep procedure handlers focused — delegate to service layer
+- Return typed data directly — tRPC infers types automatically
+
+## Client Integration
+- Use `@trpc/react-query` for React integration
+- Use `trpc.useQuery()` for data fetching with caching
+- Use `trpc.useMutation()` for mutations with optimistic updates
+- Use `trpc.useUtils()` for cache invalidation
+
+## Middleware
+- Create reusable middleware for auth, logging, rate limiting
+- Use `t.middleware()` to create middleware
+- Chain middleware: `protectedProcedure = publicProcedure.use(isAuthed)`
+
+## Best Practices
+- DO: Co-locate input schemas with procedures
+- DO: Use `superjson` transformer for Date, Map, Set serialization
+- DON'T: Put business logic in procedure handlers — use services
+- DON'T: Create procedures for each CRUD operation — use generic patterns

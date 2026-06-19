@@ -1,0 +1,94 @@
+---
+description: Next.js with TypeScript and Tailwind UI best practices
+globs: **/*.tsx, **/*.ts, src/**/*.ts, src/**/*.tsx
+alwaysApply: false
+---
+
+# Next.js Best Practices
+
+## Project Structure
+- Use the App Router directory structure (`app/`, `components/`, `lib/` are common top-level folders).
+- Place route-specific components, layouts, pages, loading/error UIs within the `app` directory following App Router conventions.
+- Place shared, reusable components outside the `app` directory (e.g., in `components/`).
+- Place utilities, helpers, constants, and types in `lib/` or `utils/`.
+- Use lowercase kebab-case for directory and file names (e.g., `components/auth-wizard`, `app/user-profile/page.tsx`).
+
+## Components & Rendering
+- Use Server Components by default for better performance and data fetching.
+- Mark components requiring interactivity, browser APIs, or state/lifecycle hooks explicitly with `'use client'` at the top.
+- Prefer passing Server Components as props (children) to Client Components where possible to minimize Client bundle size.
+- Wrap Client Components that suspend (e.g., data fetching with hooks) in `<Suspense>` with an appropriate fallback UI.
+- Use `next/dynamic` for dynamic loading of components that are not critical for the initial page load.
+- Implement proper error boundaries (`error.tsx` files in the App Router) to handle runtime errors gracefully.
+- Place static content, constants, and type/interface definitions towards the end of the file for readability.
+
+## Performance
+- Optimize images using `next/image`: Ensure proper `width`, `height`, `priority` props, consider `fill` prop, and use modern formats like WebP if applicable.
+- Minimize unnecessary use of `useEffect` and client-side state (`useState`) in Client Components. Fetch data on the server where possible.
+- Favor Server Components (RSC) for data fetching and rendering static content.
+- Implement caching strategies effectively: Utilize Next.js fetch caching, Route Segment caching, and consider `revalidate` options. Understand the difference between static and dynamic rendering.
+
+## Data Fetching
+- Primarily use Server Components for data fetching (async/await directly in components).
+- Use Route Handlers (`route.ts`) for API endpoints.
+- Implement proper error handling (e.g., try/catch) for data fetching operations.
+- Utilize Next.js extended `fetch` API options for caching and revalidation (`cache`, `next.revalidate`).
+- Handle loading states using `loading.tsx` files or `<Suspense>` boundaries.
+- Handle error states using `error.tsx` files.
+
+## Routing (App Router)
+- Follow the App Router file conventions (`page.tsx`, `layout.tsx`, `template.tsx`, `loading.tsx`, `error.tsx`, `route.ts`).
+- Use dynamic segments (`[slug]`) and catch-all segments (`[...slug]`) appropriately.
+- Implement parallel routes and route interception when needed for complex UI patterns.
+
+## ESLint Configuration & Usage
+- Set up ESLint using `npx create-next-app` for new projects or `npm run lint` (after adding `"lint": "next lint"` to `scripts` in `package.json`) for existing projects.
+- Prefer the `Strict` configuration (`"extends": "next/core-web-vitals"`) during setup for comprehensive checks including Core Web Vitals. Use `"extends": "next"` for the base configuration if needed.
+- Ensure `eslint-config-next` is the last item in the `extends` array in `.eslintrc.json` if combining with other configs.
+- Ensure appropriate ESLint config integration.
+- Use `next lint` to run checks. It runs automatically during `next build`.
+- Configure `rootDir` in ESLint `settings` if your Next.js app is not in the project root (e.g., monorepos): `settings: { "next": { "rootDir": "path/to/your/next/app/" } }`.
+- Lint specific directories/files using `next lint --dir <dir> --file <file>`.
+- Disable specific rules if necessary using the `"rules"` property in `.eslintrc.json`, but do so judiciously. Example: `"@next/next/no-img-element": "off"`.
+
+## Forms and Validation
+- Use a schema validation library for defining and validating data structures (both client and server-side).
+- Always perform validation on the server-side (e.g., in Server Actions or Route Handlers) even if client-side validation exists.
+- Handle form submission states (loading, success, error) clearly in the UI.
+- Consider using Server Actions for form submissions to simplify data mutation and revalidation.
+
+## State Management
+- Minimize client-side state. Leverage server state and URL state where possible.
+- Use React Context API or component composition for simple state sharing. Evaluate dedicated state management libraries carefully if needed for complex client state.
+- Prefer managing server state via data fetching and revalidation rather than syncing complex client state.
+
+## TypeScript
+- Enable and utilize strict mode in `tsconfig.json`.
+- Define clear and accurate interfaces and types for props, API responses, and data structures.
+- Use TypeScript utility types (e.g., `Partial`, `Required`, `Pick`, `Omit`) effectively.
+- Handle `null` and `undefined` explicitly. Avoid non-null assertions (`!`) where possible.
+
+## Tailwind CSS (If Used)
+- Utilize Tailwind utility classes directly in JSX.
+- Configure the Tailwind theme (`tailwind.config.js`) for project-specific design tokens (colors, spacing, fonts).
+- Create reusable UI components encapsulating common styles and structure instead of repeating complex utility combinations.
+- Implement responsive design using Tailwind's breakpoint modifiers (e.g., `md:`, `lg:`).
+
+## Testing
+- Write unit tests for utility functions, complex components, and hooks using a suitable testing framework and library.
+- Implement integration tests for critical user flows.
+- Consider end-to-end tests using appropriate tools for verifying complete application behavior.
+- Mock API requests and dependencies appropriately during testing.
+
+## Security
+- Implement proper authentication and authorization mechanisms using established libraries or services.
+- Handle secrets and environment variables securely (use `.env.local`, platform environment variables, etc.). Do not commit secrets to Git.
+- Implement robust input validation on the server-side to prevent injection attacks.
+- Use security headers (e.g., via `next.config.js` headers or middleware). Consider libraries that help manage security headers.
+
+## Accessibility (a11y)
+- Use semantic HTML elements (`<nav>`, `<main>`, `<button>`, etc.).
+- Implement proper ARIA attributes where necessary, but prioritize semantic HTML first.
+- Ensure interactive elements are keyboard navigable and focusable.
+- Test color contrast and text legibility.
+- Use automated accessibility checking tools and browser extensions during development.

@@ -1,0 +1,75 @@
+---
+description: React best practices and patterns for modern web applications
+globs: **/*.tsx, **/*.jsx, src/components/**/*, app/components/**/*
+alwaysApply: false
+---
+
+# React Best Practices
+
+## Component Design & Structure
+- Prefer functional components with Hooks over class components.
+- Keep components small, focused, and reusable.
+- Use composition to combine components. Avoid inheritance patterns.
+- Define prop types clearly (using TypeScript interfaces/types is recommended).
+- Split large components into smaller, more manageable ones.
+- Colocate related components, hooks, and types where appropriate.
+
+## Hooks
+- Strictly follow the Rules of Hooks (only call hooks at the top level, only from React functions).
+- Extract reusable stateful logic into custom Hooks.
+- Keep custom Hooks focused on a single concern.
+- Provide exhaustive and correct dependency arrays for `useEffect`, `useCallback`, and `useMemo`.
+- Implement cleanup logic in `useEffect` for subscriptions, timers, or other resources that need disposal.
+
+## State Management
+- Use `useState` for simple, local component state.
+- Use `useReducer` for more complex state logic involving multiple sub-values or state transitions.
+- Use React Context API (`useContext`) for sharing state that needs to be accessible by many components at different levels, but be mindful of performance implications.
+- Keep state as close as possible to where it's needed.
+- Avoid excessive prop drilling by lifting state up or using Context/state management solutions.
+- Evaluate the need for external state management libraries carefully; often, built-in hooks and composition suffice.
+
+## Performance Optimization
+- Avoid unnecessary re-renders:
+    - Use `React.memo` to memoize components based on prop equality.
+    - Use `useCallback` to memoize callback functions passed to optimized child components.
+    - Use `useMemo` to memoize expensive calculations.
+- Apply memoization judiciously; profile first to identify actual bottlenecks.
+- Use proper `key` props when rendering lists to help React identify items.
+- Use code splitting (e.g., `React.lazy` with Suspense) to lazy-load components not needed immediately.
+- Profile component render performance using React DevTools.
+
+## Forms
+- Primarily use controlled components where React state drives the form input values.
+- Implement client-side validation for immediate feedback, but always ensure server-side validation.
+- Clearly indicate form submission states (loading, success, error) to the user.
+- Consider using form management libraries for complex forms with intricate validation or state logic, but understand the trade-offs.
+- Ensure forms are accessible (proper labels, input types, focus management, error association).
+
+## Error Handling
+- Use Error Boundaries (class components with `getDerivedStateFromError` or `componentDidCatch`) to catch rendering errors in their child component tree.
+- Implement proper error handling for asynchronous operations (e.g., data fetching) within components or hooks.
+- Display user-friendly error messages and provide appropriate fallback UI within Error Boundaries.
+- Log errors using appropriate logging services or mechanisms.
+
+## Testing
+- Write unit tests for utility functions and complex custom Hooks.
+- Write integration tests for components and their interactions using a testing library that encourages testing user behavior.
+- Test component rendering with different props and states.
+- Test user interactions (clicks, input changes, form submissions).
+- Test edge cases and error scenarios.
+- Use mocking for external dependencies (APIs, modules).
+
+## Accessibility (a11y)
+- Use semantic HTML elements whenever possible.
+- Implement appropriate ARIA attributes when semantic HTML is insufficient to convey roles, states, or properties.
+- Ensure all interactive elements are keyboard navigable and focusable, with clear focus indicators.
+- Test color contrast and ensure text is legible.
+- Provide meaningful `alt` text for images or mark them as decorative if appropriate.
+- Consider testing with screen readers and automated accessibility checking tools.
+
+## Code Organization & Conventions
+- Group related files (component, styles, tests, hooks) together by feature or component.
+- Use clear and consistent file naming conventions (e.g., `UserProfile.tsx`, `useUserData.ts`).
+- Use absolute or path-aliased imports for better maintainability over deep relative imports.
+- Document complex component logic, non-obvious props, or custom hooks.

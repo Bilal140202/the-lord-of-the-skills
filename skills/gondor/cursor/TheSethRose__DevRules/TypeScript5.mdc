@@ -1,0 +1,61 @@
+---
+description: TypeScript coding standards and best practices.
+globs: **/*.ts, **/*.tsx, tsconfig.json
+alwaysApply: false
+---
+
+# TypeScript Best Practices
+
+## `tsconfig.json` Configuration
+- Enable `strict` mode (or individual strict flags like `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, etc.). This is the most crucial step for leveraging TypeScript's safety features.
+- Configure `target` and `module` appropriately for your runtime environment (e.g., `ES2022` or higher for modern Node/browsers, appropriate module system like `NodeNext` or `ESNext`).
+- Set up `baseUrl` and `paths` for non-relative module resolution if needed, especially in larger projects or monorepos.
+- Understand compiler options related to JSX (`jsx`, `jsxFactory`, etc.) if using React/JSX.
+- Configure declaration file generation (`declaration`, `declarationMap`, `outDir`) if building a library.
+
+## Type System & Definitions
+- Avoid `any`. Use `unknown` when the type is truly unknown and perform type checking/narrowing before use.
+- Use explicit types for function parameters, return values, and variable declarations where inference is not sufficient or clear.
+- Prefer specific types over overly broad ones (e.g., `string` over `any`, `"success" | "error"` over `string`).
+- Use `interface` for defining the shape of objects or implementing classes.
+- Use `type` for creating aliases for unions, intersections, tuples, primitives, and using utility types.
+- Leverage built-in Utility Types (`Partial`, `Required`, `Readonly`, `Pick`, `Omit`, `Record`, etc.) to manipulate existing types effectively.
+- Use Generics (`<T>`) to create reusable components, functions, and types that can work over a variety of types.
+- Use `readonly` modifiers for properties that should not be reassigned after object creation.
+- Utilize Discriminated Unions (tagged unions) with literal types to create type-safe state machines or variant types.
+
+## Type Narrowing & Guards
+- Rely on TypeScript's control flow analysis for automatic type narrowing (e.g., within `if` checks, `switch` statements, `instanceof` checks).
+- Use `typeof` checks for primitives.
+- Use `instanceof` checks for classes.
+- Use the `in` operator to check for property existence.
+- Create custom Type Guard functions (`value is Type`) for complex validation logic.
+
+## Functions
+- Provide explicit types for function parameters.
+- Provide explicit return types for exported functions or complex functions to prevent unintentional type changes and improve clarity. Type inference is often sufficient for simple, unexported functions.
+- Use function overloads when a function can be called with different argument lists and return types.
+- Use `async`/`await` for asynchronous operations, ensuring Promises are properly typed (e.g., `Promise<string>`).
+
+## Classes (If Used)
+- Use `public`, `protected`, `private` access modifiers (note: these are compile-time checks).
+- Use `readonly` for immutable instance properties.
+- Define constructor parameter properties for concise initialization (`constructor(private readonly name: string) {}`).
+- Implement interfaces (`implements InterfaceName`) to ensure class shape.
+
+## Modules & Namespaces
+- Prefer ES Modules (`import`/`export`) over namespaces for organizing code.
+- Use namespaces only for specific use cases, like organizing types within large declaration files or for compatibility with older module systems (use with caution).
+- Understand module resolution strategies (`NodeNext`, `Classic`) configured in `tsconfig.json`.
+- Use explicit file extensions in relative imports (`import { helper } from './utils.js';`) if using native ES Modules (`"module": "NodeNext"` or similar).
+
+## Error Handling
+- Define custom error classes extending `Error` for specific error conditions.
+- Use `try...catch` blocks for synchronous errors.
+- Handle Promise rejections explicitly using `.catch()` or `try...catch` with `async/await`.
+- Avoid throwing non-Error objects (strings, numbers).
+
+## Interoperability with JavaScript
+- Gradually introduce TypeScript into JS projects using `checkJs` and JSDoc annotations.
+- Use Declaration Files (`.d.ts`) to describe the shape of existing JavaScript libraries or modules that lack their own types.
+    - Contribute to or consume types from DefinitelyTyped (`@types/package-name`) for third-party libraries.

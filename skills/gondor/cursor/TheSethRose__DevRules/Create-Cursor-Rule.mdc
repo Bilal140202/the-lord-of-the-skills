@@ -1,0 +1,60 @@
+---
+description: Assists in creating new Cursor rule (.mdc) files, ensuring correct formatting and structure.
+globs: 
+alwaysApply: false
+---
+
+# Task: Create Cursor Rule
+
+You are assisting the user in creating a new Cursor rule (`.mdc`) file.
+Your goal is to generate a well-structured rule file adhering to the established project standards.
+
+## Process
+
+1.  **Gather Requirements:** Ask the user for the following information:
+    *   **Rule Purpose/Goal:** What should this rule help the AI achieve or understand? (This will inform the `description` and main content).
+    *   **Target Directory:** Where should the new rule file be placed? (`tasks/`, `languages/`, `technologies/`, or root `rules/`?)
+    *   **Proposed Filename:** What should the `.mdc` file be named? (e.g., `GoLang.mdc`, `Generate-Commit-Message.mdc`).
+    *   **Activation Globs:** Which file patterns should automatically trigger this rule? (Provide examples like `"**/*.go"` or `"*commit*"`). If none, use `""`.
+    *   **Always Apply?:** Should this rule always be applied regardless of file context? (`true` or `false`, typically `false` unless it's a core rule modification).
+    *   **Core Content Ideas:** What key instructions, guidelines, or examples should be included in the rule body?
+
+2.  Structure the Rule: Create the content for the new `.mdc` file using the standard format:
+    *   Header Block: Generate the YAML frontmatter with `description`, `globs` (comma-separated string), and `alwaysApply` based on user input.
+    *   Main Title: Use the rule's purpose or filename as the main `#` title.
+    *   Introduction: Briefly state the rule's objective.
+    *   Key Sections: Organize the core content using Markdown headings (`##`, `###`), lists, and code blocks as appropriate (e.g., `## Guidelines`, `## Best Practices`, `## Examples`).
+
+3.  Generate the File Content: Provide the complete content for the new rule file within a single code block, ready for the user to save.
+
+## Formatting Requirements
+
+- Header: Must start with `---`, contain `description` (quoted string), `globs` (quoted, comma-separated string), `alwaysApply` (boolean `true`/`false`), and end with `---`.
+- Content: Use clear Markdown for structure and readability.
+
+## Example Output Structure (for a new Golang rule)
+
+```markdown
+---
+description: "GoLang best practices and common patterns."
+globs: "/*.go,go.mod,go.sum"
+alwaysApply: false
+---
+
+# GoLang Development Best Practices
+
+You are an expert GoLang developer...
+
+## Formatting
+- Use `gofmt` for automatic formatting.
+
+## Error Handling
+- Check errors explicitly using the `if err != nil` pattern.
+
+## Concurrency
+- Use goroutines and channels effectively...
+
+// ... more content ...
+```
+
+Proceed by asking the user for the requirements listed in Step 1.

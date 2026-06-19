@@ -1,0 +1,243 @@
+# AI/ML Python Projects — Cursor Rules
+# Production ML: PyTorch, data pipelines, experiment tracking, and deployment
+
+# Project Context
+You are building an AI/ML project with Python. The project uses PyTorch for model training,
+handles data pipelines with proper validation, tracks experiments systematically, and follows
+production ML engineering practices. Code is type-hinted, tested, and reproducible.
+
+# Project Structure
+```
+project/
+  src/
+    data/
+      datasets.py           # PyTorch Dataset classes
+      transforms.py         # Data augmentation and preprocessing
+      loaders.py            # DataLoader configurations
+      validation.py         # Data quality checks
+    models/
+      architectures/        # Model definitions
+        resnet.py
+        transformer.py
+      losses.py             # Custom loss functions
+      metrics.py            # Evaluation metrics
+    training/
+      trainer.py            # Training loop
+      callbacks.py          # Training callbacks (early stopping, checkpointing)
+      optimizers.py         # Optimizer configurations
+    inference/
+      predictor.py          # Inference pipeline
+      postprocess.py        # Output postprocessing
+    utils/
+      config.py             # Configuration management
+      logging.py            # Experiment logging
+      reproducibility.py    # Seed setting, deterministic mode
+  configs/
+    train_config.yaml       # Training hyperparameters
+    model_config.yaml       # Model architecture config
+  scripts/
+    train.py                # Training entry point
+    evaluate.py             # Evaluation script
+    export.py               # Model export (ONNX, TorchScript)
+  notebooks/
+    exploration.ipynb       # Data exploration (not production code)
+  tests/
+    test_data.py
+    test_models.py
+    test_training.py
+```
+
+# PyTorch Model Patterns
+- Inherit from `nn.Module`. Always call `super().__init__()`.
+- Type hint all method signatures:
+  ```python
+  class ClassificationHead(nn.Module):
+      def __init__(self, in_features: int, num_classes: int, dropout: float = 0.1) -> None:
+          super().__init__()
+          self.dropout = nn.Dropout(dropout)
+          self.fc = nn.Linear(in_features, num_classes)
+
+      def forward(self, x: torch.Tensor) -> torch.Tensor:
+          x = self.dropout(x)
+          return self.fc(x)
+  ```
+- Use `nn.Sequential` or `nn.ModuleList` for dynamic layer construction — never regular Python lists.
+- Register buffers for non-parameter tensors: `self.register_buffer('mean', torch.zeros(3))`.
+- Use `@torch.no_grad()` for inference methods.
+- DON'T: Use numpy operations inside `forward()` — they break autograd.
+- DON'T: Create tensors in `forward()` without sending to the correct device.
+
+# Data Pipeline Patterns
+- Create custom `Dataset` classes with proper `__len__` and `__getitem__`:
+  ```python
+  class ImageDataset(Dataset):
+      def __init__(self, root: Path, transform: Compose | None = None) -> None:
+          self.paths = sorted(root.glob("*.jpg"))
+          self.transform = transform
+
+      def __len__(self) -> int:
+          return len(self.paths)
+
+      def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+          image = read_image(str(self.paths[idx]))
+          if self.transform:
+              image = self.transform(image)
+          label = self._extract_label(self.paths[idx])
+          return {"image": image, "label": label}
+  ```
+- Validate data before training: check for NaNs, correct shapes, label distribution.
+- Use `DataLoader` with `num_workers > 0` and `pin_memory=True` for GPU training.
+- Implement data augmentation in transforms, not in the dataset class.
+- Cache preprocessed data when preprocessing is expensive.
+- DON'T: Load entire dataset into memory — use lazy loading in `__getitem__`.
+- DON'T: Use random transforms without seeding for reproducibility.
+
+# Training Loop Best Practices
+- Use a structured training loop with proper phases:
+  ```python
+  def train_epoch(
+      model: nn.Module,
+      loader: DataLoader,
+      optimizer: Optimizer,
+      criterion: nn.Module,
+      device: torch.device,
+  ) -> dict[str, float]:
+      model.train()
+      total_loss = 0.0
+      correct = 0
+      total = 0
+
+      for batch in loader:
+          inputs = batch["image"].to(device, non_blocking=True)
+          targets = batch["label"].to(device, non_blocking=True)
+
+          optimizer.zero_grad(set_to_none=True)  # More efficient than zero_grad()
+          outputs = model(inputs)
+          loss = criterion(outputs, targets)
+          loss.backward()
+          torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+          optimizer.step()
+
+          total_loss += loss.item() * inputs.size(0)
+          correct += (outputs.argmax(dim=1) == targets).sum().item()
+          total += inputs.size(0)
+
+      return {"loss": total_loss / total, "accuracy": correct / total}
+  ```
+- Use gradient clipping to prevent exploding gradients.
+- Use `optimizer.zero_grad(set_to_none=True)` for better memory efficiency.
+- Use `torch.cuda.amp` for mixed precision training (significant speedup):
+  ```python
+  scaler = GradScaler()
+  with autocast(device_type='cuda'):
+      outputs = model(inputs)
+      loss = criterion(outputs, targets)
+  scaler.scale(loss).backward()
+  scaler.step(optimizer)
+  scaler.update()
+  ```
+- Save checkpoints with model state, optimizer state, epoch, and metrics.
+
+# Experiment Tracking
+- Use Weights & Biases (wandb), MLflow, or TensorBoard for experiment tracking.
+- Log ALL hyperparameters at experiment start:
+  ```python
+  wandb.init(project="my-project", config={
+      "learning_rate": 3e-4,
+      "batch_size": 32,
+      "epochs": 100,
+      "architecture": "resnet50",
+      "optimizer": "AdamW",
+      "weight_decay": 0.01,
+      "scheduler": "cosine",
+  })
+  ```
+- Log metrics every epoch: train loss, val loss, learning rate, custom metrics.
+- Log artifacts: model checkpoints, confusion matrices, sample predictions.
+- Name experiments descriptively: `resnet50-lr3e4-bs32-cosine-augv2`.
+- DON'T: Manually track experiments in spreadsheets — use proper tooling.
+- DON'T: Overwrite previous experiment results.
+
+# Configuration Management
+- Use YAML or TOML files for configuration, not hardcoded values:
+  ```yaml
+  # configs/train_config.yaml
+  training:
+    epochs: 100
+    batch_size: 32
+    learning_rate: 0.0003
+    weight_decay: 0.01
+    scheduler: cosine
+    warmup_epochs: 5
+  model:
+    architecture: resnet50
+    pretrained: true
+    num_classes: 10
+    dropout: 0.1
+  ```
+- Parse configs with Pydantic for validation:
+  ```python
+  class TrainingConfig(BaseModel):
+      epochs: int = Field(ge=1)
+      batch_size: int = Field(ge=1)
+      learning_rate: float = Field(gt=0)
+  ```
+- Support config overrides via CLI arguments.
+- Save the full config with every experiment for reproducibility.
+
+# Reproducibility
+- Set seeds explicitly at the start of every experiment:
+  ```python
+  def set_seed(seed: int) -> None:
+      random.seed(seed)
+      np.random.seed(seed)
+      torch.manual_seed(seed)
+      torch.cuda.manual_seed_all(seed)
+      torch.backends.cudnn.deterministic = True
+      torch.backends.cudnn.benchmark = False
+  ```
+- Pin dependency versions in `requirements.txt` or `pyproject.toml`.
+- Use `torch.use_deterministic_algorithms(True)` when exact reproducibility is required.
+- Log the git commit hash with every experiment.
+- Save train/val/test split definitions (indices or file lists), not just random seeds.
+
+# Model Evaluation
+- Always evaluate on a held-out test set that was NEVER used during training or validation.
+- Report multiple metrics: accuracy, precision, recall, F1, AUC-ROC (as appropriate).
+- Use confusion matrices for classification tasks.
+- Report confidence intervals or standard deviation across multiple runs.
+- Analyze failure cases — don't just report aggregate metrics.
+
+# Model Export and Deployment
+- Export models to ONNX or TorchScript for production serving:
+  ```python
+  # ONNX export
+  dummy_input = torch.randn(1, 3, 224, 224, device=device)
+  torch.onnx.export(model, dummy_input, "model.onnx", opset_version=17)
+  ```
+- Validate exported model outputs match PyTorch model outputs.
+- Version models with metadata: architecture, training config, metrics, data version.
+- Use batch inference for throughput, single inference for latency.
+
+# Notebook Discipline
+- Notebooks are for exploration ONLY — never production code.
+- Move any code that works into proper Python modules.
+- Clear all outputs before committing notebooks.
+- Keep notebooks numbered and documented: `01-data-exploration.ipynb`, `02-baseline-model.ipynb`.
+
+# Testing ML Code
+- Test data loading: correct shapes, dtypes, value ranges.
+- Test model forward pass: output shape matches expected for given input.
+- Test training step: loss decreases after one gradient update on a small batch.
+- Test data transforms: correct output shapes, value ranges, augmentation effects.
+- Use small datasets and few epochs for fast testing.
+- Test edge cases: empty batch, single sample, maximum sequence length.
+
+# Common Mistakes to Avoid
+- DON'T: Train and evaluate on the same data split.
+- DON'T: Tune hyperparameters on the test set — use a validation set.
+- DON'T: Use Python lists for tensors in `forward()` — use `nn.ModuleList`.
+- DON'T: Forget to call `model.eval()` during inference.
+- DON'T: Forget to move data to the same device as the model.
+- DON'T: Ignore data leakage between train and validation splits.
+- DON'T: Skip normalization or standardization of input features.

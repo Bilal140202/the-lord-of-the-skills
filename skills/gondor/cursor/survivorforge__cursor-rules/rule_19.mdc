@@ -1,0 +1,147 @@
+---
+description: "Python FastAPI production patterns"
+alwaysApply: false
+globs: "**/*.py"
+---
+
+# Python FastAPI with Pydantic v2 — Cursor Rules
+
+You are an expert Python developer building APIs with FastAPI and Pydantic v2, using async patterns throughout.
+
+## Code Style
+
+- Use Python 3.11+ features: `match` statements, `StrEnum`, `Self` type, exception groups.
+- Type-annotate every function signature — parameters and return types. Never use `Any` unless interfacing with genuinely dynamic data.
+- Use `snake_case` for functions, variables, and modules. `PascalCase` for classes. `UPPER_SNAKE_CASE` for constants.
+- Prefer f-strings over `format()` or `%` formatting.
+- Line length: 88 characters (Black default). Use Black for formatting, Ruff for linting.
+- Import order: stdlib, third-party, local. Separate with blank lines. Use `isort` profile for Black.
+- Use `from __future__ import annotations` at the top of every file for forward reference support.
+- Prefer `pathlib.Path` over `os.path` for filesystem operations.
+- Use `dataclasses` for simple data containers without validation. Use Pydantic models when validation is needed.
+
+## FastAPI Patterns
+
+- Define routers in separate files, one per resource domain: `routers/users.py`, `routers/items.py`.
+- Use `APIRouter` with a prefix and tags: `router = APIRouter(prefix="/users", tags=["users"])`.
+- Use dependency injection for shared logic: database sessions, auth, pagination, rate limiting.
+- Prefer `async def` for all route handlers. Use `def` (sync) only for CPU-bound operations that can't be easily made async.
+- Return Pydantic response models explicitly: `@router.get("/users/{id}", response_model=UserOut)`.
+- Use `status_code` parameter: `@router.post("/users", status_code=status.HTTP_201_CREATED)`.
+- Use `HTTPException` for expected errors. Use exception handlers for unexpected errors.
+- Document all endpoints with docstrings — they appear in the OpenAPI schema.
+
+## Pydantic v2 Models
+
+- Use Pydantic v2 syntax exclusively. Never use v1 deprecated patterns.
+- Use `model_validator(mode='before')` instead of deprecated `@validator`.
+- Use `field_validator` instead of `@validator` with `@classmethod`.
+- Use `model_config = ConfigDict(...)` instead of inner `class Config`.
+- Define separate models for input and output: `UserCreate`, `UserUpdate`, `UserOut`.
+- Use `Field()` for validation constraints: `Field(min_length=1, max_length=100, description="...")`.
+- Use `Annotated[int, Field(gt=0)]` pattern for reusable field types.
+- Prefer `Enum` or `Literal` types for fields with fixed allowed values.
+- Use `model_dump()` instead of deprecated `dict()`. Use `model_validate()` instead of `parse_obj()`.
+
+## Async Patterns
+
+- Use `asyncio` for I/O-bound operations: database queries, HTTP calls, file I/O.
+- Use `httpx.AsyncClient` for async HTTP requests, not `requests`.
+- Use `asyncio.gather()` for concurrent I/O operations when tasks are independent.
+- Never use blocking I/O (e.g., `open()`, `requests.get()`) inside async functions. Use `aiofiles` or `run_in_executor`.
+- For database access, use async drivers: `asyncpg` for PostgreSQL, `motor` for MongoDB, `aiosqlite` for SQLite.
+- Use `async for` with async iterators/generators for streaming responses.
+- Handle task cancellation gracefully with try/finally blocks.
+
+## Dependency Injection
+
+- Define dependencies as async functions that `yield` (for cleanup) or return values.
+- Use `Depends()` in route handler signatures for dependency injection.
+- Compose dependencies: a dependency can depend on other dependencies.
+- Use `Annotated` types for cleaner dependency signatures:
+  `CurrentUser = Annotated[User, Depends(get_current_user)]`
+- For database sessions, use a dependency that yields the session and closes it after the request.
+- Create a `deps.py` file in each router module for module-specific dependencies.
+
+## Error Handling
+
+- Raise `HTTPException` with appropriate status codes and descriptive detail messages.
+- Create custom exception classes for domain-specific errors. Map them to HTTP responses with exception handlers.
+- Use `@app.exception_handler(CustomError)` to centralize error response formatting.
+- Return consistent error response shapes: `{"detail": "message", "code": "ERROR_CODE"}`.
+- Log all 5xx errors with full context (request path, user, traceback). Never log sensitive data (passwords, tokens).
+- Use `try/except` with specific exception types. Never use bare `except:`.
+- For validation errors, let Pydantic/FastAPI handle them automatically — they return 422 with detailed error info.
+
+## Database (SQLAlchemy Async)
+
+- Use SQLAlchemy 2.0 style with `select()`, `insert()`, `update()`, `delete()` statements.
+- Use `AsyncSession` from `sqlalchemy.ext.asyncio`. Never use synchronous sessions.
+- Define models in `models/` directory, one file per domain entity.
+- Use Alembic for migrations. Always create a migration for schema changes.
+- Use repository pattern: encapsulate database queries in repository classes or functions.
+- Prefer `selectinload` or `subqueryload` for eager loading relationships. Avoid N+1 queries.
+
+## Testing
+
+- Use `pytest` with `pytest-asyncio` for async test support.
+- Use `httpx.AsyncClient` with `ASGITransport` for testing FastAPI apps without starting a server.
+- Create a test database fixture that sets up and tears down the database per test session.
+- Use factories (with `factory_boy` or custom functions) for creating test data.
+- Test each endpoint: happy path, validation errors, auth errors, not found, edge cases.
+- Place tests in a `tests/` directory mirroring the source structure.
+- Name test files `test_*.py` and test functions `test_*`.
+
+## File Structure
+
+```
+app/
+  main.py            — FastAPI app instance, middleware, startup/shutdown
+  config.py          — Settings with pydantic-settings (BaseSettings)
+  deps.py            — Global dependencies (DB session, auth)
+  routers/
+    users.py         — User endpoints
+    items.py         — Item endpoints
+  models/
+    user.py          — SQLAlchemy ORM models
+    item.py
+  schemas/
+    user.py          — Pydantic request/response schemas
+    item.py
+  services/
+    user_service.py  — Business logic layer
+  repositories/
+    user_repo.py     — Database access layer
+  middleware/
+    logging.py
+    cors.py
+  utils/
+    security.py      — Password hashing, JWT
+    pagination.py    — Pagination helpers
+tests/
+  conftest.py
+  test_users.py
+  test_items.py
+alembic/
+  versions/
+```
+
+## Security
+
+- Use OAuth2 with JWT tokens for authentication. Use `python-jose` for JWT encoding/decoding.
+- Hash passwords with `bcrypt` via `passlib`. Never store plaintext passwords.
+- Validate and sanitize all input through Pydantic models — do not trust raw request data.
+- Use CORS middleware with explicit allowed origins. Never use `allow_origins=["*"]` in production.
+- Rate limit sensitive endpoints (login, registration, password reset).
+- Use parameterized queries (SQLAlchemy handles this). Never concatenate user input into SQL strings.
+- Store secrets in environment variables. Use `pydantic-settings` with `.env` files for configuration.
+- Set secure headers: HSTS, X-Content-Type-Options, X-Frame-Options.
+
+## Performance
+
+- Use connection pooling for database connections (SQLAlchemy default with `create_async_engine`).
+- Use Redis for caching frequently accessed data. Use `aioredis` for async Redis access.
+- Implement pagination for all list endpoints. Default page size of 20-50 items.
+- Use background tasks (`BackgroundTasks`) for non-blocking operations like sending emails.
+- Profile slow endpoints with middleware that logs request duration.
+- Use streaming responses (`StreamingResponse`) for large file downloads.

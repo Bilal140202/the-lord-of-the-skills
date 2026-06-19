@@ -1,0 +1,221 @@
+---
+description: "SQL database design and queries"
+alwaysApply: false
+globs: "**/*.sql,**/*.ts,**/*.py"
+---
+
+# SQL & Database Operations — Cursor Rules
+# Comprehensive rules for database design, querying, and operations
+
+## Project Context
+You are working on a project that uses a relational database (PostgreSQL, MySQL, or
+SQLite). The codebase interacts with the database through an ORM (Prisma, SQLAlchemy,
+Drizzle) or raw SQL. Queries must be efficient, safe from injection, and the schema
+must be well-designed for the application's access patterns.
+
+## Tech Stack
+- PostgreSQL (preferred) / MySQL / SQLite
+- ORM: Prisma, SQLAlchemy, Drizzle, or TypeORM
+- Migrations: Prisma Migrate, Alembic, or raw SQL migrations
+- Connection pooling: PgBouncer or built-in pool
+- Query monitoring: EXPLAIN ANALYZE, pg_stat_statements
+
+## Schema Design
+
+### Naming Conventions
+- Tables: plural snake_case (e.g., `users`, `order_items`, `product_categories`)
+- Columns: snake_case (e.g., `created_at`, `user_id`, `is_active`)
+- Primary keys: `id` (auto-incrementing integer or UUID)
+- Foreign keys: `{referenced_table_singular}_id` (e.g., `user_id`, `order_id`)
+- Indexes: `idx_{table}_{columns}` (e.g., `idx_users_email`, `idx_orders_user_id_status`)
+- Unique constraints: `uq_{table}_{columns}` (e.g., `uq_users_email`)
+- Boolean columns: `is_` or `has_` prefix (e.g., `is_active`, `has_verified_email`)
+- Timestamps: `created_at`, `updated_at`, `deleted_at` (for soft deletes)
+- Enums: singular noun (e.g., `order_status`, `payment_method`)
+
+### Table Design Rules
+```sql
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_users_email UNIQUE (email),
+    CONSTRAINT chk_users_role CHECK (role IN ('user', 'admin', 'moderator'))
+);
+
+CREATE TABLE orders (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    total NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_orders_status CHECK (status IN ('pending', 'confirmed', 'shipped', 'delivered', 'cancelled')),
+    CONSTRAINT chk_orders_total CHECK (total >= 0)
+);
+
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
+```
+
+### Design Principles
+- Every table must have a primary key
+- Use appropriate data types — don't store numbers as strings
+- Use `TIMESTAMPTZ` (not `TIMESTAMP`) for time-aware timestamps
+- Use `NUMERIC`/`DECIMAL` for money, never `FLOAT` or `DOUBLE`
+- Add `NOT NULL` constraints unless the column genuinely needs nulls
+- Use `CHECK` constraints for valid value ranges
+- Add foreign key constraints for referential integrity
+- Include `created_at` and `updated_at` on every table
+- Normalize to 3NF, denormalize selectively for read performance
+
+## Indexing Strategy
+
+### When to Index
+- Foreign key columns (always)
+- Columns used in `WHERE` clauses frequently
+- Columns used in `ORDER BY` clauses
+- Columns used in `JOIN` conditions
+- Columns used in `UNIQUE` constraints (automatically indexed)
+
+### Index Types
+```sql
+-- B-tree (default, good for equality and range queries)
+CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
+
+-- Composite index (for multi-column queries — column order matters)
+CREATE INDEX idx_orders_user_status ON orders(user_id, status);
+
+-- Partial index (for filtered subsets — smaller and faster)
+CREATE INDEX idx_orders_pending ON orders(created_at) WHERE status = 'pending';
+
+-- GIN index (for full-text search, JSONB, arrays)
+CREATE INDEX idx_products_tags ON products USING GIN(tags);
+
+-- Expression index (for computed lookups)
+CREATE INDEX idx_users_email_lower ON users(LOWER(email));
+```
+
+### Indexing Rules
+- Index foreign keys to prevent slow DELETE cascades
+- Put the most selective column first in composite indexes
+- Use partial indexes for queries that always filter the same way
+- Don't over-index — each index slows down writes
+- Monitor unused indexes with `pg_stat_user_indexes`
+
+## Query Patterns
+
+### Efficient Queries
+```sql
+-- Pagination: cursor-based (fast on large tables)
+SELECT * FROM orders
+WHERE user_id = $1 AND id < $2
+ORDER BY id DESC
+LIMIT 20;
+
+-- Pagination: offset-based (simple but slow on large offsets)
+SELECT * FROM orders WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT 20 OFFSET 40;
+
+-- Aggregation with filtering
+SELECT
+    DATE_TRUNC('month', created_at) AS month,
+    COUNT(*) AS order_count,
+    SUM(total) AS revenue
+FROM orders
+WHERE status = 'delivered' AND created_at >= NOW() - INTERVAL '12 months'
+GROUP BY DATE_TRUNC('month', created_at)
+ORDER BY month DESC;
+
+-- Avoid SELECT * in production queries
+SELECT id, email, name, role FROM users WHERE id = $1;
+
+-- Use EXISTS instead of COUNT for existence checks
+SELECT EXISTS(SELECT 1 FROM users WHERE email = $1) AS email_taken;
+```
+
+### Joins
+```sql
+-- Prefer explicit JOIN syntax over WHERE clause joins
+SELECT o.id, o.total, u.name, u.email
+FROM orders o
+INNER JOIN users u ON u.id = o.user_id
+WHERE o.status = 'pending'
+ORDER BY o.created_at DESC;
+
+-- Use LEFT JOIN only when you need rows without matches
+SELECT u.id, u.name, COUNT(o.id) AS order_count
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id, u.name;
+```
+
+## Migrations
+
+### Rules
+- Every schema change goes through a migration — never modify production manually
+- Migrations must be reversible (include both `up` and `down`)
+- Use descriptive migration names: `add_status_to_orders`, `create_product_categories`
+- Never modify an existing migration that has been applied in production
+- Test migrations against a copy of production data when possible
+- Add indexes concurrently in production: `CREATE INDEX CONCURRENTLY`
+
+### Safe Migration Patterns
+```sql
+-- Adding a column (safe — no lock on reads)
+ALTER TABLE users ADD COLUMN phone VARCHAR(20);
+
+-- Adding NOT NULL column (safe approach — add nullable, backfill, then constrain)
+ALTER TABLE users ADD COLUMN bio TEXT;
+UPDATE users SET bio = '' WHERE bio IS NULL;
+ALTER TABLE users ALTER COLUMN bio SET NOT NULL;
+
+-- Adding index without locking writes
+CREATE INDEX CONCURRENTLY idx_users_phone ON users(phone);
+```
+
+## Security
+- ALWAYS use parameterized queries — never concatenate user input into SQL
+- Use the ORM's query builder or prepared statements
+- Grant minimum database permissions to the application role
+- Never expose database errors directly to the API response
+- Sanitize and validate all user input before querying
+- Use row-level security (RLS) in PostgreSQL for multi-tenant applications
+
+## Performance
+
+### Query Optimization
+- Use `EXPLAIN ANALYZE` to understand query execution plans
+- Look for sequential scans on large tables — add indexes
+- Avoid `SELECT *` — fetch only needed columns
+- Use `LIMIT` on all queries that return lists
+- Use `EXISTS` instead of `COUNT(*)` for boolean checks
+- Batch inserts with `INSERT INTO ... VALUES (...), (...), (...)`
+- Use `ON CONFLICT` (upsert) instead of select-then-insert
+
+### Connection Management
+- Use connection pooling (PgBouncer or ORM built-in pool)
+- Set appropriate pool size (typically 2x CPU cores)
+- Close connections in error handlers
+- Use read replicas for read-heavy workloads
+
+## Common Pitfalls
+- N+1 queries: fetching related records in a loop instead of a JOIN or IN clause
+- Missing indexes on foreign keys (slow cascading deletes)
+- Using OFFSET pagination on large tables (scans all skipped rows)
+- Storing monetary values as float (precision errors)
+- Not using transactions for multi-step operations
+- Forgetting to add indexes on columns used in WHERE/ORDER BY
+- Locking entire tables with ALTER TABLE on production (use CONCURRENTLY)
+- Not setting statement timeouts (one slow query blocks the pool)
+- Trusting ORM-generated queries without checking EXPLAIN output

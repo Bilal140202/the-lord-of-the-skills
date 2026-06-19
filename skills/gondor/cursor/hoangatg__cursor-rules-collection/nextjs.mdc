@@ -1,0 +1,63 @@
+---
+description: Next.js 15 App Router development with Server Components, Server Actions, and modern patterns
+globs: "**/*.tsx, **/*.ts, **/next.config.*, **/middleware.ts"
+alwaysApply: false
+---
+
+# Next.js 15 App Router Cursor Rules
+
+## Architecture
+- Use App Router (`app/` directory), not Pages Router
+- Default to Server Components — add `'use client'` only when necessary
+- Use route groups `(group)` for layout organization without URL impact
+- Co-locate page-specific components in the route directory
+
+## File Conventions
+- `page.tsx` — Route UI (required for route to be accessible)
+- `layout.tsx` — Shared UI wrapping children (persists across navigations)
+- `loading.tsx` — Loading UI with automatic Suspense boundary
+- `error.tsx` — Error UI with automatic Error Boundary
+- `not-found.tsx` — 404 UI
+- `route.ts` — API Route handler (GET, POST, PUT, DELETE)
+
+## Data Fetching
+- Fetch data in Server Components using `async/await` directly
+- Use `fetch()` with Next.js caching: `{ cache: 'force-cache' }` (default), `{ cache: 'no-store' }`, or `{ next: { revalidate: 3600 } }`
+- DON'T: Use `useEffect` for data fetching in Server Components
+- DON'T: Create API routes just to fetch data in Server Components
+- DO: Use Server Actions for mutations (`'use server'`)
+
+## Server Actions
+- Define in separate files with `'use server'` at the top
+- Use `useActionState` for form state management
+- Validate inputs with Zod before processing
+- Always `revalidatePath()` or `revalidateTag()` after mutations
+- Return structured responses: `{ success: boolean, data?, error? }`
+
+## Rendering Strategies
+- Static (default): Pages pre-rendered at build time
+- Dynamic: Use `cookies()`, `headers()`, or `searchParams` to opt into dynamic rendering
+- Streaming: Use `loading.tsx` or `<Suspense>` for progressive rendering
+- ISR: Use `revalidate` option for time-based revalidation
+
+## Performance
+- Use `next/image` for all images (automatic optimization)
+- Use `next/link` for client-side navigation
+- Use `next/font` for font optimization (no layout shift)
+- Implement parallel routes for independent loading
+- Use `generateStaticParams` for static generation of dynamic routes
+
+## Metadata & SEO
+- Export `metadata` object or `generateMetadata` function from pages/layouts
+- Include `title`, `description`, `openGraph`, `twitter` metadata
+- Use `sitemap.ts` and `robots.ts` for SEO
+
+## Middleware
+- Use `middleware.ts` at project root for auth, redirects, i18n
+- Keep middleware lightweight — it runs on every request
+- Use `matcher` config to limit which routes trigger middleware
+
+## Environment Variables
+- `NEXT_PUBLIC_*` — Exposed to browser (public)
+- Without prefix — Server-only (secrets)
+- DON'T: Expose API keys with `NEXT_PUBLIC_` prefix

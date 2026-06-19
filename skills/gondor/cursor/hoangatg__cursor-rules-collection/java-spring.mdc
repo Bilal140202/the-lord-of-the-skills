@@ -1,0 +1,41 @@
+---
+description: Spring Boot 3 JPA, Security, and microservices patterns
+globs: "**/*.java, **/*.kt"
+alwaysApply: false
+---
+
+# Spring Boot 3 Cursor Rules
+
+## Architecture
+- Follow layered architecture: Controller → Service → Repository
+- Use constructor injection (not field injection with `@Autowired`)
+- Keep controllers thin — delegate to service layer
+- Use DTOs for API request/response, entities for persistence
+
+## REST API
+- Use `@RestController` for API endpoints
+- Return `ResponseEntity<T>` for explicit HTTP status codes
+- Use `@Valid` with Bean Validation annotations for input validation
+- Follow REST conventions: GET (read), POST (create), PUT (update), DELETE (remove)
+- Use `@ExceptionHandler` / `@ControllerAdvice` for global error handling
+
+## JPA & Database
+- Use Spring Data JPA repositories (`JpaRepository<T, ID>`)
+- Define entities with `@Entity`, IDs with `@Id @GeneratedValue`
+- Use `@Transactional` on service methods (not repository)
+- Avoid N+1 queries: use `@EntityGraph` or JPQL `JOIN FETCH`
+- Use Flyway or Liquibase for database migrations
+
+## Security
+- Use Spring Security with `SecurityFilterChain` (not WebSecurityConfigurerAdapter)
+- Use JWT for stateless API authentication
+- Hash passwords with `BCryptPasswordEncoder`
+- Use `@PreAuthorize` for method-level security
+- Configure CORS for frontend origins
+
+## Testing
+- Use `@SpringBootTest` for integration tests
+- Use `@WebMvcTest` for controller layer tests
+- Use `@DataJpaTest` for repository tests
+- Use Testcontainers for database integration tests
+- Mock dependencies with `@MockBean`

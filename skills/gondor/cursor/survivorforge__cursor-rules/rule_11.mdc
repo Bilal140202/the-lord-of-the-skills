@@ -1,0 +1,170 @@
+---
+description: "Rust production-grade patterns"
+alwaysApply: false
+globs: "**/*.rs"
+---
+
+# Rust Production — Cursor Rules
+# Production Rust: error handling, async, lifetimes, and systems programming patterns
+
+# Project Context
+You are writing production Rust code. The project prioritizes safety, performance, and
+clear error handling. Follow Rust idioms, leverage the type system for correctness,
+and write code that the borrow checker loves. Use the 2021 edition or later.
+
+# Error Handling (Critical)
+- Use `thiserror` for library error types, `anyhow` for application-level errors.
+- Define domain-specific error enums:
+  ```rust
+  use thiserror::Error;
+
+  #[derive(Error, Debug)]
+  pub enum AppError {
+      #[error("User not found: {0}")]
+      UserNotFound(UserId),
+      #[error("Database error: {0}")]
+      Database(#[from] sqlx::Error),
+      #[error("Validation failed: {field} — {message}")]
+      Validation { field: String, message: String },
+  }
+  ```
+- Use `Result<T, E>` for all fallible operations. Never panic in library code.
+- Use the `?` operator for error propagation — don't call `.unwrap()` in production code.
+- Use `.expect("reason")` only when you have a provable invariant — document why.
+- Convert between error types with `From` implementations or `.map_err()`.
+- DON'T: Use `.unwrap()` — it panics. Use `?`, `.unwrap_or()`, `.unwrap_or_default()`, or match.
+- DON'T: Use `panic!()` for expected error conditions — return `Result` instead.
+
+# Ownership and Borrowing
+- Prefer borrowing (`&T`) over owning (`T`) in function parameters when you don't need ownership.
+- Use `&str` instead of `String` for function parameters (accept both owned and borrowed).
+- Use `&[T]` instead of `Vec<T>` for function parameters (accept any contiguous slice).
+- Use `Cow<'_, str>` when you might or might not need to own the data.
+- Clone deliberately — add a comment when cloning: `// Clone needed because X takes ownership`.
+- Prefer `to_owned()` over `to_string()` for `&str -> String` conversion (more explicit).
+- Use `Arc<T>` for shared ownership across threads. Use `Rc<T>` only in single-threaded code.
+
+# Struct and Type Design
+- Use the newtype pattern for type safety:
+  ```rust
+  pub struct UserId(pub i64);
+  pub struct Email(String);
+  ```
+- Derive common traits on all data types: `#[derive(Debug, Clone, PartialEq)]`.
+- Add `#[derive(Serialize, Deserialize)]` with serde for API types.
+- Use builder pattern for structs with many optional fields:
+  ```rust
+  pub struct Config {
+      host: String,
+      port: u16,
+      timeout: Duration,
+  }
+  impl Config {
+      pub fn builder() -> ConfigBuilder { ConfigBuilder::default() }
+  }
+  ```
+- Use `#[non_exhaustive]` on public enums and structs for future compatibility.
+
+# Trait Patterns
+- Define traits for abstractions that have multiple implementations (repository, client).
+- Use `impl Trait` in function return position for zero-cost abstraction:
+  ```rust
+  fn create_handler() -> impl Fn(Request) -> Response { ... }
+  ```
+- Use `dyn Trait` when you need runtime polymorphism (trait objects, heterogeneous collections).
+- Use `where` clauses for complex trait bounds:
+  ```rust
+  fn process<T>(item: T) -> Result<Output, Error>
+  where
+      T: Serialize + Send + 'static,
+  { ... }
+  ```
+- Implement `Display` for user-facing output, `Debug` for developer logging.
+
+# Async Patterns (Tokio)
+- Use `tokio` as the async runtime. Configure with `#[tokio::main]`.
+- Use `tokio::spawn` for concurrent tasks. Use `tokio::join!` for parallel execution.
+- Use `tokio::select!` for racing multiple futures.
+- For cancellation safety, prefer `tokio_util::sync::CancellationToken`.
+- Avoid holding locks across `.await` points — this causes deadlocks.
+- Use `tokio::sync::Mutex` instead of `std::sync::Mutex` in async code.
+- Prefer channels (`mpsc`, `oneshot`, `broadcast`) for inter-task communication over shared state.
+  ```rust
+  let (tx, mut rx) = tokio::sync::mpsc::channel::<Event>(100);
+  tokio::spawn(async move {
+      while let Some(event) = rx.recv().await {
+          process_event(event).await;
+      }
+  });
+  ```
+
+# Concurrency
+- Use `rayon` for CPU-bound parallelism (data parallelism on iterators).
+- Use `tokio` for I/O-bound concurrency (network, file system).
+- Prefer message passing over shared state. If sharing state, use `Arc<Mutex<T>>`.
+- Use `RwLock` when reads vastly outnumber writes.
+- DON'T: Block the async runtime with CPU-intensive work — use `tokio::task::spawn_blocking`.
+
+# Iterator Patterns
+- Chain iterator methods for data transformations:
+  ```rust
+  let active_emails: Vec<String> = users.iter()
+      .filter(|u| u.is_active)
+      .map(|u| u.email.clone())
+      .collect();
+  ```
+- Use `collect()` with type annotations when the target collection type isn't obvious.
+- Use `Iterator::try_fold` and `try_for_each` for fallible iterations.
+- Prefer iterators over indexed loops — they're often faster (bounds check elimination).
+
+# API Design
+- Make invalid states unrepresentable through types:
+  ```rust
+  // Instead of a `status: String` field, use an enum
+  enum OrderState {
+      Pending { created_at: DateTime },
+      Shipped { tracking_number: String },
+      Delivered { delivered_at: DateTime },
+  }
+  ```
+- Use the typestate pattern for compile-time workflow enforcement:
+  ```rust
+  struct HttpRequest<S: State> { ... }
+  struct Building;
+  struct Ready;
+  impl HttpRequest<Building> { fn header(self, ...) -> Self { ... } }
+  impl HttpRequest<Building> { fn build(self) -> HttpRequest<Ready> { ... } }
+  impl HttpRequest<Ready> { async fn send(self) -> Response { ... } }
+  ```
+- Follow the principle: parse, don't validate. Convert raw input into typed structures at boundaries.
+
+# Testing
+- Unit tests go in the same file: `#[cfg(test)] mod tests { ... }`.
+- Integration tests go in `tests/` directory.
+- Use `#[test]` for sync tests, `#[tokio::test]` for async tests.
+- Use `proptest` or `quickcheck` for property-based testing.
+- Use `mockall` for trait mocking in unit tests.
+- Test error paths as thoroughly as success paths.
+- Use `assert_eq!` with descriptive messages: `assert_eq!(result, expected, "user lookup failed")`.
+
+# Cargo.toml Best Practices
+- Pin major versions: `serde = "1"`, not `serde = "1.0.160"` (Cargo resolves to latest compatible).
+- Use `[workspace]` for multi-crate projects.
+- Enable only needed features: `tokio = { version = "1", features = ["rt-multi-thread", "macros"] }`.
+- Use `cargo clippy -- -D warnings` in CI — treat clippy warnings as errors.
+- Use `cargo deny` to audit dependencies for security and licensing.
+
+# Logging and Observability
+- Use `tracing` crate (not `log`) for structured, async-aware logging.
+- Add `#[instrument]` to key functions for automatic span creation.
+- Include context in log messages: user_id, request_id, operation.
+- Use span levels appropriately: ERROR, WARN, INFO, DEBUG, TRACE.
+
+# Common Mistakes to Avoid
+- DON'T: Use `.unwrap()` or `.expect()` in production paths — handle errors with `?`.
+- DON'T: Clone to satisfy the borrow checker — rethink ownership structure first.
+- DON'T: Use `String` where `&str` suffices in function parameters.
+- DON'T: Hold a `MutexGuard` across an await point.
+- DON'T: Use `unsafe` without a `// SAFETY:` comment explaining the invariant.
+- DON'T: Ignore compiler warnings — fix them or understand why they're safe.
+- DON'T: Use `Box<dyn Error>` as an error type — use typed errors.

@@ -1,0 +1,38 @@
+---
+description: AWS Lambda, S3, DynamoDB, and CDK serverless patterns
+globs: "**/*.ts, **/*.py, **/*.yaml"
+alwaysApply: false
+---
+
+# AWS Cursor Rules
+
+## Lambda
+- Keep functions focused — one function per responsibility
+- Use environment variables for configuration
+- Set appropriate memory (128MB-3008MB) and timeout (max 15min)
+- Use Lambda layers for shared dependencies
+- Use Powertools for logging, tracing, and metrics
+
+## API Gateway
+- Use REST API for complex routing, HTTP API for simple/fast/cheap
+- Implement request validation at API Gateway level
+- Use Lambda authorizers for auth, not in each function
+- Enable CORS in API Gateway configuration
+
+## DynamoDB
+- Design for access patterns — use single-table design when appropriate
+- Use GSI/LSI for secondary access patterns
+- Use `BatchGetItem` / `BatchWriteItem` for batch operations
+- Handle `ConditionalCheckFailedException` for optimistic locking
+
+## CDK (Infrastructure)
+- Use TypeScript CDK for type-safe infrastructure
+- Organize stacks by lifecycle: networking, compute, storage
+- Use constructs for reusable patterns
+- Use `cdk diff` before deploying
+
+## Best Practices
+- DO: Use IAM roles with least-privilege permissions
+- DO: Enable AWS CloudTrail for audit logging
+- DON'T: Put secrets in environment variables — use Secrets Manager / SSM
+- DON'T: Use `*` in IAM policies — specify exact resources

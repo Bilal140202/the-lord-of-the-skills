@@ -1,0 +1,180 @@
+# Node.js + Express + TypeScript — Cursor Rules
+# Production-grade Express API patterns with TypeScript
+
+# Project Context
+You are building a Node.js REST API with Express and TypeScript. The project follows a layered
+architecture (controller -> service -> repository) with strict TypeScript, proper error handling,
+and production-ready middleware patterns.
+
+# Project Structure
+```
+src/
+  app.ts                # Express app setup, middleware, routes
+  server.ts             # HTTP server startup, graceful shutdown
+  config/
+    index.ts            # Environment config with validation
+    database.ts         # Database connection config
+  routes/
+    index.ts            # Route aggregator
+    user.routes.ts      # Route definitions (thin layer)
+  controllers/
+    user.controller.ts  # Request parsing, response formatting
+  services/
+    user.service.ts     # Business logic
+  repositories/
+    user.repository.ts  # Database queries
+  models/
+    user.model.ts       # Database model / entity
+  middleware/
+    auth.middleware.ts
+    error.middleware.ts
+    validate.middleware.ts
+  types/
+    express.d.ts        # Express type augmentations
+    common.ts           # Shared types
+  utils/
+    logger.ts           # Structured logging (pino/winston)
+    errors.ts           # Custom error classes
+    async-handler.ts    # Async wrapper for Express routes
+```
+
+# TypeScript Configuration
+- Enable strict mode in tsconfig.json: `"strict": true`.
+- Set `"noUncheckedIndexedAccess": true` for safer array/object access.
+- Set `"exactOptionalPropertyTypes": true` to distinguish `undefined` from missing.
+- Use `"moduleResolution": "node16"` or `"bundler"` (not "node").
+- Use path aliases: `"@/*": ["src/*"]` with tsconfig-paths or a bundler.
+
+# Express Type Patterns
+- Type request handlers with explicit generics:
+  ```typescript
+  type Handler<P = {}, ResBody = {}, ReqBody = {}, Query = {}> =
+    RequestHandler<P, ResBody, ReqBody, Query>;
+  ```
+- Augment Express Request for custom properties (auth user, request ID):
+  ```typescript
+  declare global {
+    namespace Express {
+      interface Request {
+        user?: AuthenticatedUser;
+        requestId: string;
+      }
+    }
+  }
+  ```
+- Type route parameters: `req: Request<{ id: string }>`.
+- Type request body: `req: Request<{}, {}, CreateUserDto>`.
+- Type query params: `req: Request<{}, {}, {}, { page: string; limit: string }>`.
+
+# Controller Patterns
+- Controllers handle HTTP concerns only: parse request, call service, format response.
+- NO business logic in controllers. No database calls.
+- Use a consistent response format:
+  ```typescript
+  interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+    message?: string;
+    meta?: { page: number; total: number };
+  }
+  ```
+- Validate request body/params with zod or joi at the controller or middleware level.
+- Use the asyncHandler wrapper to catch rejected promises:
+  ```typescript
+  const asyncHandler = (fn: RequestHandler): RequestHandler =>
+    (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+  ```
+
+# Service Layer
+- Services contain business logic. They call repositories, not the database directly.
+- Services receive typed DTOs, not Express Request objects.
+- Services throw custom error classes, not HTTP errors.
+- Services are classes or modules — injectable and testable.
+
+# Error Handling
+- Define a custom error hierarchy:
+  ```typescript
+  class AppError extends Error {
+    constructor(
+      public statusCode: number,
+      public code: string,
+      message: string,
+      public isOperational = true
+    ) { super(message); }
+  }
+  class NotFoundError extends AppError { /* 404 */ }
+  class ValidationError extends AppError { /* 422 */ }
+  class UnauthorizedError extends AppError { /* 401 */ }
+  ```
+- Create a centralized error middleware (must have 4 parameters):
+  ```typescript
+  const errorHandler: ErrorRequestHandler = (err, req, res, next) => { ... }
+  ```
+- Register error middleware LAST in the middleware chain.
+- Log unexpected errors (non-operational) with full stack traces.
+- Never send stack traces to clients in production.
+
+# Middleware Patterns
+- Auth middleware: verify JWT/session, attach user to request, call next().
+- Validation middleware: validate request body against schema, return 422 on failure.
+- Rate limiting: use express-rate-limit with Redis store for distributed setups.
+- Request logging: use morgan or pino-http. Include request ID for tracing.
+- CORS: configure explicitly. Never use `cors()` with no options in production.
+- Helmet: always use helmet() for security headers.
+
+# Database Access
+- Use an ORM (Prisma, TypeORM, Drizzle) or query builder (Knex) — never raw SQL strings with concatenation.
+- Repository pattern: one repository per entity/table.
+- Use transactions for multi-step mutations.
+- Always parameterize queries to prevent SQL injection.
+- Connection pooling: configure pool size based on expected concurrency.
+
+# Authentication & Security
+- Store passwords hashed with bcrypt (min 12 rounds).
+- Use JWT with short expiry (15min access + long-lived refresh token).
+- Validate and sanitize ALL input — never trust req.body, req.params, or req.query.
+- Set secure cookie flags: httpOnly, secure, sameSite.
+- Implement CSRF protection for cookie-based auth.
+
+# Environment & Configuration
+- Use dotenv for local development only. Never commit .env files.
+- Validate all environment variables at startup with zod:
+  ```typescript
+  const envSchema = z.object({
+    NODE_ENV: z.enum(['development', 'production', 'test']),
+    PORT: z.coerce.number().default(3000),
+    DATABASE_URL: z.string().url(),
+    JWT_SECRET: z.string().min(32),
+  });
+  export const env = envSchema.parse(process.env);
+  ```
+- Fail fast: if required env vars are missing, crash on startup with a clear message.
+
+# Logging
+- Use a structured logger (pino recommended for performance).
+- Log levels: error, warn, info, debug. Set via environment variable.
+- Include context in every log: requestId, userId, operation.
+- DON'T: Use console.log in production code. Use the logger.
+- DON'T: Log sensitive data (passwords, tokens, PII).
+
+# Testing
+- Unit test services and utilities with Jest or Vitest.
+- Integration test API endpoints with supertest.
+- Mock the service layer when testing controllers.
+- Mock the repository layer when testing services.
+- Use factories for test data creation.
+- Test error paths: invalid input, unauthorized, not found, server errors.
+
+# Graceful Shutdown
+- Handle SIGTERM and SIGINT signals.
+- Stop accepting new connections, finish in-flight requests.
+- Close database connections and other resources.
+- Exit with code 0 on clean shutdown.
+
+# Common Mistakes to Avoid
+- DON'T: Forget to call next() in middleware — the request will hang.
+- DON'T: Use express.json() without a body size limit: `express.json({ limit: '10kb' })`.
+- DON'T: Catch errors and swallow them silently.
+- DON'T: Use synchronous file operations (fs.readFileSync) in request handlers.
+- DON'T: Store sessions in memory — use Redis or database-backed sessions.
+- DON'T: Return different response shapes from different endpoints.

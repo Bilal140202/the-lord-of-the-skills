@@ -1,0 +1,30 @@
+---
+description: Drizzle ORM type-safe SQL queries and schema definitions
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# Drizzle ORM Cursor Rules
+
+## Schema
+- Define schemas in `src/db/schema/` with table definitions
+- Use `pgTable`, `mysqlTable`, or `sqliteTable` based on database
+- Export types with `$inferSelect` and `$inferInsert`
+- Use `relations()` for defining relationships
+
+## Queries
+- Use the query builder for type-safe SQL: `db.select().from(users)`
+- Use relational queries: `db.query.users.findMany({ with: { posts: true } })`
+- Use `eq()`, `and()`, `or()` for conditions
+- Use prepared statements for repeated queries
+
+## Migrations
+- Use `npx drizzle-kit generate` to generate migrations
+- Use `npx drizzle-kit push` for rapid prototyping (no migration files)
+- Use `npx drizzle-kit migrate` for production deployments
+
+## Best Practices
+- DO: Use Drizzle's return type inference — avoid manual type definitions
+- DO: Use transactions for multi-table operations
+- DON'T: Mix raw SQL with Drizzle builder unless necessary
+- Keep database client as singleton instance

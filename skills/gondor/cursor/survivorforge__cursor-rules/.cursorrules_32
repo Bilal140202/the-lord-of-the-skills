@@ -1,0 +1,180 @@
+# API Microservices Architecture — Cursor Rules
+# Microservices patterns: service design, inter-service communication, Docker, and observability
+
+# Project Context
+You are building a microservices-based system. Each service is independently deployable, owns its
+data, and communicates via well-defined APIs (REST/gRPC) and async messaging (events/queues).
+The system uses Docker for containerization, and focuses on resilience, observability, and
+loose coupling between services.
+
+# Service Design Principles
+- Each service owns one bounded context (domain). It owns its data and exposes it only via API.
+- Services communicate through: synchronous APIs (REST/gRPC) and async events (message queues).
+- Database per service — never share a database between services.
+- Design for failure: every remote call can fail. Handle it gracefully.
+- Keep services small enough to be understood by one team, large enough to be independently useful.
+
+# Service Structure (Per Service)
+```
+service-name/
+  src/
+    main.ts               # Service entry point
+    config/               # Service configuration
+    api/
+      routes.ts           # Route definitions
+      handlers/           # Request handlers
+      middleware/          # Service-specific middleware
+    domain/
+      entities/           # Domain models
+      services/           # Business logic
+      events/             # Domain events (published)
+    infrastructure/
+      database/           # Database access, migrations
+      messaging/          # Message queue publisher/consumer
+      clients/            # External service clients
+    shared/
+      errors.ts
+      logger.ts
+  Dockerfile
+  docker-compose.yml      # Local development
+  .env.example
+  tests/
+```
+
+# API Design Between Services
+- Use RESTful APIs for synchronous request-response patterns.
+- Use gRPC for high-performance, low-latency internal service calls.
+- Version all APIs: `/api/v1/users`, never breaking changes on existing versions.
+- Define API contracts with OpenAPI (REST) or Protocol Buffers (gRPC).
+- Every service exposes a health check endpoint: `GET /health` returning `{ status: "ok" }`.
+- Return consistent error responses across all services:
+  ```json
+  {
+    "error": {
+      "code": "USER_NOT_FOUND",
+      "message": "User with ID 123 not found",
+      "service": "user-service",
+      "requestId": "req-abc-123"
+    }
+  }
+  ```
+
+# Async Event-Driven Communication
+- Use events for cross-service data propagation (eventual consistency):
+  ```typescript
+  // User service publishes:
+  interface UserCreatedEvent {
+    type: 'user.created';
+    data: { userId: string; email: string; name: string };
+    metadata: { timestamp: string; correlationId: string; service: string };
+  }
+  ```
+- Use a message broker: RabbitMQ, Apache Kafka, or cloud-native (SQS/SNS, Pub/Sub).
+- Events are facts about what happened — name them in past tense: `user.created`, `order.shipped`.
+- Every event includes: type, data payload, timestamp, correlation ID, source service.
+- Consumers must be idempotent — the same event delivered twice should not cause duplicate effects.
+- Use dead-letter queues for events that fail processing after retries.
+- DON'T: Put business logic in the event publisher — publish the fact, let consumers decide what to do.
+- DON'T: Rely on event ordering across different event types.
+
+# Service Communication Resilience
+- Implement circuit breaker pattern for synchronous calls:
+  ```typescript
+  // States: CLOSED (normal) -> OPEN (failing, reject calls) -> HALF_OPEN (testing recovery)
+  const breaker = new CircuitBreaker(callUserService, {
+    failureThreshold: 5,
+    resetTimeout: 30000,
+    fallback: () => cachedUserData,
+  });
+  ```
+- Implement retry with exponential backoff for transient failures:
+  ```typescript
+  async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try { return await fn(); }
+      catch (err) {
+        if (attempt === maxRetries) throw err;
+        await sleep(Math.pow(2, attempt) * 1000);
+      }
+    }
+  }
+  ```
+- Set timeouts on all HTTP clients (connect: 3s, read: 10s).
+- Implement bulkhead pattern: isolate resources so one failing dependency doesn't exhaust all threads.
+- Use fallback strategies: cached data, default values, degraded functionality.
+
+# Docker Patterns
+- Multi-stage Dockerfile for minimal production images:
+  ```dockerfile
+  FROM node:20-alpine AS builder
+  WORKDIR /app
+  COPY package*.json ./
+  RUN npm ci
+  COPY . .
+  RUN npm run build
+
+  FROM node:20-alpine AS runner
+  WORKDIR /app
+  RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -D appuser
+  COPY --from=builder /app/dist ./dist
+  COPY --from=builder /app/node_modules ./node_modules
+  USER appuser
+  EXPOSE 3000
+  CMD ["node", "dist/main.js"]
+  ```
+- Run as non-root user in production containers.
+- Use `.dockerignore` to exclude node_modules, .git, tests, docs.
+- Use docker-compose for local development with all services + infrastructure.
+- Health checks in docker-compose and Kubernetes manifests.
+
+# Service Discovery and Configuration
+- Use environment variables for service URLs and configuration.
+- In Kubernetes: use service DNS names (`http://user-service:3000`).
+- In Docker Compose: use service names as hostnames.
+- Externalize ALL configuration — no hardcoded URLs, ports, or credentials.
+- Use a central config service or config maps for shared configuration.
+
+# Observability (The Three Pillars)
+- **Logging**: Structured JSON logs with correlation IDs:
+  ```json
+  {"level":"info","service":"order-service","requestId":"req-123","correlationId":"corr-456","msg":"Order created","orderId":"ord-789"}
+  ```
+- **Metrics**: Expose Prometheus metrics at `/metrics`:
+  - Request count, latency, error rate per endpoint.
+  - Queue depth, processing time per event type.
+  - Circuit breaker state, retry count.
+- **Tracing**: Distributed tracing with OpenTelemetry:
+  - Propagate trace context (traceparent header) across service calls.
+  - Create spans for all significant operations (HTTP calls, DB queries, queue operations).
+  - Include service name, operation, and error status in spans.
+
+# Data Consistency
+- Accept eventual consistency between services — it's the trade-off for independence.
+- Use the Saga pattern for distributed transactions:
+  - Orchestration: a central coordinator manages the workflow steps.
+  - Choreography: each service publishes events, next service reacts.
+- Implement compensating transactions for rollback scenarios.
+- Use outbox pattern for reliable event publishing: write event + business data in one DB transaction, then publish from outbox table.
+
+# Testing Microservices
+- Unit tests: test business logic in isolation (mock external services).
+- Integration tests: test one service with real database, mock other services.
+- Contract tests: verify API contracts between consumer and provider (Pact).
+- End-to-end tests: test critical paths through multiple services (use sparingly).
+- Chaos testing: verify resilience by injecting failures (circuit breakers, timeouts).
+
+# Security Between Services
+- Use mutual TLS (mTLS) for service-to-service authentication in production.
+- Validate JWT tokens at the API gateway, pass verified claims to downstream services.
+- Use network policies to restrict which services can communicate.
+- Encrypt data in transit (TLS) and at rest (database encryption).
+- Rotate secrets and certificates regularly — use a secrets manager (Vault, AWS Secrets Manager).
+
+# Common Mistakes to Avoid
+- DON'T: Share databases between services — this creates tight coupling.
+- DON'T: Make synchronous chains of 5+ service calls — use async events instead.
+- DON'T: Skip idempotency in event consumers — duplicates will happen.
+- DON'T: Deploy all services together — each must be independently deployable.
+- DON'T: Use distributed transactions (2PC) — use sagas instead.
+- DON'T: Ignore the fallacy of zero-latency network — every remote call adds latency and can fail.
+- DON'T: Build microservices for a new product — start with a modular monolith, split later.

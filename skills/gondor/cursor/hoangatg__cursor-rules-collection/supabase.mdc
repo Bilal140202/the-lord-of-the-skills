@@ -1,0 +1,36 @@
+---
+description: Supabase Auth, Realtime, Edge Functions, and Row Level Security
+globs: "**/*.ts, **/*.tsx, **/*.sql"
+alwaysApply: false
+---
+
+# Supabase Cursor Rules
+
+## Auth
+- Use `supabase.auth.signInWithPassword()` for email/password
+- Use `supabase.auth.signInWithOAuth()` for social login
+- Listen to auth state: `supabase.auth.onAuthStateChange()`
+- Use `getUser()` server-side (secure), `getSession()` client-side
+
+## Database
+- Use Row Level Security (RLS) on ALL tables — no exceptions
+- Define RLS policies: `auth.uid() = user_id` pattern
+- Use database functions for complex business logic
+- Use realtime subscriptions for live data: `supabase.channel()`
+
+## Edge Functions
+- Use Deno runtime for Edge Functions
+- Handle CORS in every function
+- Validate inputs before processing
+- Use `supabase.auth.getUser()` for authenticated functions
+
+## Storage
+- Use storage buckets with RLS policies
+- Generate signed URLs for private files
+- Use image transformations for thumbnails
+
+## Best Practices
+- DO: Enable RLS on every table immediately
+- DO: Use Supabase client library (not raw HTTP)
+- DON'T: Expose service_role key to the client
+- DON'T: Skip RLS policies — even for "simple" apps

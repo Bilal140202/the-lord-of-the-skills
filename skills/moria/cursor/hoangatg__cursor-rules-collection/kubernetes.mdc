@@ -1,0 +1,32 @@
+---
+description: Kubernetes deployments, services, and Helm chart patterns
+globs: "**/*.yaml, **/*.yml"
+alwaysApply: false
+---
+
+# Kubernetes Cursor Rules
+
+## Resource Definitions
+- Always set resource requests and limits for CPU and memory
+- Use `Deployment` for stateless apps, `StatefulSet` for stateful
+- Define liveness and readiness probes for all containers
+- Use `ConfigMap` for config, `Secret` for sensitive data
+- Use namespaces for environment separation
+
+## Best Practices
+- DO: Use labels consistently: `app`, `version`, `environment`
+- DO: Use `RollingUpdate` strategy with `maxSurge` and `maxUnavailable`
+- DO: Set `PodDisruptionBudget` for critical services
+- DON'T: Use `latest` tag — always pin image versions
+- DON'T: Store secrets in plaintext — use sealed secrets or external vault
+
+## Helm Charts
+- Use `values.yaml` for environment-specific configuration
+- Use `_helpers.tpl` for reusable templates
+- Version chart independently from application
+- Use `helm diff` before applying changes
+
+## Networking
+- Use `Service` for internal communication, `Ingress` for external
+- Use `NetworkPolicy` for pod-to-pod traffic control
+- Use TLS termination at ingress level

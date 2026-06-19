@@ -1,0 +1,36 @@
+---
+description: Docker multi-stage builds, Compose, and container security
+globs: "**/Dockerfile, **/docker-compose*.yml, **/.dockerignore"
+alwaysApply: false
+---
+
+# Docker Cursor Rules
+
+## Dockerfile
+- Use multi-stage builds to minimize image size
+- Use specific base image tags (not `latest`): `node:22-alpine`
+- Order layers by change frequency (cache optimization)
+- Copy `package.json` and install deps before copying source code
+- Use `.dockerignore` to exclude `node_modules`, `.git`, etc.
+- Run as non-root user: `USER node`
+- Use `COPY --chown=node:node` for proper file permissions
+
+## Docker Compose
+- Use named volumes for persistent data
+- Define health checks for all services
+- Use environment files (`.env`) for configuration
+- Use `depends_on` with `condition: service_healthy`
+- Define networks for service isolation
+
+## Security
+- Scan images with `docker scout` or `trivy`
+- Use read-only filesystem where possible: `read_only: true`
+- Drop capabilities: `cap_drop: [ALL]`
+- Never store secrets in images — use Docker secrets or env vars
+- Keep images up to date — rebuild regularly
+
+## Best Practices
+- DO: Use `alpine` variants for smaller images
+- DO: Use `--no-cache` for package managers in Dockerfile
+- DON'T: Run multiple processes in one container (use Compose)
+- DON'T: Use `docker exec` in production — design for immutability

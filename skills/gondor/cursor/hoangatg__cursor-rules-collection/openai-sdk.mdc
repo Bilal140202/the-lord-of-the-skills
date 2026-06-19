@@ -1,0 +1,38 @@
+---
+description: OpenAI SDK chat completions, streaming, function calling, and vision
+globs: "**/*.ts, **/*.py"
+alwaysApply: false
+---
+
+# OpenAI SDK Cursor Rules
+
+## Chat Completions
+- Use `gpt-4o` for quality, `gpt-4o-mini` for speed/cost
+- Set `temperature` based on use case: 0 for deterministic, 0.7-1.0 for creative
+- Set `max_tokens` to control response length
+- Use system messages to set behavior and constraints
+
+## Streaming
+- Use streaming for real-time UI updates: `stream: true`
+- Process chunks as they arrive with async iteration
+- Handle `[DONE]` signal for stream completion
+- Implement error handling for mid-stream failures
+
+## Function Calling (Tools)
+- Define tools with JSON Schema for parameters
+- Use `tool_choice: "auto"` for LLM to decide when to call tools
+- Validate tool call arguments before executing
+- Return structured results back to the model
+
+## Structured Output
+- Use `response_format: { type: "json_schema" }` for guaranteed JSON
+- Define response schemas with Zod/Pydantic
+- Use for data extraction, classification, structured analysis
+
+## Best Practices
+- DO: Implement exponential backoff for rate limits
+- DO: Use tiktoken to count tokens before sending
+- DO: Cache responses for identical prompts
+- DON'T: Send sensitive data without considering privacy
+- DON'T: Blindly trust model output — validate and sanitize
+- DON'T: Use `gpt-4o` for simple tasks that `gpt-4o-mini` handles well

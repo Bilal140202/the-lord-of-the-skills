@@ -1,0 +1,44 @@
+---
+description: Chrome Extension Manifest V3 with content scripts, popup, and service worker
+globs: "**/*.ts, **/*.tsx, **/*.json"
+alwaysApply: false
+---
+
+# Chrome Extension (Manifest V3) Cursor Rules
+
+## Architecture
+- Use Manifest V3 (V2 is deprecated)
+- Service Worker: background logic (replaces background pages)
+- Content Scripts: inject into web pages
+- Popup: extension popup UI (React/Vue/vanilla)
+- Options Page: extension settings
+
+## Manifest V3 Key Changes
+- `service_worker` instead of `background.scripts`
+- `action` instead of `browser_action`/`page_action`
+- Use `chrome.scripting.executeScript()` instead of `tabs.executeScript()`
+- Declarative net request (`declarativeNetRequest`) instead of `webRequest`
+
+## Communication
+- Use `chrome.runtime.sendMessage()` for popup ↔ service worker
+- Use `chrome.tabs.sendMessage()` for service worker → content script
+- Use `chrome.runtime.onMessage.addListener()` for receiving messages
+- Use `chrome.storage.local` for persistent data (not localStorage)
+
+## Security
+- Use `content_security_policy` in manifest
+- Minimize required permissions — request only what's needed
+- Use `optional_permissions` for features not always needed
+- Sanitize content from web pages before processing
+
+## Development
+- Use TypeScript for type safety
+- Use webpack/vite for bundling
+- Test in Chrome DevTools: `chrome://extensions` → Developer mode
+- Use `chrome.runtime.getManifest()` to access manifest data
+
+## Publishing
+- Create compelling Chrome Web Store listing
+- Include screenshots and promotional images
+- Write clear privacy policy
+- Respond to user reviews promptly

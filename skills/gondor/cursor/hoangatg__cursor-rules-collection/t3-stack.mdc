@@ -1,0 +1,31 @@
+---
+description: T3 Stack (Next.js + tRPC + Prisma + Tailwind + NextAuth) full-stack patterns
+globs: "**/*.ts, **/*.tsx"
+alwaysApply: false
+---
+
+# T3 Stack Cursor Rules
+
+## Architecture
+- Full-stack TypeScript: Next.js (frontend) + tRPC (API) + Prisma (DB) + Tailwind (styling)
+- Use `create-t3-app` for project initialization
+- Type safety end-to-end: from database schema to UI components
+- Auth: NextAuth.js with session-based or JWT strategy
+
+## tRPC Integration
+- Define routers in `src/server/api/routers/`
+- Merge all routers in `src/server/api/root.ts`
+- Use `protectedProcedure` for authenticated endpoints
+- Use React Query integration: `api.router.procedure.useQuery()`
+
+## Prisma
+- Schema in `prisma/schema.prisma`
+- Use `prisma.$transaction()` for atomic operations
+- Seed data in `prisma/seed.ts`
+- Run `npx prisma db push` for prototyping, `migrate` for production
+
+## Best Practices
+- Use Server Components for data fetching, Client Components for interactivity
+- Validate inputs with Zod schemas shared between client and server
+- Use environment validation with `@t3-oss/env-nextjs`
+- Keep API procedures thin — delegate to service layer for complex logic

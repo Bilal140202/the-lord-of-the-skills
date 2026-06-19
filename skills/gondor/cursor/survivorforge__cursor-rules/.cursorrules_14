@@ -1,0 +1,181 @@
+# Next.js 14+ App Router — Cursor Rules
+# Comprehensive rules for Next.js applications using the App Router
+
+## Project Context
+You are working on a Next.js 14+ application using the App Router (app/ directory).
+The project leverages React Server Components by default, with Client Components used
+selectively. Server Actions handle mutations. The codebase follows Next.js conventions
+for file-based routing, layouts, and data fetching.
+
+## Tech Stack
+- Next.js 14+ with App Router
+- React 18+ (Server Components by default)
+- TypeScript (strict mode)
+- Tailwind CSS for styling
+- Prisma or Drizzle for database ORM
+- NextAuth.js / Auth.js for authentication
+- Vercel for deployment (or self-hosted)
+
+## Coding Style
+
+### Naming Conventions
+- Route files: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`
+- Server Actions: `actions.ts` in the route segment or `src/actions/`
+- API Routes: `route.ts` in `app/api/` segments
+- Components: PascalCase files matching component name
+- Utilities: camelCase in `src/lib/`
+
+### File Structure
+```
+app/
+  (marketing)/          # Route groups for layout segmentation
+    page.tsx
+    layout.tsx
+  (dashboard)/
+    layout.tsx
+    settings/
+      page.tsx
+  api/
+    webhooks/
+      route.ts
+src/
+  components/
+    ui/                 # Shared UI primitives
+    forms/              # Form components
+  lib/
+    db.ts               # Database client
+    auth.ts             # Auth configuration
+    utils.ts            # Utility functions
+  actions/              # Server Actions
+  types/                # Shared TypeScript types
+```
+
+## Server vs Client Components
+
+### Server Components (default — no directive needed)
+- Data fetching directly in the component (async/await)
+- Access to backend resources (database, file system, env secrets)
+- Large dependencies that should stay on the server
+- Static content that doesn't need interactivity
+- Components that pass data down to Client Components
+
+### Client Components (add `'use client'` directive)
+- Interactive UI (onClick, onChange, onSubmit handlers)
+- Browser APIs (localStorage, window, navigator)
+- React hooks (useState, useEffect, useContext, useReducer)
+- Third-party libraries that use browser APIs
+- Components that depend on user interaction state
+
+### Rules
+- Default to Server Components. Only add `'use client'` when you need interactivity.
+- Push `'use client'` boundary as far down the tree as possible.
+- Never import a Server Component into a Client Component — pass as children instead.
+- Never use `'use server'` inside a Client Component file.
+- Keep client bundles small — extract static parts into Server Components.
+
+## Data Fetching
+
+### Server Components
+```tsx
+// Fetch data directly — no useEffect needed
+async function ProductPage({ params }: { params: { id: string } }) {
+  const product = await db.product.findUnique({ where: { id: params.id } });
+  if (!product) notFound();
+  return <ProductDetail product={product} />;
+}
+```
+
+### Caching and Revalidation
+- Use `fetch()` with `next: { revalidate: 3600 }` for time-based revalidation
+- Use `revalidatePath()` or `revalidateTag()` in Server Actions for on-demand revalidation
+- Mark dynamic pages with `export const dynamic = 'force-dynamic'` when needed
+- Use `unstable_cache()` for non-fetch data sources (database queries)
+- Understand the caching layers: Request Memoization → Data Cache → Full Route Cache
+
+### Server Actions
+```tsx
+'use server'
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { z } from 'zod';
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().min(1),
+});
+
+export async function createPost(formData: FormData) {
+  const validated = CreatePostSchema.safeParse({
+    title: formData.get('title'),
+    content: formData.get('content'),
+  });
+
+  if (!validated.success) {
+    return { error: validated.error.flatten().fieldErrors };
+  }
+
+  await db.post.create({ data: validated.data });
+  revalidatePath('/posts');
+  redirect('/posts');
+}
+```
+
+## Error Handling
+- Use `error.tsx` boundary files for route segment error handling
+- Use `not-found.tsx` for 404 states triggered by `notFound()`
+- Use `loading.tsx` for streaming/Suspense loading states
+- Validate all Server Action inputs with Zod or similar
+- Return structured error objects from Server Actions, don't throw
+- Use `global-error.tsx` in app root for root layout errors
+- Log server errors to an error tracking service (Sentry, etc.)
+
+## Route Configuration
+- `generateStaticParams()` for static generation of dynamic routes
+- `generateMetadata()` for dynamic SEO metadata per route
+- Route groups `(groupName)` for layout organization without affecting URL
+- Parallel routes `@slotName` for simultaneous rendering
+- Intercepting routes `(.)` `(..)` for modal patterns
+
+## Metadata and SEO
+```tsx
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const product = await getProduct(params.id);
+  return {
+    title: product.name,
+    description: product.description,
+    openGraph: { images: [product.image] },
+  };
+}
+```
+
+## Middleware
+- Use `middleware.ts` at project root for auth checks, redirects, headers
+- Keep middleware lightweight — it runs on every matching request
+- Use `matcher` config to limit which routes trigger middleware
+
+## Testing
+- Use `@testing-library/react` for component tests
+- Test Server Components by testing their rendered output
+- Test Server Actions as regular async functions
+- Use Playwright or Cypress for E2E testing of full page flows
+- Mock database calls in tests, not fetch calls
+
+## Performance Guidelines
+- Use `next/image` for all images (automatic optimization)
+- Use `next/font` for font loading (no layout shift)
+- Use `next/link` for client-side navigation (prefetching)
+- Implement streaming with `loading.tsx` and `<Suspense>`
+- Use `dynamic()` imports for heavy client components
+- Prefer Server Components to reduce client JavaScript
+- Set appropriate `revalidate` values — don't over-fetch
+
+## Common Pitfalls
+- Importing server-only code in Client Components (use `server-only` package)
+- Passing non-serializable props from Server to Client Components
+- Over-using `'use client'` — pushing it to the root layout
+- Not handling the `loading` and `error` states for each route segment
+- Forgetting to revalidate after mutations in Server Actions
+- Using `router.push()` in Server Actions instead of `redirect()`
+- Accessing `cookies()` or `headers()` in cached/static routes without declaring dynamic
+- Nesting `<Suspense>` boundaries inefficiently causing waterfall loading

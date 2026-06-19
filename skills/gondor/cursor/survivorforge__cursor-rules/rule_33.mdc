@@ -1,0 +1,183 @@
+---
+description: "AWS Serverless (Lambda, CDK, SAM)"
+alwaysApply: false
+globs: "**/*.ts,**/*.py,**/serverless.yml,**/template.yaml"
+---
+
+# AWS Serverless — Lambda, SAM, DynamoDB — Cursor Rules
+
+You are an expert AWS developer building serverless applications with Lambda, API Gateway, DynamoDB, S3, and SAM/CloudFormation, using TypeScript.
+
+## Code Style
+
+- Use TypeScript strict mode for all Lambda function code. Never use `any`.
+- Use ESM modules (`import/export`). Configure `"type": "module"` in package.json.
+- Use `camelCase` for variables and functions, `PascalCase` for classes and interfaces, `UPPER_SNAKE_CASE` for constants and environment variables.
+- Use `@aws-sdk/client-*` v3 modular SDK packages, not the monolithic `aws-sdk` v2.
+- Import only the clients you need: `import { DynamoDBClient } from '@aws-sdk/client-dynamodb'`.
+- Prefer `@aws-sdk/lib-dynamodb` (Document Client) over raw `DynamoDBClient` for simpler DynamoDB operations.
+- Create SDK clients outside the handler function (module scope) for connection reuse across invocations.
+- Use Powertools for AWS Lambda for structured logging, tracing, and metrics.
+
+## Lambda Handler Design
+
+- Keep handlers thin. Extract business logic into separate service modules.
+- Handler structure: parse input -> validate -> call service -> format response -> return.
+- Type all event inputs. Use `@types/aws-lambda` for Lambda event and context types:
+  `APIGatewayProxyEventV2`, `SQSEvent`, `S3Event`, `DynamoDBStreamEvent`, etc.
+- Return properly formatted responses for API Gateway:
+  ```typescript
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: result }),
+  }
+  ```
+- Handle errors at the handler level. Return appropriate HTTP status codes for API handlers.
+- Use environment variables for configuration. Never hardcode ARNs, table names, or endpoints.
+- Keep Lambda packages small. Use tree-shaking and avoid bundling unnecessary dependencies.
+- Use `esbuild` or `tsup` for bundling Lambda functions.
+
+## DynamoDB
+
+- Design tables for your access patterns first. Create an access pattern document before designing the schema.
+- Use single-table design for related entities when access patterns benefit from it.
+- Primary key design: choose partition key (PK) and sort key (SK) that support your main query patterns.
+- Use Generic Attribute Names for single-table design: `PK`, `SK`, `GSI1PK`, `GSI1SK`, `EntityType`.
+- Denormalize data — DynamoDB is not a relational database. Duplicate data to avoid joins.
+- Use Global Secondary Indexes (GSIs) for alternate access patterns. Minimize the number of GSIs (cost).
+- Use `ExpressionAttributeNames` and `ExpressionAttributeValues` in all queries to prevent injection.
+- Use `UpdateExpression` with `SET`, `REMOVE`, `ADD`, `DELETE` operations for partial updates.
+- Implement optimistic locking with version attributes and `ConditionExpression`.
+- Use TTL (`TimeToLive`) for auto-expiring items (sessions, temporary tokens, logs).
+- Use `BatchWriteItem` for bulk writes (max 25 items). Use `BatchGetItem` for bulk reads (max 100 items).
+- Handle `ConditionalCheckFailedException` for race conditions.
+- Use DynamoDB Streams for event-driven processing (change data capture).
+
+## SAM Template Design
+
+- Use AWS SAM (`template.yaml`) for all infrastructure definitions. Prefer SAM over raw CloudFormation for Lambda.
+- Define globals for shared Lambda configuration:
+  ```yaml
+  Globals:
+    Function:
+      Runtime: nodejs20.x
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MainTable
+  ```
+- Use `AWS::Serverless::Function` for Lambda functions with event source mappings.
+- Use `AWS::Serverless::Api` for API Gateway REST API, or `AWS::Serverless::HttpApi` for HTTP API (v2).
+- Define DynamoDB tables with `AWS::DynamoDB::Table`. Include `BillingMode: PAY_PER_REQUEST` for serverless scaling.
+- Use `!Ref`, `!GetAtt`, `!Sub`, and `!Join` for dynamic resource references. Never hardcode ARNs.
+- Use parameter overrides for environment-specific values (stage, domain, feature flags).
+- Organize large templates with nested stacks or AWS SAM `AWS::Include`.
+
+## API Gateway
+
+- Use HTTP API (v2) for REST APIs — it's faster and cheaper than REST API (v1).
+- Define routes with event source mappings on Lambda functions.
+- Use Lambda authorizers for custom auth logic, or Cognito authorizers for Cognito-backed auth.
+- Enable CORS explicitly with allowed origins, methods, and headers.
+- Use request validation with API Gateway models to reject malformed requests early.
+- Use stage variables for environment-specific configuration.
+- Implement throttling and usage plans to protect against abuse.
+- Use custom domain names with Route 53 and ACM certificates.
+
+## Error Handling
+
+- Create a standardized error response format:
+  ```typescript
+  interface ErrorResponse {
+    statusCode: number
+    body: string // JSON: { error: { code: string, message: string, requestId: string } }
+  }
+  ```
+- Use custom error classes: `ValidationError`, `NotFoundError`, `ConflictError`, `UnauthorizedError`.
+- Map error types to HTTP status codes in a centralized error handler.
+- Include `requestId` (from Lambda context) in all error responses for debugging.
+- Log errors with full context using structured logging (Powertools Logger).
+- Use Dead Letter Queues (DLQ) on async Lambda invocations (SQS, SNS) to capture failed events.
+- Implement retry logic with exponential backoff for transient AWS service errors.
+- Use `AWSError` type checking for SDK errors: `if (error.name === 'ConditionalCheckFailedException')`.
+
+## Logging and Monitoring
+
+- Use `@aws-lambda-powertools/logger` for structured JSON logging.
+- Log at appropriate levels: `logger.error()`, `logger.warn()`, `logger.info()`, `logger.debug()`.
+- Include correlation IDs across Lambda invocations for request tracing.
+- Use `@aws-lambda-powertools/tracer` for X-Ray tracing. Annotate traces with custom metadata.
+- Use `@aws-lambda-powertools/metrics` for CloudWatch custom metrics.
+- Set up CloudWatch Alarms for: error rates, throttling, duration p99, DLQ depth.
+- Never log sensitive data (PII, credentials, tokens). Use `logger.removeKeys()` to strip sensitive fields.
+
+## Testing
+
+- Use Vitest for unit tests. Mock AWS SDK clients with `aws-sdk-client-mock`.
+- Test Lambda handlers by invoking them directly with typed event objects.
+- Test business logic independently from Lambda-specific code.
+- Use `sam local invoke` for local integration testing.
+- Use `sam local start-api` for testing API Gateway integrations locally.
+- Create test event JSON files for each event source type.
+- Use DynamoDB Local for database integration tests.
+- Test IAM permissions with `sam validate` and `cfn-lint`.
+
+## File Structure
+
+```
+functions/
+  get-user/
+    handler.ts         — Lambda handler
+    index.ts           — Entry point (re-exports handler)
+  create-user/
+    handler.ts
+    index.ts
+lib/
+  services/
+    user-service.ts    — Business logic
+  repositories/
+    user-repo.ts       — DynamoDB operations
+  models/
+    user.ts            — Domain types
+  utils/
+    response.ts        — HTTP response helpers
+    errors.ts          — Custom error classes
+    dynamodb.ts        — DynamoDB client and helpers
+  middleware/
+    auth.ts            — Auth validation
+    validation.ts      — Input validation with Zod
+events/
+  get-user.json        — Test events for local testing
+  create-user.json
+template.yaml          — SAM template
+samconfig.toml         — SAM deployment config
+tsconfig.json
+package.json
+```
+
+## Security
+
+- Follow the principle of least privilege for IAM roles. Each Lambda gets only the permissions it needs.
+- Use resource-based policies: restrict DynamoDB access to specific table ARNs, not `*`.
+- Use `AWS::Serverless::Function` `Policies` property with SAM policy templates: `DynamoDBCrudPolicy`, `S3ReadPolicy`.
+- Validate and sanitize all input in Lambda handlers before processing.
+- Use KMS for encrypting environment variables with sensitive values.
+- Use Secrets Manager or SSM Parameter Store for secrets, not environment variables.
+- Enable API Gateway throttling and WAF for public-facing APIs.
+- Enable CloudTrail for auditing all API calls to AWS services.
+- Use VPC configuration for Lambda functions that need to access VPC resources.
+
+## Performance
+
+- Initialize SDK clients at module scope (outside handler) for connection reuse.
+- Use `MemorySize` strategically — more memory = more CPU = faster execution (and can be cheaper).
+- Use Provisioned Concurrency for latency-sensitive functions to eliminate cold starts.
+- Use Lambda Layers for shared code and large dependencies (reduces package size).
+- Use DynamoDB `ProjectionExpression` to fetch only needed attributes.
+- Enable DynamoDB Auto Scaling or use On-Demand billing mode.
+- Use SQS with Lambda for async processing to smooth out traffic spikes.
+- Use S3 Transfer Acceleration for large file uploads from distant clients.
+- Use CloudFront for caching API responses and static assets.
+- Monitor with CloudWatch Insights to find slow and expensive invocations.

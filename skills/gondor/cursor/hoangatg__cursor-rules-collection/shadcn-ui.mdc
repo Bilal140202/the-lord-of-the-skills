@@ -1,0 +1,38 @@
+---
+description: shadcn/ui accessible components with Radix primitives and Tailwind styling
+globs: "**/*.tsx, **/*.jsx"
+alwaysApply: false
+---
+
+# shadcn/ui Cursor Rules
+
+## Architecture
+- shadcn/ui is NOT a component library — it's copy-paste components you own
+- Components live in `components/ui/` — you modify them directly
+- Built on Radix UI primitives (accessible by default)
+- Styled with Tailwind CSS + CSS variables for theming
+
+## Installation
+- Use `npx shadcn@latest add [component]` to add components
+- Components are added to your codebase — you own and modify them
+- Theme configuration in `globals.css` with CSS variables
+
+## Best Practices
+- DO: Customize components to match your design system
+- DO: Use the `cn()` utility for conditional class merging
+- DO: Compose complex UI from multiple shadcn components
+- DO: Use `cva()` (class-variance-authority) for component variants
+- DON'T: Install components you won't use
+- DON'T: Override Radix accessibility features
+
+## Theming
+- Define theme in CSS variables: `--primary`, `--secondary`, `--destructive`
+- Support dark mode with `.dark` class or `prefers-color-scheme`
+- Use HSL color format for consistency
+
+## Common Components
+- `<Button variant="default|destructive|outline|ghost">` — Variants, not custom classes
+- `<Dialog>` / `<Sheet>` — Modal + slide-over panels
+- `<Command>` — Command palette (cmdk)
+- `<Form>` — React Hook Form + Zod validation integration
+- `<DataTable>` — TanStack Table integration

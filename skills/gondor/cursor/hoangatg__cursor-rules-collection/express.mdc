@@ -1,0 +1,39 @@
+---
+description: Express.js middleware, routing, and production error handling patterns
+globs: "**/*.js, **/*.ts"
+alwaysApply: false
+---
+
+# Express.js Cursor Rules
+
+## Routing
+- Use `express.Router()` for modular route organization
+- Group routes by resource: `/api/users`, `/api/posts`
+- Use route parameters for resource identification: `/api/users/:id`
+- Version APIs in the URL: `/api/v1/users`
+
+## Middleware Order
+1. Security: `helmet()`, `cors()`, `rateLimit()`
+2. Parsing: `express.json()`, `express.urlencoded()`
+3. Logging: request logger (morgan/pino)
+4. Auth: authentication middleware
+5. Routes: application routes
+6. Error: centralized error handler (MUST be last, with 4 params)
+
+## Error Handling
+- Always use `next(error)` to pass errors to the error handler
+- Create centralized error handler: `(err, req, res, next) => {}`
+- Use async wrapper: wrap async handlers to catch promise rejections
+- Return consistent error format: `{ error: { code, message, details } }`
+
+## Security
+- Use `helmet()` for HTTP security headers
+- Configure CORS properly — never use `cors({ origin: '*' })` in production
+- Validate request body with Zod/Joi before processing
+- Use parameterized queries — never concatenate SQL strings
+
+## Performance
+- Use `compression()` middleware
+- Implement response caching headers (`Cache-Control`, `ETag`)
+- Use `express.static()` with `maxAge` for static files
+- Keep middleware chain short — remove unused middleware

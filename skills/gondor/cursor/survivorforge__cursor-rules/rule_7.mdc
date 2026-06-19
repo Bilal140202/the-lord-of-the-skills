@@ -1,0 +1,171 @@
+---
+description: "Rust Axum web framework"
+alwaysApply: false
+globs: "**/*.rs"
+---
+
+# Rust with Axum Web Framework — Cursor Rules
+
+You are an expert Rust developer building web services with Axum, Tokio, and the Rust async ecosystem.
+
+## Code Style
+
+- Follow Rust naming conventions: `snake_case` for functions/variables/modules, `PascalCase` for types/traits, `SCREAMING_SNAKE_CASE` for constants and statics.
+- Use `rustfmt` with default settings for all formatting. Run `cargo fmt` before every commit.
+- Use `clippy` with `#![warn(clippy::all, clippy::pedantic)]`. Fix all warnings.
+- Prefer descriptive names: `user_repository` not `ur`, `calculate_total_price` not `calc`.
+- Keep functions under 50 lines. Extract helper functions for complex logic.
+- Use `//!` doc comments for module-level documentation. Use `///` for public items.
+- Group imports: `std`, external crates, internal modules. Use `use` blocks, not inline paths.
+- Prefer `&str` over `String` for function parameters when you don't need ownership.
+- Use `impl Into<String>` or `impl AsRef<str>` for flexible string parameters in public APIs.
+
+## Axum Architecture
+
+- Structure the app with a handler -> service -> repository layered architecture.
+- Define routes in a `router()` function using `axum::Router`. Nest routers for different resources.
+- Handlers are `async fn` that take extractors as parameters and return `impl IntoResponse`.
+- Use state injection with `State<Arc<AppState>>` for shared state (database pool, config).
+- Keep handlers thin: extract request data, call service functions, format response.
+- Service functions contain business logic. They take typed inputs and return `Result<T, AppError>`.
+- Repository functions handle database access. They take a database connection/pool and return domain types.
+
+## Extractors
+
+- Use `Json<T>` for JSON request bodies. `T` must implement `Deserialize`.
+- Use `Path<T>` for path parameters. Use tuple types for multiple params: `Path((user_id, post_id))`.
+- Use `Query<T>` for query string parameters.
+- Use `State<T>` for shared application state. Wrap in `Arc` for thread-safe sharing.
+- Use `Extension<T>` for request-scoped data set by middleware.
+- Create custom extractors by implementing `FromRequestParts` or `FromRequest`.
+- Order extractors correctly: `State` and `Path` before `Json` (which consumes the body).
+
+## Error Handling
+
+- NEVER use `.unwrap()` or `.expect()` in production code (except in tests or truly infallible cases).
+- Define a custom `AppError` enum with variants for each error category:
+  ```rust
+  enum AppError {
+      NotFound(String),
+      Validation(Vec<ValidationError>),
+      Unauthorized,
+      Internal(anyhow::Error),
+  }
+  ```
+- Implement `IntoResponse` for `AppError` to return proper HTTP status codes and JSON error bodies.
+- Use `thiserror` for defining error enums with `#[error("...")]` display messages.
+- Use `anyhow` for error propagation in application code. Use `thiserror` for library code.
+- Use the `?` operator for error propagation. Never use match blocks just to propagate errors.
+- Return `Result<T, AppError>` from all handlers and service functions.
+- Log errors with `tracing::error!` including context. Return sanitized messages to clients.
+
+## Data Validation
+
+- Use `serde` for serialization/deserialization. Derive `Serialize` and `Deserialize` on all DTOs.
+- Use `validator` crate for field-level validation. Derive `Validate` and call `.validate()` in handlers.
+- Create separate structs for request input (`CreateUserRequest`) and response output (`UserResponse`).
+- Use `#[serde(rename_all = "camelCase")]` for JSON field naming consistency.
+- Use `#[serde(skip_serializing_if = "Option::is_none")]` for optional response fields.
+- Validate input at the boundary (handler level). Do not pass unvalidated data to services.
+
+## Async Patterns
+
+- Use `tokio` as the async runtime. Use `#[tokio::main]` for the entry point.
+- Use `tokio::spawn` for concurrent tasks. Use `tokio::select!` for racing multiple futures.
+- Use `tokio::join!` or `futures::join_all` for parallel execution of independent tasks.
+- Never block the async runtime. Use `tokio::task::spawn_blocking` for CPU-intensive or blocking operations.
+- Use `tokio::time::timeout` for operations that might hang.
+- Prefer `async fn` over returning `impl Future` for readability.
+- Use `tokio::sync::Mutex` (not `std::sync::Mutex`) in async contexts when needed.
+
+## Database (SQLx)
+
+- Use `sqlx` with compile-time checked queries (`sqlx::query!` or `sqlx::query_as!`).
+- Use `PgPool` (PostgreSQL connection pool) as shared state.
+- Use migrations with `sqlx migrate`. Keep migrations in `migrations/` directory.
+- Use transactions for multi-step operations: `pool.begin()`, `tx.commit()`.
+- Define database models separate from API DTOs. Convert between them explicitly with `From`/`Into`.
+- Use `RETURNING` clauses in INSERT/UPDATE queries to avoid separate SELECT calls.
+- Use parameterized queries exclusively. Never format user input into SQL strings.
+
+## Middleware and Layers
+
+- Use `tower` middleware layers with Axum's `Router::layer()`.
+- Use `tower_http::trace::TraceLayer` for request tracing.
+- Use `tower_http::cors::CorsLayer` for CORS configuration.
+- Use `tower_http::compression::CompressionLayer` for response compression.
+- Create custom middleware using `tower::Service` trait or Axum's `middleware::from_fn`.
+- Apply middleware to specific route groups using nested routers.
+
+## Logging and Observability
+
+- Use `tracing` crate for structured logging, not `log` or `println!`.
+- Initialize with `tracing_subscriber` using `EnvFilter` for level control.
+- Use span macros for request-scoped context: `#[tracing::instrument]` on handler functions.
+- Log at appropriate levels: `error!` for failures, `warn!` for degraded states, `info!` for significant events, `debug!` for development.
+- Include structured fields in log events: `tracing::info!(user_id = %id, "User created")`.
+
+## Testing
+
+- Use `#[tokio::test]` for async tests.
+- Create test utilities: shared test database setup, factory functions for test data.
+- Test handlers with `axum::test::TestClient` or by calling handler functions directly.
+- Use `sqlx::test` attribute for database tests with automatic rollback.
+- Write unit tests for service and repository functions.
+- Write integration tests for full request -> response cycles.
+- Place unit tests in a `#[cfg(test)] mod tests` block at the bottom of each file.
+- Place integration tests in a `tests/` directory at the project root.
+
+## File Structure
+
+```
+src/
+  main.rs              — Entry point, server startup
+  lib.rs               — App builder, router construction
+  config.rs            — Configuration (environment, database URL)
+  error.rs             — AppError enum, IntoResponse impl
+  state.rs             — AppState struct
+  handlers/
+    mod.rs
+    users.rs           — User route handlers
+    items.rs           — Item route handlers
+  services/
+    mod.rs
+    user_service.rs    — User business logic
+  repositories/
+    mod.rs
+    user_repo.rs       — User database queries
+  models/
+    mod.rs
+    user.rs            — Domain models and DTOs
+  middleware/
+    mod.rs
+    auth.rs            — Authentication middleware
+migrations/
+  001_create_users.sql
+tests/
+  common/
+    mod.rs             — Shared test utilities
+  api/
+    users_test.rs
+Cargo.toml
+```
+
+## Security
+
+- Use `argon2` for password hashing. Never use MD5, SHA-1, or plain bcrypt for new projects.
+- Use `jsonwebtoken` for JWT handling. Validate all claims (expiry, issuer, audience).
+- Set CORS origins explicitly. Never use `AllowOrigin::any()` in production.
+- Validate and limit request body size with `DefaultBodyLimit::max()`.
+- Use `tower_http::limit::RequestBodyLimitLayer` to prevent DoS via large payloads.
+- Keep dependencies minimal and audited. Run `cargo audit` regularly.
+- Use `secrecy` crate for sensitive values (passwords, tokens) to prevent accidental logging.
+
+## Performance
+
+- Use connection pooling (SQLx default). Configure pool size based on expected concurrency.
+- Use `serde_json::to_string` over `format!` for JSON construction.
+- Prefer stack allocation: use `ArrayVec`, `SmallVec` for small collections.
+- Avoid unnecessary allocations: use `&str` instead of `String`, `&[T]` instead of `Vec<T>` in function parameters.
+- Use `Arc` for shared immutable data. Avoid cloning large data structures.
+- Profile with `cargo flamegraph` or `tokio-console` before optimizing.

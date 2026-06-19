@@ -1,0 +1,31 @@
+---
+description: MERN Stack (MongoDB + Express + React + Node.js) full-stack patterns
+globs: "**/*.ts, **/*.tsx, **/*.js"
+alwaysApply: false
+---
+
+# MERN Stack Cursor Rules
+
+## Architecture
+- Separate frontend and backend: `client/` (React) + `server/` (Express)
+- Use TypeScript for both frontend and backend
+- REST API or GraphQL between client and server
+- MongoDB with Mongoose for data modeling
+
+## Backend (Express + MongoDB)
+- Structure: `server/routes/`, `server/controllers/`, `server/models/`, `server/middleware/`
+- Use controller pattern: routes → controllers → services
+- Use Mongoose schemas with TypeScript interfaces
+- Implement authentication with JWT + refresh tokens
+
+## Frontend (React)
+- Use Vite for development server and build
+- Use TanStack Query for API data fetching and caching
+- Use React Router for client-side routing
+- Use Axios or fetch with interceptors for API calls
+
+## Development
+- Use `concurrently` to run client and server simultaneously
+- Use environment variables for API URL configuration
+- Use Docker Compose for MongoDB + app in development
+- Implement API error handling consistently on both sides

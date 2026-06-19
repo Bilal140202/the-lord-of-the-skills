@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="280" viewBox="0 0 1200 280">
+  <!-- Dark parchment-style background -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a0f08"/>
+      <stop offset="50%" stop-color="#3D2817"/>
+      <stop offset="100%" stop-color="#1a0f08"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8B6914"/>
+      <stop offset="50%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#8B6914"/>
+    </linearGradient>
+    <radialGradient id="ringglow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFD700" stop-opacity="0.4"/>
+      <stop offset="60%" stop-color="#B8860B" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="280" fill="url(#bg)"/>
+
+  <!-- Outer gold border -->
+  <rect x="10" y="10" width="1180" height="260" fill="none" stroke="url(#gold)" stroke-width="2"/>
+  <rect x="18" y="18" width="1164" height="244" fill="none" stroke="#B8860B" stroke-width="0.5"/>
+
+  <!-- The One Ring centered -->
+  <circle cx="600" cy="140" r="180" fill="url(#ringglow)"/>
+  <circle cx="600" cy="140" r="65" fill="none" stroke="#FFD700" stroke-width="6"/>
+  <circle cx="600" cy="140" r="65" fill="none" stroke="#8B6914" stroke-width="1" opacity="0.6"/>
+
+  <!-- Elvish-style decorative arcs on sides -->
+  <path d="M 60 140 Q 200 80, 350 140 Q 200 200, 60 140" fill="none" stroke="#B8860B" stroke-width="1.5" opacity="0.8"/>
+  <path d="M 850 140 Q 1000 80, 1140 140 Q 1000 200, 850 140" fill="none" stroke="#B8860B" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Small decorative dots -->
+  <circle cx="350" cy="140" r="3" fill="#FFD700"/>
+  <circle cx="850" cy="140" r="3" fill="#FFD700"/>
+  <circle cx="60" cy="140" r="3" fill="#FFD700"/>
+  <circle cx="1140" cy="140" r="3" fill="#FFD700"/>
+
+  <!-- Title text -->
+  <text x="600" y="55" text-anchor="middle" font-family="serif" font-size="14" fill="#FFD700" letter-spacing="6" font-style="italic">
+    ASH NAZG DURBATULÛK
+  </text>
+  <text x="600" y="245" text-anchor="middle" font-family="serif" font-size="14" fill="#FFD700" letter-spacing="6" font-style="italic">
+    AGH BURZUM-ISHI KRIMPATUL
+  </text>
+
+  <!-- Crown symbols -->
+  <text x="600" y="100" text-anchor="middle" font-family="serif" font-size="22" fill="#FFD700">⚔ ⚜ ⚔</text>
+
+  <!-- Ring inscription (around ring) -->
+  <defs>
+    <path id="ringtext-top" d="M 540 140 A 60 60 0 0 1 660 140"/>
+    <path id="ringtext-bot" d="M 660 140 A 60 60 0 0 1 540 140"/>
+  </defs>
+  <text font-family="monospace" font-size="9" fill="#3D2817" letter-spacing="1">
+    <textPath href="#ringtext-top" startOffset="50%" text-anchor="middle">ASH NAZG GIMBATUL</textPath>
+  </text>
+  <text font-family="monospace" font-size="9" fill="#3D2817" letter-spacing="1">
+    <textPath href="#ringtext-bot" startOffset="50%" text-anchor="middle">ASH NAZG THRAKATULÛK</textPath>
+  </text>
+</svg>

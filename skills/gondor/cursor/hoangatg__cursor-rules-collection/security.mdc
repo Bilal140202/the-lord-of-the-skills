@@ -1,0 +1,45 @@
+---
+description: OWASP Top 10 security rules with input validation and auth patterns
+globs: "**/*.ts, **/*.tsx, **/*.js, **/*.py"
+alwaysApply: false
+---
+
+# Security Cursor Rules (OWASP Top 10)
+
+## Input Validation
+- Validate ALL inputs: request body, query params, headers, file uploads
+- Use allowlists (not blocklists) for input validation
+- Use schema validation (Zod, Joi, Pydantic) for structured data
+- Sanitize HTML output to prevent XSS: use DOMPurify or framework escaping
+- Never trust client-side validation alone — always validate server-side
+
+## Authentication
+- Hash passwords with bcrypt (cost factor ≥ 12) or Argon2
+- Use JWT with short expiration + refresh token rotation
+- Implement rate limiting on login endpoints (prevent brute force)
+- Use HTTPS everywhere — never transmit credentials over HTTP
+- Implement MFA for sensitive operations
+
+## Authorization
+- Check permissions on EVERY request (not just UI hiding)
+- Use RBAC or ABAC for structured access control
+- Verify resource ownership: `user.id === resource.userId`
+- DON'T: Rely on obscurity (hiding URLs) as security
+
+## SQL Injection Prevention
+- Use parameterized queries or ORM (never concatenate SQL strings)
+- Use prepared statements for raw queries
+- Validate and sanitize user input before database operations
+
+## Secrets Management
+- Store secrets in environment variables or secret manager
+- Never commit secrets to version control (.env in .gitignore)
+- Rotate secrets regularly
+- Use different secrets per environment
+
+## HTTP Security Headers
+- `Content-Security-Policy` — Prevent XSS and injection
+- `Strict-Transport-Security` — Force HTTPS
+- `X-Content-Type-Options: nosniff` — Prevent MIME sniffing
+- `X-Frame-Options: DENY` — Prevent clickjacking
+- Use `helmet.js` (Node) or equivalent for automatic headers

@@ -1,0 +1,143 @@
+---
+description: "Tailwind CSS UI component patterns"
+alwaysApply: false
+globs: "**/*.tsx,**/*.jsx,**/*.css"
+---
+
+# Tailwind CSS Component Development — Cursor Rules
+
+You are an expert frontend developer building reusable UI components with Tailwind CSS, following utility-first principles and modern component design patterns.
+
+## Code Style
+
+- Use utility classes directly in HTML/JSX. Avoid custom CSS except for animations, complex gradients, or truly unique styles.
+- Order utility classes consistently: layout (display, position) -> sizing (width, height) -> spacing (margin, padding) -> typography (font, text) -> colors (bg, text, border) -> effects (shadow, opacity) -> transitions/animations.
+- Use Prettier with `prettier-plugin-tailwindcss` to auto-sort classes.
+- Use full class names. Never use arbitrary values (`w-[137px]`) when a design token exists. Check the spacing/sizing scale first.
+- Use semantic class grouping with line breaks for readability when a component has many classes.
+- Prefer Tailwind's design tokens (spacing scale, color palette, font sizes) over arbitrary values for consistency.
+- Use `@apply` sparingly — only in component CSS files for styles that are genuinely repeated across many elements and can't be abstracted into a component.
+
+## Component Design
+
+- Build components as composable primitives: Button, Card, Badge, Input, Modal, Dropdown, Avatar, Alert.
+- Use variant patterns with props/classes: `variant="primary"`, `size="lg"`, `rounded="full"`.
+- Implement compound component patterns for complex UI: `<Card><Card.Header /><Card.Body /><Card.Footer /></Card>`.
+- Design mobile-first: start with mobile styles, add responsive modifiers for larger screens.
+- Every interactive component must have visible focus states for keyboard navigation.
+- Support dark mode with the `dark:` variant. Design both light and dark modes simultaneously.
+
+## Responsive Design
+
+- Use mobile-first approach: default styles are mobile, add `sm:`, `md:`, `lg:`, `xl:`, `2xl:` for larger screens.
+- Common breakpoints: `sm:640px`, `md:768px`, `lg:1024px`, `xl:1280px`, `2xl:1536px`.
+- Use `container` with `mx-auto` and responsive padding for page-level content width.
+- Use CSS Grid (`grid`, `grid-cols-*`) for page layouts. Use Flexbox (`flex`) for component layouts.
+- Stack elements vertically on mobile, switch to horizontal on desktop: `flex flex-col md:flex-row`.
+- Hide/show elements with responsive display: `hidden md:block`, `block md:hidden`.
+- Prefer `max-w-*` constraints over fixed widths for content readability.
+- Test all components at every breakpoint. Never assume desktop-only usage.
+
+## Color System
+
+- Use Tailwind's color scale: `50` (lightest) through `950` (darkest). Use `500` as the base.
+- Define semantic color aliases in `tailwind.config.js` for brand consistency:
+  ```js
+  colors: {
+    primary: colors.blue,
+    secondary: colors.slate,
+    success: colors.green,
+    danger: colors.red,
+    warning: colors.amber,
+  }
+  ```
+- Use opacity modifiers for subtle backgrounds: `bg-primary-500/10`, `bg-black/50`.
+- Ensure color contrast meets WCAG AA standards: 4.5:1 for normal text, 3:1 for large text.
+- Dark mode: use `dark:` prefix. Swap `50-100` backgrounds with `800-900`, `800-900` text with `100-200`.
+- Use `ring-*` utilities for focus indicators. Default to `ring-2 ring-offset-2 ring-primary-500`.
+
+## Typography
+
+- Use Tailwind's type scale consistently: `text-xs` through `text-9xl`.
+- Set base font with `font-sans`, `font-serif`, or `font-mono`. Configure custom fonts in `tailwind.config.js`.
+- Use `leading-*` (line-height) and `tracking-*` (letter-spacing) for typography tuning.
+- Prose content: use `@tailwindcss/typography` plugin with `prose` class for rendered markdown/HTML.
+- Truncate long text with `truncate` (single line) or `line-clamp-*` (multi-line).
+- Use responsive font sizes for headings: `text-2xl md:text-3xl lg:text-4xl`.
+
+## Spacing and Layout
+
+- Use Tailwind's spacing scale consistently: `0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, ...`.
+- Use `gap-*` for spacing between flex/grid children instead of margin on individual items.
+- Use `space-x-*` and `space-y-*` for consistent spacing between sibling elements.
+- Use `p-*` for padding, `m-*` for margin. Use directional variants: `px-*`, `py-*`, `pt-*`, `mr-*`.
+- Use negative margins (`-mt-*`) sparingly for overlapping effects.
+- Standardize section spacing: `py-12 md:py-16 lg:py-20` for major page sections.
+- Use `divide-*` utilities for borders between list items instead of manual border classes.
+
+## Interactive States
+
+- Always define hover states for clickable elements: `hover:bg-primary-600`.
+- Define focus-visible states for keyboard navigation: `focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:outline-none`.
+- Use `active:` for pressed states: `active:scale-95` or `active:bg-primary-700`.
+- Use `disabled:` for disabled states: `disabled:opacity-50 disabled:cursor-not-allowed`.
+- Use `transition-*` for smooth state changes: `transition-colors duration-150`, `transition-all duration-200`.
+- Group hover effects with `group` and `group-hover:`: parent has `group`, child has `group-hover:text-primary-500`.
+- Use `peer` and `peer-*` for sibling-based styling (form validation, checkbox-label patterns).
+
+## Component Patterns
+
+### Button
+```html
+<button class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:bg-primary-800 disabled:opacity-50 disabled:cursor-not-allowed">
+```
+
+### Card
+```html
+<div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+```
+
+### Input
+```html
+<input class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+```
+
+## Tailwind Configuration
+
+- Extend the default theme rather than overriding it. Use `theme.extend` in `tailwind.config.js`.
+- Define custom colors, fonts, and spacing in the config for brand consistency.
+- Use the `@tailwindcss/forms` plugin for better form element defaults.
+- Use the `@tailwindcss/typography` plugin for prose content styling.
+- Configure `content` paths to include all files that use Tailwind classes.
+- Use CSS custom properties in `tailwind.config.js` for dynamic theming.
+
+## Accessibility
+
+- Use semantic HTML elements: `<button>` for actions, `<a>` for navigation, `<nav>` for navigation groups.
+- Provide visible focus indicators on all interactive elements with `focus-visible:ring-*`.
+- Use `sr-only` class for screen-reader-only text when visual context is sufficient for sighted users.
+- Ensure sufficient color contrast. Use Tailwind's darker shades for text on light backgrounds.
+- Add `aria-label` for icon-only buttons: `<button aria-label="Close menu">`.
+- Use `role` attributes when semantic HTML alone is insufficient.
+- Test with keyboard navigation: Tab, Enter, Escape, Arrow keys must work correctly.
+- Support `prefers-reduced-motion` with `motion-safe:` and `motion-reduce:` variants.
+
+## Performance
+
+- Use PurgeCSS (built into Tailwind) to remove unused classes. Ensure `content` config is correct.
+- Avoid dynamically constructing class names with string concatenation — Tailwind can't purge them.
+  ```
+  BAD:  `bg-${color}-500`
+  GOOD: Use a mapping object: `{ primary: 'bg-blue-500', danger: 'bg-red-500' }`
+  ```
+- Use `clsx` or `tailwind-merge` for conditional class composition in components.
+- Minimize custom CSS. Every custom style is CSS that Tailwind's purge can't optimize.
+- Use `will-change-*` utilities sparingly and only for elements that actually animate.
+
+## Animation
+
+- Use built-in transitions: `transition-colors`, `transition-opacity`, `transition-transform`, `transition-all`.
+- Use built-in animations: `animate-spin`, `animate-ping`, `animate-pulse`, `animate-bounce`.
+- Define custom animations in `tailwind.config.js` under `theme.extend.animation` and `theme.extend.keyframes`.
+- Keep animations subtle and purposeful. Duration should be 150-300ms for most UI transitions.
+- Respect `prefers-reduced-motion`: use `motion-safe:animate-*` to conditionally apply animations.

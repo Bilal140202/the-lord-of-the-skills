@@ -1,0 +1,43 @@
+---
+description: Core Web Vitals optimization, profiling, and performance patterns
+globs: "**/*.tsx, **/*.ts, **/*.css"
+alwaysApply: false
+---
+
+# Performance Cursor Rules
+
+## Core Web Vitals
+- LCP (Largest Contentful Paint) < 2.5s: Optimize images, fonts, critical CSS
+- INP (Interaction to Next Paint) < 200ms: Minimize main thread blocking
+- CLS (Cumulative Layout Shift) < 0.1: Set dimensions on media, use font-display
+
+## JavaScript Performance
+- Code split routes and heavy components with dynamic imports
+- Use `requestIdleCallback` for non-critical work
+- Debounce/throttle event handlers (scroll, resize, input)
+- Use Web Workers for CPU-intensive computation
+- Avoid memory leaks: clean up event listeners, intervals, subscriptions
+
+## Image Optimization
+- Use `next/image`, `<picture>`, or CDN for automatic optimization
+- Use WebP/AVIF formats with fallbacks
+- Implement lazy loading: `loading="lazy"` for below-fold images
+- Set explicit `width` and `height` to prevent CLS
+- Use responsive images with `srcset` and `sizes`
+
+## CSS Performance
+- Minimize CSS-in-JS runtime overhead — prefer static styles
+- Use `content-visibility: auto` for off-screen content
+- Avoid layout thrashing: batch DOM reads and writes
+- Use `will-change` sparingly for animation optimization
+
+## Caching Strategy
+- Use appropriate `Cache-Control` headers for each resource type
+- Static assets: `Cache-Control: public, max-age=31536000, immutable`
+- API responses: `Cache-Control: private, max-age=60` (or `stale-while-revalidate`)
+- Use service workers for offline support and cache-first strategies
+
+## Monitoring
+- Use Lighthouse CI for automated performance testing
+- Monitor real user metrics (RUM) with web-vitals library
+- Set performance budgets and break builds if exceeded

@@ -1,0 +1,38 @@
+---
+description: Flutter 3 widget architecture, state management, and cross-platform patterns
+globs: "**/*.dart"
+alwaysApply: false
+---
+
+# Flutter 3 Cursor Rules
+
+## Architecture
+- Use layered architecture: Presentation → Domain → Data
+- Keep widgets small and focused (under 100 lines)
+- Extract business logic into providers/blocs — widgets are UI only
+- Use `go_router` for declarative routing
+
+## Widgets
+- Prefer `StatelessWidget` — use `StatefulWidget` only when managing local state
+- Composition over inheritance — combine small widgets
+- Use `const` constructors for performance
+- Name widgets descriptively: `UserProfileCard`, `SettingsToggle`
+
+## State Management
+- Simple: `ValueNotifier` + `ValueListenableBuilder`
+- Medium: `Riverpod` (recommended) or `Provider`
+- Complex: `Bloc` / `Cubit` for event-driven state
+- Use `AsyncNotifier` for async operations in Riverpod
+
+## Performance
+- Use `const` widgets wherever possible
+- Use `ListView.builder()` for long lists (lazy rendering)
+- Avoid rebuilding entire widget trees — use selective state management
+- Use `RepaintBoundary` for complex animations
+- Profile with Flutter DevTools
+
+## Platform Conventions
+- Follow Material Design 3 on Android, Cupertino on iOS
+- Use `Platform.isIOS` / `Platform.isAndroid` for platform checks
+- Use `adaptive` widgets when available
+- Handle safe areas with `SafeArea` widget

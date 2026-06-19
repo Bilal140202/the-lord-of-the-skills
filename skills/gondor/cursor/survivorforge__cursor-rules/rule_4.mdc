@@ -1,0 +1,170 @@
+---
+description: "Modern Python 3.10+ patterns"
+alwaysApply: false
+globs: "**/*.py"
+---
+
+# Modern Python 3.12+ — Cursor Rules
+# Production Python with type hints, dataclasses, modern patterns, and strict quality
+
+# Project Context
+You are writing modern Python 3.12+. The project uses type hints throughout, leverages
+dataclasses and Pydantic for data modeling, follows PEP standards strictly, and uses
+modern Python features including match statements, type parameter syntax, and f-strings.
+
+# Type Hints (Mandatory)
+- Type ALL function signatures: parameters and return values.
+- Use built-in generic types (Python 3.9+): `list[str]`, `dict[str, int]`, `tuple[int, ...]`.
+- DON'T: Import `List`, `Dict`, `Tuple`, `Set` from `typing` — use builtins.
+- Use the `|` union syntax (Python 3.10+): `str | None` instead of `Optional[str]`.
+- Use `type` statement for type aliases (Python 3.12+):
+  ```python
+  type UserId = int
+  type UserMap = dict[str, User]
+  type Callback[T] = Callable[[T], None]  # generic alias
+  ```
+- Use `Self` type (Python 3.11+) for methods returning the same class:
+  ```python
+  from typing import Self
+  class Builder:
+      def set_name(self, name: str) -> Self:
+          self.name = name
+          return self
+  ```
+- Use `TypeGuard` for type-narrowing functions:
+  ```python
+  def is_valid_user(data: dict) -> TypeGuard[UserDict]:
+      return 'id' in data and 'email' in data
+  ```
+
+# Dataclass Patterns
+- Use `@dataclass` for data containers. Use `@dataclass(frozen=True)` for immutables.
+- Use `@dataclass(slots=True)` for better memory and attribute access performance.
+- Use `field(default_factory=list)` for mutable defaults — never `field(default=[])`.
+- Use `__post_init__` for validation:
+  ```python
+  @dataclass(frozen=True, slots=True)
+  class Temperature:
+      celsius: float
+      def __post_init__(self) -> None:
+          if self.celsius < -273.15:
+              raise ValueError("Temperature below absolute zero")
+  ```
+- Use `kw_only=True` (Python 3.10+) when fields are numerous to force keyword arguments.
+
+# Match Statements (Structural Pattern Matching)
+- Use `match` statements for complex conditional logic with destructuring:
+  ```python
+  match command:
+      case {"action": "create", "data": data}:
+          return create_item(data)
+      case {"action": "delete", "id": int(item_id)}:
+          return delete_item(item_id)
+      case {"action": str(action)}:
+          raise ValueError(f"Unknown action: {action}")
+      case _:
+          raise TypeError("Invalid command format")
+  ```
+- Prefer match over long if/elif chains when checking structure or type.
+- Use guard clauses with `if`: `case Point(x, y) if x > 0 and y > 0:`.
+
+# Exception Handling
+- Use exception groups (Python 3.11+) for concurrent error handling:
+  ```python
+  try:
+      results = await asyncio.gather(*tasks, return_exceptions=True)
+  except* ValueError as eg:
+      handle_value_errors(eg.exceptions)
+  except* ConnectionError as eg:
+      handle_connection_errors(eg.exceptions)
+  ```
+- Create custom exception hierarchies with `__init__` typing:
+  ```python
+  class AppError(Exception):
+      def __init__(self, message: str, code: str, *, context: dict | None = None) -> None:
+          super().__init__(message)
+          self.code = code
+          self.context = context or {}
+  ```
+- Use `raise ... from e` to chain exceptions and preserve context.
+- DON'T: Catch bare `Exception` — catch specific exceptions.
+- DON'T: Use `except: pass` — always handle or log the error.
+
+# Async Patterns
+- Use `async`/`await` for all I/O-bound operations.
+- Use `asyncio.TaskGroup` (Python 3.11+) for structured concurrency:
+  ```python
+  async with asyncio.TaskGroup() as tg:
+      task1 = tg.create_task(fetch_users())
+      task2 = tg.create_task(fetch_products())
+  users = task1.result()
+  products = task2.result()
+  ```
+- Use `asyncio.timeout()` (Python 3.11+) instead of `asyncio.wait_for`:
+  ```python
+  async with asyncio.timeout(10):
+      data = await slow_operation()
+  ```
+- DON'T: Mix sync and async code without `asyncio.to_thread()`.
+- DON'T: Use `asyncio.gather()` without handling individual task exceptions.
+
+# String Formatting
+- Always use f-strings for string interpolation. Never use `%` formatting or `.format()`.
+- Use `=` in f-strings for debugging: `f"{variable=}"` prints `variable=value`.
+- For multi-line strings, use dedented triple-quoted f-strings.
+- DON'T: Concatenate strings with `+` in loops — use `"".join()`.
+
+# Comprehensions and Generators
+- Use list/dict/set comprehensions for simple transformations.
+- Use generator expressions for large sequences to save memory:
+  ```python
+  total = sum(item.price for item in items if item.in_stock)
+  ```
+- DON'T: Nest more than 2 levels of comprehensions — use a for loop instead.
+- Use `itertools` for complex iteration patterns (chain, islice, groupby, product).
+
+# File and Path Operations
+- Use `pathlib.Path` exclusively — never `os.path`:
+  ```python
+  config_path = Path(__file__).parent / "config" / "settings.json"
+  content = config_path.read_text(encoding="utf-8")
+  ```
+- Use context managers for file operations: `with open(...) as f:`.
+- Always specify encoding: `encoding="utf-8"`.
+
+# Project Standards
+- Use `ruff` for linting and formatting (replaces black, isort, flake8).
+- Use `mypy` with strict mode for type checking.
+- Use `pytest` for testing with `pytest-cov` for coverage.
+- Use `pyproject.toml` for all project configuration (not setup.py/setup.cfg).
+- Structure imports: stdlib, third-party, local (ruff handles this).
+
+# Naming Conventions
+- Variables and functions: `snake_case`
+- Classes: `PascalCase`
+- Constants: `UPPER_SNAKE_CASE`
+- Private members: `_single_leading_underscore`
+- Module-level dunder: `__all__`, `__version__`
+- Type aliases: `PascalCase` (they represent types)
+- Boolean variables: `is_`, `has_`, `should_`, `can_` prefix
+
+# Testing
+- Use `pytest` with fixtures, parametrize, and markers.
+- Type test fixtures and use factories for test data.
+- Use `pytest.raises` with `match` parameter for exception testing:
+  ```python
+  with pytest.raises(ValueError, match="Temperature below"):
+      Temperature(celsius=-300)
+  ```
+- Use `tmp_path` fixture for file system tests.
+- Use `monkeypatch` for environment variables and module-level patches.
+- Aim for: business logic 95%+, utilities 100%, integration 80%+.
+
+# Common Mistakes to Avoid
+- DON'T: Use mutable default arguments: `def f(items: list = [])` — use `None` and create inside.
+- DON'T: Use `type()` for type checking — use `isinstance()`.
+- DON'T: Use `is` to compare values — use `==`. (`is` compares identity, not equality.)
+- DON'T: Import with wildcard: `from module import *`.
+- DON'T: Use global variables for state — pass dependencies explicitly.
+- DON'T: Ignore `mypy` errors with `# type: ignore` without a specific error code.
+- DON'T: Use `dict.keys()` in membership tests — just use `key in dict`.

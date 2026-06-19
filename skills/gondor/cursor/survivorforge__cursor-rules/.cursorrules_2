@@ -1,0 +1,239 @@
+# REST API Design — Cursor Rules
+# Comprehensive rules for designing and implementing RESTful APIs
+
+## Project Context
+You are designing or maintaining a RESTful API. The API should follow REST principles,
+use standard HTTP semantics, and provide a consistent, predictable interface for clients.
+The API is versioned, documented, and designed for both internal and external consumption.
+
+## Design Principles
+- Resources are nouns, actions are HTTP methods
+- Consistent and predictable URL patterns
+- Standard HTTP status codes
+- Meaningful error responses
+- Pagination on all collection endpoints
+- Versioning from day one
+- HATEOAS where practical (links to related resources)
+
+## URL Design
+
+### Naming Conventions
+- Use plural nouns for resources: `/users`, `/orders`, `/products`
+- Use kebab-case for multi-word resources: `/order-items`, `/user-profiles`
+- Use path parameters for identity: `/users/{id}`, `/orders/{orderId}/items/{itemId}`
+- Use query parameters for filtering, sorting, pagination
+- Nest resources for clear ownership: `/users/{id}/orders` (orders belonging to a user)
+- Maximum nesting depth: 2 levels (e.g., `/users/{id}/orders/{orderId}`)
+
+### URL Patterns
+```
+GET    /api/v1/users              # List users (with pagination)
+POST   /api/v1/users              # Create a user
+GET    /api/v1/users/{id}         # Get a specific user
+PUT    /api/v1/users/{id}         # Full update of a user
+PATCH  /api/v1/users/{id}         # Partial update of a user
+DELETE /api/v1/users/{id}         # Delete a user
+
+GET    /api/v1/users/{id}/orders  # List orders for a user
+POST   /api/v1/users/{id}/orders  # Create an order for a user
+
+# Filtering, sorting, pagination via query params
+GET    /api/v1/orders?status=pending&sort=-created_at&page=2&limit=20
+
+# Search as a sub-resource or query param
+GET    /api/v1/products/search?q=laptop&category=electronics
+
+# Actions that don't map to CRUD — use verbs as sub-resources
+POST   /api/v1/orders/{id}/cancel
+POST   /api/v1/users/{id}/verify-email
+```
+
+### What to Avoid
+- Verbs in URLs: `/getUsers`, `/createOrder` (use HTTP methods instead)
+- Singular resource names: `/user` instead of `/users`
+- Deeply nested URLs: `/api/users/{id}/orders/{oid}/items/{iid}/reviews`
+- File extensions: `/api/users.json` (use Accept header)
+- Query parameters for resource identity: `/api/users?id=123`
+
+## HTTP Methods
+
+### Semantic Usage
+| Method | Purpose | Idempotent | Safe | Request Body |
+|--------|---------|------------|------|-------------|
+| GET    | Read resource(s) | Yes | Yes | No |
+| POST   | Create resource / trigger action | No | No | Yes |
+| PUT    | Full resource replacement | Yes | No | Yes |
+| PATCH  | Partial resource update | No* | No | Yes |
+| DELETE | Remove a resource | Yes | No | Optional |
+
+### Rules
+- GET must never modify server state
+- POST for creation returns 201 with Location header
+- PUT replaces the entire resource — omitted fields are reset
+- PATCH updates only the provided fields
+- DELETE returns 204 (no content) on success
+- Use POST for actions that don't map to CRUD
+
+## Request and Response Format
+
+### Request Bodies
+```json
+// POST /api/v1/users
+{
+  "email": "alice@example.com",
+  "name": "Alice Johnson",
+  "role": "admin"
+}
+
+// PATCH /api/v1/users/123 (only updated fields)
+{
+  "name": "Alice Smith"
+}
+```
+
+### Successful Responses
+```json
+// Single resource (GET /api/v1/users/123)
+{
+  "data": {
+    "id": "123",
+    "email": "alice@example.com",
+    "name": "Alice Johnson",
+    "role": "admin",
+    "createdAt": "2025-01-15T10:30:00Z"
+  }
+}
+
+// Collection (GET /api/v1/users?page=2&limit=20)
+{
+  "data": [
+    { "id": "123", "email": "alice@example.com", "name": "Alice Johnson" },
+    { "id": "124", "email": "bob@example.com", "name": "Bob Smith" }
+  ],
+  "meta": {
+    "page": 2,
+    "limit": 20,
+    "total": 156,
+    "totalPages": 8
+  }
+}
+
+// Created resource (POST /api/v1/users — 201)
+{
+  "data": {
+    "id": "125",
+    "email": "carol@example.com",
+    "name": "Carol Davis"
+  }
+}
+// Headers: Location: /api/v1/users/125
+```
+
+### Error Responses
+```json
+// 400 Bad Request (validation error)
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request data",
+    "details": [
+      { "field": "email", "message": "Must be a valid email address" },
+      { "field": "name", "message": "Must be between 1 and 100 characters" }
+    ]
+  }
+}
+
+// 404 Not Found
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "User with ID 999 not found"
+  }
+}
+
+// 409 Conflict
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "A user with this email already exists"
+  }
+}
+```
+
+## Status Codes
+
+### Use Correctly
+- **200** OK — Successful GET, PUT, PATCH, or DELETE
+- **201** Created — Successful POST that creates a resource
+- **204** No Content — Successful DELETE or update with no response body
+- **400** Bad Request — Invalid input, validation failure
+- **401** Unauthorized — Missing or invalid authentication
+- **403** Forbidden — Authenticated but not authorized for this resource
+- **404** Not Found — Resource does not exist
+- **409** Conflict — Duplicate resource or state conflict
+- **422** Unprocessable Entity — Valid JSON but semantically incorrect
+- **429** Too Many Requests — Rate limit exceeded
+- **500** Internal Server Error — Unexpected server failure
+
+## Pagination
+
+### Cursor-Based (Preferred for Large Datasets)
+```
+GET /api/v1/orders?limit=20&after=eyJpZCI6MTIzfQ
+```
+```json
+{
+  "data": [...],
+  "meta": {
+    "hasMore": true,
+    "cursors": {
+      "after": "eyJpZCI6MTQzfQ",
+      "before": "eyJpZCI6MTI0fQ"
+    }
+  }
+}
+```
+
+### Offset-Based (Simpler but Slower on Large Data)
+```
+GET /api/v1/products?page=3&limit=20
+```
+
+## Filtering and Sorting
+```
+GET /api/v1/orders?status=pending,shipped&created_after=2025-01-01&sort=-created_at,total
+```
+- Comma-separated values for OR filters
+- Prefix with `-` for descending sort
+- Use descriptive parameter names, not operator syntax
+
+## Versioning
+- Use URL path versioning: `/api/v1/`, `/api/v2/`
+- Never break existing API versions
+- Deprecate old versions with headers: `Sunset: Sat, 01 Jan 2026 00:00:00 GMT`
+- Version only when making breaking changes
+
+## Authentication and Authorization
+- Use Bearer tokens in Authorization header: `Authorization: Bearer <token>`
+- Return 401 for missing/invalid tokens, 403 for insufficient permissions
+- Include rate limit headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
+- Use scopes or roles for fine-grained access control
+
+## Documentation
+- Generate OpenAPI/Swagger spec from code annotations
+- Document every endpoint with request/response examples
+- Document error codes and their meanings
+- Include authentication requirements per endpoint
+- Provide curl examples for every endpoint
+
+## Common Pitfalls
+- Using POST for everything instead of appropriate HTTP methods
+- Returning 200 for errors (always use correct status codes)
+- Inconsistent response format between endpoints
+- Not paginating collection endpoints (returning unbounded lists)
+- Exposing internal IDs or database structure in URLs
+- Not versioning the API from the start
+- Breaking changes without a new version
+- Returning different response shapes for the same resource type
+- Not setting Content-Type headers on responses
+- Forgetting CORS headers for browser clients

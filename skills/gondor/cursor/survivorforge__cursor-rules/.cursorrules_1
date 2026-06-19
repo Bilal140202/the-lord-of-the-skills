@@ -1,0 +1,138 @@
+# React + TypeScript — Cursor Rules
+# Comprehensive rules for modern React development with TypeScript
+
+## Project Context
+You are working on a React application written in TypeScript. The codebase uses
+functional components exclusively, React 18+ features, and strict TypeScript
+configuration. The goal is maintainable, type-safe, and performant UI code.
+
+## Tech Stack
+- React 18+
+- TypeScript 5+ (strict mode enabled)
+- Vite or Create React App (module bundler)
+- React Router v6+ for routing
+- CSS Modules, Tailwind, or styled-components for styling
+- React Query / TanStack Query for server state
+- Zustand or Context API for client state
+
+## Coding Style
+
+### Naming Conventions
+- Components: PascalCase (e.g., `UserProfile`, `DashboardLayout`)
+- Hooks: camelCase with `use` prefix (e.g., `useAuth`, `useFetchUsers`)
+- Utilities/helpers: camelCase (e.g., `formatDate`, `parseQueryString`)
+- Types/Interfaces: PascalCase with descriptive names (e.g., `UserProfile`, `ApiResponse<T>`)
+- Constants: UPPER_SNAKE_CASE (e.g., `MAX_RETRY_COUNT`, `API_BASE_URL`)
+- Event handlers: `handle` prefix (e.g., `handleClick`, `handleSubmit`)
+- Boolean variables: `is`, `has`, `should` prefix (e.g., `isLoading`, `hasError`)
+- Files: kebab-case for utilities, PascalCase for components matching component name
+
+### File Structure
+- One component per file
+- Co-locate tests: `ComponentName.test.tsx` next to `ComponentName.tsx`
+- Co-locate styles: `ComponentName.module.css` next to component
+- Group by feature, not by type (e.g., `features/auth/` not `components/`, `hooks/`)
+- Index files only for public API of a feature module
+- Shared utilities in `src/lib/` or `src/utils/`
+- Shared types in `src/types/`
+
+## Component Patterns
+
+### Prefer
+- Functional components with explicit return types
+- Destructured props with TypeScript interfaces defined above the component
+- Custom hooks to extract complex logic from components
+- Composition over prop drilling — use children and render props
+- Controlled components for forms
+- `React.memo()` only when profiling shows re-render issues
+- Named exports (not default exports) for better refactoring support
+- Early returns for guard clauses in rendering logic
+
+### Avoid
+- Class components (unless wrapping an error boundary)
+- `any` type — use `unknown` and narrow with type guards
+- Inline styles (use CSS modules or utility classes)
+- Deeply nested ternaries in JSX — extract to variables or sub-components
+- `useEffect` for derived state — compute during render instead
+- Index as key in lists that can reorder
+- Prop spreading (`{...props}`) without explicit typing
+- Direct DOM manipulation — use refs only when necessary
+- Barrel files that re-export everything (causes bundle bloat)
+
+## TypeScript Patterns
+
+### Typing Props
+```tsx
+interface UserCardProps {
+  user: User;
+  onSelect: (userId: string) => void;
+  variant?: 'compact' | 'full';
+  className?: string;
+}
+
+export function UserCard({ user, onSelect, variant = 'full', className }: UserCardProps) {
+  // ...
+}
+```
+
+### Typing Hooks
+```tsx
+function useToggle(initial = false): [boolean, () => void] {
+  const [value, setValue] = useState(initial);
+  const toggle = useCallback(() => setValue(v => !v), []);
+  return [value, toggle];
+}
+```
+
+### Discriminated Unions for State
+```tsx
+type AsyncState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: Error };
+```
+
+### Generic Components
+```tsx
+interface ListProps<T> {
+  items: T[];
+  renderItem: (item: T) => React.ReactNode;
+  keyExtractor: (item: T) => string;
+}
+```
+
+## Error Handling
+- Use Error Boundaries for component tree errors
+- Handle async errors in try/catch within hooks or query error callbacks
+- Display user-friendly error messages, log detailed errors to console/service
+- Use `ErrorBoundary` wrapper components per feature area, not one global boundary
+- Type error states explicitly in component state
+
+## Testing Requirements
+- Test behavior, not implementation details
+- Use React Testing Library (not Enzyme)
+- Test user interactions: click, type, submit
+- Test conditional rendering logic
+- Mock API calls at the network level (MSW preferred)
+- Aim for integration tests over unit tests for components
+- Unit test complex hooks and utility functions independently
+- Name tests descriptively: `it('shows error message when submission fails')`
+
+## Performance Guidelines
+- Use `React.lazy()` and `Suspense` for route-level code splitting
+- Memoize expensive computations with `useMemo` (only after profiling)
+- Stabilize callback references with `useCallback` when passed to memoized children
+- Virtualize long lists (react-window or react-virtuoso)
+- Avoid creating new objects/arrays in render — lift to constants or useMemo
+- Use React DevTools Profiler before optimizing
+
+## Common Pitfalls
+- Forgetting dependency arrays in useEffect/useMemo/useCallback
+- Setting state in useEffect that triggers infinite re-renders
+- Not cleaning up subscriptions/timers in useEffect return
+- Using `useEffect` to sync props to state (derive instead)
+- Mutating state directly instead of creating new references
+- Over-fetching data — use pagination or infinite scroll
+- Not handling loading and error states in async operations
+- Ignoring accessibility (see accessibility-a11y.cursorrules for full guide)

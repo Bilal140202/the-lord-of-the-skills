@@ -1,0 +1,21 @@
+---
+description: CSS Modules scoped styling with naming conventions and theming
+globs: "**/*.module.css, **/*.module.scss"
+alwaysApply: false
+---
+
+# CSS Modules Cursor Rules
+
+## Conventions
+- File naming: `Component.module.css` (matches component name)
+- Use camelCase for class names: `.headerWrapper`, `.navLink`
+- Import as: `import styles from './Component.module.css'`
+- Apply: `className={styles.headerWrapper}`
+
+## Best Practices
+- DO: Keep styles co-located with components
+- DO: Use CSS custom properties for theming (`--color-primary`)
+- DO: Use `composes:` for composition between classes
+- DON'T: Use global selectors inside modules (defeats scoping)
+- DON'T: Use element selectors — always use class selectors
+- Combine with `clsx()` for conditional classes: `clsx(styles.btn, isActive && styles.active)`

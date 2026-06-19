@@ -1,0 +1,34 @@
+---
+description: MongoDB aggregation pipelines, indexing, and Mongoose patterns
+globs: "**/*.ts, **/*.js"
+alwaysApply: false
+---
+
+# MongoDB Cursor Rules
+
+## Schema Design (Mongoose)
+- Design for query patterns, not normalization
+- Embed related data when queried together (denormalize)
+- Reference when data is large, frequently updated, or accessed independently
+- Use schema validation for data integrity
+- Add timestamps: `{ timestamps: true }`
+
+## Indexing
+- Create indexes for all query patterns
+- Use compound indexes for multi-field queries (order matters)
+- Use `explain()` to verify index usage
+- Avoid indexing fields with low cardinality
+- Monitor slow queries with profiler
+
+## Aggregation
+- Use aggregation pipeline for complex queries
+- Use `$match` early to filter before expensive stages
+- Use `$project` to limit fields in pipeline
+- Use `$lookup` for joins (sparingly — consider denormalization)
+
+## Best Practices
+- DO: Use connection pooling (default in Mongoose 6+)
+- DO: Use `lean()` for read-only queries (5x faster)
+- DO: Use `bulkWrite()` for batch operations
+- DON'T: Store large files in MongoDB — use GridFS or external storage
+- DON'T: Use `ObjectId` as user-facing identifiers

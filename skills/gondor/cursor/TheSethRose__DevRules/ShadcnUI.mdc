@@ -1,0 +1,137 @@
+---
+description: Best practices and guidelines for working with shadcn/ui components across various frameworks.
+globs: components.json, src/components/ui/**, app/components/ui/**, src/lib/utils.*, app/lib/utils.*, **/*.tsx, **/*.jsx
+alwaysApply: false
+---
+
+# shadcn/ui Best Practices
+
+## Core Philosophy
+- Component Ownership / Open Code: Understand that shadcn/ui components are *copied* into your project (typically `components/ui/`) via the CLI, not installed as an opaque dependency. You own this code and are encouraged to customize it.
+- Composition: Components are designed to be composable, often built upon lower-level primitives (like Radix UI).
+- Tailwind CSS Based: Styling relies heavily on Tailwind CSS utility classes.
+- Accessibility: Built with accessibility primitives.
+- CLI Driven: Interaction (initialization, adding components, building registries) is primarily done via the `shadcn-ui` CLI.
+
+## CLI Usage
+
+Use a package runner like `npx`, `pnpm dlx`, `yarn dlx`, or `bunx`.
+
+### `init`
+
+Initializes dependencies and configuration (`components.json`, `cn` util, CSS variables) for a project.
+
+Command:
+```bash
+# Example using npx
+npx shadcn-ui@latest init [components...]
+```
+
+Usage: `shadcn init [options] [components...]`
+Initialize your project and install dependencies.
+
+Arguments:
+- `components`: Optional. The components to add or a URL to the component upon initialization.
+
+Options:
+- `-y, --yes`: Skip confirmation prompt. (default: true)
+- `-d, --defaults`: Use default configuration. (default: false)
+- `-f, --force`: Force overwrite of existing configuration. (default: false)
+- `-c, --cwd <cwd>`: The working directory. Defaults to the current directory.
+- `-s, --silent`: Mute output. (default: false)
+- `--src-dir`: Use the src directory when creating a new project. (default: false)
+- `--no-src-dir`: Do not use the src directory when creating a new project.
+- `--css-variables`: Use CSS variables for theming. (default: true)
+- `--no-css-variables`: Do not use CSS variables for theming.
+- `-h, --help`: Display help for command.
+
+### `add`
+
+Adds components and their dependencies to your project.
+
+Command:
+```bash
+# Example using npx
+npx shadcn-ui@latest add <component> [component...]
+```
+
+Usage: `shadcn add [options] [components...]`
+Add a component to your project.
+
+Arguments:
+- `components`: The components to add or a URL to the component.
+
+Options:
+- `-y, --yes`: Skip confirmation prompt. (default: false)
+- `-o, --overwrite`: Overwrite existing files. (default: false)
+- `-c, --cwd <cwd>`: The working directory. Defaults to the current directory.
+- `-a, --all`: Add all available components. (default: false)
+- `-p, --path <path>`: The path to add the component to.
+- `-s, --silent`: Mute output. (default: false)
+- `--src-dir`: Use the src directory when creating a new project. (default: false)
+- `--no-src-dir`: Do not use the src directory when creating a new project.
+- `--css-variables`: Use CSS variables for theming. (default: true)
+- `--no-css-variables`: Do not use CSS variables for theming.
+- `-h, --help`: Display help for command.
+
+### `build`
+
+Generates registry JSON files based on a `registry.json` definition (primarily for building custom component registries).
+
+Command:
+```bash
+# Example using npx
+npx shadcn-ui@latest build [registry]
+```
+
+Usage: `shadcn build [options] [registry]`
+Build components for a shadcn registry.
+
+Arguments:
+- `registry`: Path to `registry.json` file (default: `./registry.json`).
+
+Options:
+- `-o, --output <path>`: Destination directory for JSON files (default: `./public/r`).
+- `-c, --cwd <cwd>`: The working directory. Defaults to the current directory.
+- `-h, --help`: Display help for command.
+
+## Setup & Configuration (`components.json`)
+- Initialization: Use the `init` command (see CLI Usage section above) to initialize the project and create the `components.json` configuration file.
+- `components.json` is Key: This file dictates CLI behavior, including paths, styling choices, and framework specifics. Ensure it's configured correctly for your project structure *after* initial framework setup (like Tailwind, path aliases).
+- Path Aliases: Define and consistently use the correct path aliases specified in `components.json` for importing components (`components`, `ui`), utilities (`utils`, `lib`), and potentially hooks (`hooks`). Ensure these aliases are correctly resolved in your framework's build configuration (`tsconfig.json`, `vite.config.ts`, etc.). Example: `import { Button } from "@/components/ui/button";`
+- Styling Configuration (`tailwind` object in `components.json`):
+    - Configure the desired `style` (e.g., `default`, `new-york`).
+    - Configure the `baseColor`.
+    - Set `cssVariables` to `true` (recommended) to enable theming via CSS variables.
+    - `css`: Ensure this path points to your actual global CSS file where Tailwind directives (`@tailwind base`, etc.) are defined.
+    - `config`: Ensure this path points to your `tailwind.config.js` or `tailwind.config.ts` file.
+        - Tailwind v4 Specific: If using Tailwind v4, leave the `tailwind.config` path *empty* (`"config": ""`).
+- Framework Integration (`components.json`):
+    - `tsx`: Set based on whether your project uses TypeScript.
+    - `rsc`: Set based on whether your project uses React Server Components.
+
+## Adding & Using Components
+- Use the CLI: Add components using the `add` command (see CLI Usage section above).
+- Import from Alias: Import added components using the configured `ui` alias (e.g., `@/components/ui/button`).
+- Import Utilities: Import the `cn` utility function from the configured `utils` alias (e.g., `@/lib/utils`) for merging Tailwind classes.
+- Customization: Modify the component files directly within your project's `components/ui/` directory to apply custom styles or behavior.
+
+## Theming
+- CSS Variables: If `cssVariables` is enabled in `components.json`, customize the theme primarily by overriding the CSS variables defined in your global CSS file.
+- Dark Mode / Other Themes: Relies on Tailwind's dark mode configuration (typically `class` strategy). Override CSS variables within the appropriate theme selector (e.g., `.dark {}`) in your global CSS.
+
+## Monorepo Setup
+- `components.json` per Workspace: Each workspace using shadcn/ui needs its *own* `components.json` file.
+- Consistent Configuration: Aim for consistency in `style`, `baseColor`, and other core settings across workspace `components.json` files where applicable.
+- Correct Aliases: Carefully define `aliases` in each workspace's `components.json` to point to the correct local or shared package paths (e.g., `"utils": "@acme/ui/lib/utils"`, `"ui": "@acme/ui/components"`).
+
+## General Usage
+- Combine with Tailwind: Use standard Tailwind utility classes alongside component props for styling.
+- Leverage `cn` Utility: Use the `cn` utility function (from your `utils` alias) for conditional class application and merging default/prop classes.
+  ```tsx
+  import { cn } from "@/lib/utils" // Or your configured utils alias
+  // ...
+  <div className={cn("p-4", isActive && "bg-primary")}>...</div>
+  ```
+- Composability: Build complex UI elements by composing the provided shadcn/ui components together.
+- Read Component Source: Since you own the code, inspect the component source files in `components/ui/` to understand props, structure, and underlying primitives when customizing or debugging.

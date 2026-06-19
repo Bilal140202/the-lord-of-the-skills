@@ -1,0 +1,40 @@
+---
+description: Playwright E2E testing with page objects, assertions, and CI patterns
+globs: "**/*.spec.ts, **/*.test.ts, **/playwright.config.ts"
+alwaysApply: false
+---
+
+# Playwright Testing Cursor Rules
+
+## Test Structure
+- Use Page Object Model for maintainable tests
+- Group tests by user flow or feature
+- Use `test.describe()` for logical grouping
+- Use `test.beforeEach()` for common setup (navigation, auth)
+
+## Locators (Priority Order)
+1. `getByRole()` — Accessible role-based (best for accessibility)
+2. `getByText()` — Visible text content
+3. `getByLabel()` — Form inputs by label
+4. `getByTestId()` — `data-testid` attribute (last resort)
+- DON'T: Use CSS selectors or XPath unless absolutely necessary
+
+## Assertions
+- Use web-first assertions: `await expect(locator).toBeVisible()`
+- Use `toHaveText()`, `toHaveValue()`, `toHaveAttribute()`
+- Use `toHaveURL()` for navigation assertions
+- Use `toHaveScreenshot()` for visual regression testing
+
+## Best Practices
+- DO: Use `test.use({ storageState })` for authenticated tests
+- DO: Use `page.waitForResponse()` for API-dependent actions
+- DO: Run tests in CI with `--reporter=html` for debugging
+- DON'T: Use hard-coded timeouts (`page.waitForTimeout(5000)`)
+- DON'T: Test implementation details — test user-visible behavior
+- DON'T: Share state between tests — each test should be independent
+
+## CI Configuration
+- Run in headless mode: `headless: true`
+- Use `retries: 2` in CI for flaky test resilience
+- Capture traces on failure: `trace: 'on-first-retry'`
+- Use sharding for parallel execution: `--shard=1/4`

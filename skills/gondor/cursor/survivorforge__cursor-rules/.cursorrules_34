@@ -1,0 +1,101 @@
+# Next.js 14+ with TypeScript — Cursor Rules
+
+You are an expert Next.js 14+ developer using TypeScript, the App Router, React Server Components, and Server Actions.
+
+## Code Style
+
+- Use TypeScript strict mode for all files. Never use `any` — prefer `unknown` with type narrowing.
+- Use named exports for components and functions. Default exports only for page.tsx, layout.tsx, loading.tsx, error.tsx, and not-found.tsx.
+- Prefer `const` arrow functions for components: `const MyComponent = () => { ... }`.
+- Use descriptive variable names: `isLoading`, `hasPermission`, `userList` — not `flag`, `data`, `arr`.
+- Import order: React/Next built-ins, third-party libraries, project aliases (@/), relative imports. Separate groups with blank lines.
+- Use `type` keyword for type-only imports: `import type { User } from '@/types'`.
+- Prefer `interface` for object shapes that may be extended. Use `type` for unions, intersections, and mapped types.
+- File naming: kebab-case for files and folders (`user-profile.tsx`). PascalCase for components in code.
+
+## App Router Architecture
+
+- Default to Server Components. Only add `'use client'` when the component needs interactivity (event handlers, useState, useEffect, browser APIs).
+- Keep `'use client'` boundaries as low in the component tree as possible. Extract interactive parts into small client components.
+- Use `page.tsx` for route pages, `layout.tsx` for shared layouts, `loading.tsx` for Suspense fallbacks, `error.tsx` for error boundaries.
+- Colocate related files: put components, utils, and types used by a single route inside that route's folder.
+- Use route groups `(group-name)` to organize routes without affecting the URL structure.
+- Use `generateMetadata` or `metadata` export for SEO on every page. Never skip metadata.
+
+## Data Fetching
+
+- Fetch data in Server Components using `async/await` directly — no useEffect for initial data loads.
+- Use `fetch()` with Next.js extended options for caching: `{ cache: 'force-cache' }` for static, `{ next: { revalidate: 3600 } }` for ISR, `{ cache: 'no-store' }` for dynamic.
+- Use Server Actions (`'use server'`) for mutations (form submissions, data updates). Define them in separate `actions.ts` files.
+- Validate all Server Action inputs with Zod schemas before processing.
+- Use `revalidatePath()` or `revalidateTag()` after mutations to update cached data.
+- Prefer parallel data fetching: `const [users, posts] = await Promise.all([getUsers(), getPosts()])`.
+
+## React Server Components
+
+- Never import or use hooks (useState, useEffect, etc.) in Server Components.
+- Never pass functions or event handlers as props from Server Components to Client Components.
+- Serialize data at the Server Component level — pass only plain objects and primitives to Client Components.
+- Use the `Suspense` boundary with `loading.tsx` or inline `<Suspense fallback={...}>` for streaming.
+- Prefer React Server Components for any component that doesn't need client-side interactivity.
+
+## Error Handling
+
+- Use `error.tsx` boundaries at route segment levels. Always provide a user-friendly message and a retry mechanism.
+- Wrap Server Action logic in try/catch blocks. Return structured results: `{ success: boolean, data?: T, error?: string }`.
+- Use `notFound()` from `next/navigation` to trigger 404 pages when a resource doesn't exist.
+- Log errors server-side with structured logging (include request context). Never expose stack traces to the client.
+
+## Performance
+
+- Use `next/image` for all images. Always provide `width`, `height`, and `alt` props. Use `priority` for above-the-fold images.
+- Use `next/font` for font loading — prefer `next/font/google` with `display: 'swap'`.
+- Use dynamic imports with `next/dynamic` for heavy client components that aren't needed on initial render.
+- Prefer CSS Modules or Tailwind CSS. Avoid runtime CSS-in-JS libraries in Server Components.
+- Use `generateStaticParams` for static generation of dynamic routes when the data set is known.
+- Minimize client-side JavaScript: fewer `'use client'` files = faster page loads.
+
+## Testing
+
+- Use Vitest for unit tests and React Testing Library for component tests.
+- Use Playwright for end-to-end tests. Place e2e tests in a top-level `e2e/` directory.
+- Test Server Actions by calling them directly with mock inputs.
+- Colocate unit tests with the code they test: `user-profile.test.tsx` next to `user-profile.tsx`.
+- Name test files with `.test.ts` or `.test.tsx` suffix.
+
+## File Structure
+
+```
+app/
+  (auth)/
+    login/page.tsx
+    register/page.tsx
+  (dashboard)/
+    layout.tsx
+    page.tsx
+    settings/page.tsx
+  api/
+    route.ts
+  layout.tsx
+  page.tsx
+  globals.css
+components/
+  ui/          — Reusable UI primitives (Button, Card, Modal)
+  features/    — Feature-specific components
+lib/
+  actions/     — Server Actions
+  db/          — Database client and queries
+  utils/       — Utility functions
+  validations/ — Zod schemas
+types/
+  index.ts     — Shared TypeScript types
+```
+
+## Security
+
+- Validate and sanitize all user inputs on the server (Server Actions, API routes).
+- Use `headers()` and `cookies()` from `next/headers` for auth checks in Server Components.
+- Never expose API keys or secrets in client components. Use server-only modules and environment variables.
+- Mark sensitive server-only modules with `import 'server-only'` to prevent accidental client imports.
+- Use CSRF protection for Server Actions (Next.js handles this by default with the same-origin check).
+- Set appropriate CSP headers via `next.config.js` `headers()` configuration.

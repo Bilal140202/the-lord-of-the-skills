@@ -1,0 +1,80 @@
+---
+description: Svelte 5+ best practices and patterns for modern web applications.
+globs: **/*.svelte, src/**/*.js, src/**/*.ts
+alwaysApply: false
+---
+
+# Svelte 5+ Best Practices
+
+## Core Principles
+- Compiler as Framework: Understand Svelte compiles your code to small, imperative JavaScript at build time.
+- Reactivity with Runes: Leverage Svelte 5's rune-based reactivity system (`$state`, `$derived`, `$effect`).
+
+## Component Structure (`.svelte` files)
+- Structure: Organize components with `<script>`, template markup, and `<style>` sections.
+- Keep Components Focused: Design components with a single, clear responsibility.
+- Props: Define component inputs using `export let propName` or `$props()` rune.
+    - Use `$props()` for better explicitness and compatibility with future features.
+    - Provide default values for props if applicable (`export let count = 0`).
+- Slots: Use `<slot>` elements (default and named) to allow parent components to inject content.
+- Scoped Styles: Styles within `<style>` are scoped to the component by default.
+
+## Reactivity (Runes - Svelte 5+)
+- State Declaration: Use `$state()` to declare reactive component state.
+  ```svelte
+  <script>
+    let count = $state(0);
+  </script>
+  ```
+- Derived State: Use `$derived()` for values computed from other reactive state. Svelte optimizes these derivations.
+  ```svelte
+  <script>
+    let count = $state(0);
+    let double = $derived(count * 2);
+  </script>
+  ```
+- Side Effects: Use `$effect()` to run code reactively in response to state changes (e.g., logging, data fetching, manual DOM manipulation). Effects automatically track their dependencies.
+  ```svelte
+  <script>
+    let count = $state(0);
+    $effect(() => {
+      console.log('Count changed:', count);
+      // Cleanup function (optional)
+      return () => console.log('Effect cleanup');
+    });
+  </script>
+  ```
+- Avoid Top-Level Effects: Prefer `$effect` within the component instance scope. For module-level effects (rarely needed), use `rune` variants like `$effect.root()` with caution.
+
+## Templating Syntax
+- Text Interpolation: Use curly braces `{expression}` to embed JavaScript expressions in text.
+- Attribute Binding: Bind attributes using `{attribute}` shorthand or `attribute={expression}`.
+- Event Handling: Use `on:eventname` to listen for DOM events.
+- Conditional Rendering: Use `{#if expression} ... {:else if expression} ... {:else} ... {/if}` blocks.
+- List Rendering: Use `{#each list as item, index (key)} ... {:else} ... {/each}` blocks. Always provide a unique `key` expression for efficient updates.
+- Await Blocks: Use `{#await promise} ... {:then value} ... {:catch error} ... {/await}` to handle promises directly in the markup.
+
+## Component Communication
+- Props Down: Pass data from parent to child via props.
+- Events Up: Dispatch events from child to parent using `createEventDispatcher` or custom event patterns.
+- Context API: Use `setContext` and `getContext` for dependency injection across deeply nested components (use sparingly).
+- Bindings (`bind:property`): Use `bind:property` for two-way binding on component props or DOM element properties/attributes.
+
+## Lifecycle (Runes - Svelte 5+)
+- Use `$effect`: Most lifecycle logic (mount, update, destroy) can be handled naturally within `$effect` using its dependency tracking and cleanup function.
+- Specific Lifecycle Functions (Less Common): Use functions like `onMount`, `onDestroy` from `svelte` if needed for specific timing or logic that doesn't fit well in an effect (less common with runes).
+
+## Reusability
+- Component Composition: Build complex UIs by composing smaller components.
+- JavaScript Modules: Extract reusable non-UI logic into standard JavaScript/TypeScript modules (`.js`/`.ts`).
+- Actions (`use:action`): Create reusable actions for adding behavior to DOM elements.
+
+## Stores (for Cross-Component State)
+- Built-in Stores: Use Svelte's built-in store mechanisms (`writable`, `readable`, `derived`) for managing state shared across multiple, unrelated components.
+- Subscription: Access store values reactively in components using the `$storeName` auto-subscription syntax (requires the store to adhere to the store contract).
+
+## General Best Practices
+- TypeScript: Strongly recommend using TypeScript (`<script lang="ts">`) for type safety. Configure `tsconfig.json` appropriately.
+- Accessibility (a11y): Build accessible interfaces (semantic HTML, ARIA, keyboard navigation).
+- Performance: Svelte is generally performant by default. Avoid unnecessary computations in reactive contexts. Use keys correctly in `{#each}` blocks.
+- Testing: Implement unit and component tests using appropriate testing libraries.

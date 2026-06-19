@@ -1,0 +1,41 @@
+---
+description: Node.js 22 async patterns, error handling, and production best practices
+globs: "**/*.js, **/*.ts, **/*.mjs"
+alwaysApply: false
+---
+
+# Node.js 22 Cursor Rules
+
+## Architecture
+- Use ES modules (`import/export`), not CommonJS (`require`)
+- Keep the event loop free — offload CPU-intensive work to worker threads
+- Use streams for large data processing (files, HTTP responses)
+- Structure: `src/routes/`, `src/services/`, `src/utils/`, `src/config/`
+
+## Async Patterns
+- Always use `async/await` over callbacks and `.then()` chains
+- Use `Promise.all()` for parallel independent operations
+- Use `Promise.allSettled()` when partial failures are acceptable
+- Always handle rejected promises — unhandled rejections crash Node 22
+- Use `AbortController` for cancellable operations
+
+## Error Handling
+- Create custom error classes with status codes and error codes
+- Use centralized error handling middleware
+- Never expose stack traces in production (`NODE_ENV=production`)
+- Log errors with structured logging (pino, winston)
+- Use `process.on('uncaughtException')` and `process.on('unhandledRejection')` for graceful shutdown
+
+## Security
+- Validate all inputs (use Zod, Joi, or class-validator)
+- Sanitize outputs to prevent XSS
+- Use helmet.js for HTTP security headers
+- Rate limit API endpoints
+- Never store secrets in code — use environment variables
+
+## Performance
+- Use connection pooling for databases
+- Implement caching (Redis) for frequent reads
+- Use compression middleware for responses
+- Profile with `--inspect` and Chrome DevTools
+- Monitor memory leaks with heap snapshots

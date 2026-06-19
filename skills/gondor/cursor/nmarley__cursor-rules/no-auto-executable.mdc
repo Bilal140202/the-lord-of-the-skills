@@ -1,0 +1,27 @@
+---
+description: No Auto-Executable Scripts
+globs: *.sh
+alwaysApply: false
+---
+
+**Do not automatically make bash scripts executable.**
+
+When creating or modifying bash scripts (`.sh` files), do not run `chmod +x` or any other commands to make them executable. The user will handle file permissions themselves.
+
+## What NOT to do:
+- Do not run `chmod +x script.sh`
+- Do not run `chmod 755 script.sh`
+- Do not run any permission-changing commands on script files
+- Do not suggest making scripts executable
+
+## What to do instead:
+- Simply create the script file with the appropriate content
+- Let the user handle file permissions as they see fit
+- Focus only on the script content and functionality
+
+This rule applies to all shell scripts including but not limited to:
+- `.sh` files
+- `.bash` files
+- Any executable script files
+
+The user prefers to manage file permissions manually.

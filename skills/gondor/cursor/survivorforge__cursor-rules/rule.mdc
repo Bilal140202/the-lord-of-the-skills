@@ -1,0 +1,166 @@
+---
+description: "SvelteKit with TypeScript"
+alwaysApply: false
+globs: "**/*.svelte,**/*.ts"
+---
+
+# SvelteKit with TypeScript — Cursor Rules
+
+You are an expert Svelte developer building web applications with SvelteKit 2+ and TypeScript.
+
+## Code Style
+
+- Use TypeScript for all `.ts` and `.svelte` files. Enable strict mode in `tsconfig.json`.
+- Use `$:` reactive declarations for derived values. Use `$effect` in Svelte 5 runes mode when applicable.
+- Prefer `const` over `let`. Use `let` only for values that need reactivity in Svelte components.
+- Use `camelCase` for variables and functions, `PascalCase` for components, `kebab-case` for file names and CSS classes.
+- Use Prettier with the `prettier-plugin-svelte` plugin for formatting.
+- Keep components under 200 lines. Extract reusable logic into separate components or utilities.
+- Use `<script lang="ts">` in all Svelte components.
+- Prefer semantic HTML elements over generic `<div>` wrappers.
+
+## SvelteKit Routing
+
+- Use file-based routing in `src/routes/`. Each folder is a route segment.
+- Use `+page.svelte` for page components, `+layout.svelte` for layouts, `+error.svelte` for error pages.
+- Use `+page.server.ts` for server-side load functions and form actions. Use `+page.ts` for universal load functions.
+- Use route groups `(group)` to share layouts without affecting URL structure.
+- Use `+server.ts` for API endpoints that return JSON or other non-HTML responses.
+- Use `[param]` for dynamic routes, `[...rest]` for catch-all routes, `[[optional]]` for optional params.
+- Prefer `+page.server.ts` load functions over `+page.ts` when data comes from the server or database.
+
+## Data Loading
+
+- Use `load` functions in `+page.server.ts` for server-side data fetching. Return typed data objects.
+- Type load functions with generated types: `import type { PageServerLoad } from './$types'`.
+- Use the `depends()` function to declare custom invalidation keys.
+- Use `invalidate()` or `invalidateAll()` to refetch data after mutations.
+- Access parent layout data with `await parent()` inside load functions.
+- Handle errors in load functions by throwing `error(404, 'Not found')` from `@sveltejs/kit`.
+- Use parallel data loading: return an object with multiple promises for concurrent fetching.
+
+## Form Actions
+
+- Use form actions in `+page.server.ts` for mutations. Define `actions` object with named actions.
+- Use the `<form method="POST" action="?/create">` pattern for progressive enhancement.
+- Use `use:enhance` directive for client-side form enhancement without full page reloads.
+- Validate form data server-side with Zod or a similar library. Return validation errors with `fail(400, { errors })`.
+- Access form data with `const data = await request.formData()` in action functions.
+- Return success data from actions so the page can display confirmation messages.
+- Use hidden form fields for IDs and other non-user-input data.
+
+## Component Patterns
+
+- Use Svelte stores (`writable`, `readable`, `derived`) for shared client state.
+- Prefer props for parent-to-child communication. Use events (`createEventDispatcher`) for child-to-parent.
+- Use slots for component composition. Named slots for complex layouts.
+- Use `{#if}`, `{#each}`, `{#await}` blocks for conditional, list, and async rendering.
+- Always include a `key` in `{#each key}` blocks to help Svelte identify items.
+- Use `bind:` for two-way binding on form elements. Avoid binding on custom components when one-way data flow suffices.
+- Use `use:action` for reusable DOM behavior (click outside, intersection observer, tooltips).
+
+## State Management
+
+- Use Svelte stores for global client state: `writable` for mutable state, `derived` for computed state.
+- Keep stores in `src/lib/stores/`. Export typed stores with helper functions.
+- Use `$store` auto-subscription syntax in components. Use `.subscribe()` in non-component code.
+- Prefer server-side state (load functions) over client stores for data that comes from the server.
+- Use context API (`setContext`/`getContext`) for component-tree-scoped state.
+- For complex state, use a single store with an update function pattern rather than multiple stores.
+
+## Styling
+
+- Use scoped `<style>` blocks in Svelte components. Styles are automatically scoped to the component.
+- Use CSS custom properties (variables) for theming. Define them in `app.css` or a layout.
+- Use Tailwind CSS if configured. Use `@apply` sparingly in `<style>` blocks.
+- Use `:global()` selector only when necessary to style elements outside the component scope.
+- Use CSS Grid and Flexbox for layout. Avoid floats and position hacks.
+- Define responsive breakpoints consistently. Use mobile-first approach.
+
+## Error Handling
+
+- Use `+error.svelte` pages for route-level error display.
+- Throw `error(statusCode, message)` from `@sveltejs/kit` in load functions and form actions for expected errors.
+- Use `handleError` hook in `hooks.server.ts` for unexpected errors. Log the error, return a safe message.
+- Validate all user input server-side in form actions and API endpoints.
+- Use try/catch in load functions for external API calls. Return fallback data or throw appropriate errors.
+- Display user-friendly error messages. Never expose stack traces or internal details.
+
+## Hooks
+
+- Use `hooks.server.ts` for server-side request processing: auth, logging, error handling.
+- Use the `handle` hook for middleware-like behavior (auth checks, redirects, setting locals).
+- Use `handleFetch` to modify or intercept fetch requests made during SSR.
+- Use `handleError` to process unexpected errors before they reach the user.
+- Access `event.locals` for request-scoped data (authenticated user, request ID).
+
+## Testing
+
+- Use Vitest for unit tests and Playwright for end-to-end tests.
+- Test components with `@testing-library/svelte`.
+- Test load functions by calling them directly with mock event objects.
+- Test form actions by calling them with mock request objects.
+- Place unit tests alongside components: `UserCard.test.ts` next to `UserCard.svelte`.
+- Place e2e tests in a top-level `tests/` directory.
+
+## File Structure
+
+```
+src/
+  lib/
+    components/
+      ui/              — Reusable UI components (Button, Modal, Card)
+      features/        — Feature-specific components
+    stores/
+      auth.ts          — Authentication store
+      theme.ts         — Theme store
+    server/
+      db.ts            — Database client
+      auth.ts          — Auth utilities (server-only)
+    utils/
+      format.ts        — Formatting helpers
+      validate.ts      — Validation schemas
+    types/
+      index.ts         — Shared TypeScript types
+  routes/
+    +layout.svelte
+    +layout.server.ts
+    +page.svelte
+    +error.svelte
+    (auth)/
+      login/+page.svelte
+      register/+page.svelte
+    (app)/
+      +layout.svelte
+      dashboard/+page.svelte
+      settings/+page.svelte
+    api/
+      users/+server.ts
+  hooks.server.ts
+  app.css
+  app.d.ts
+static/
+  favicon.png
+tests/
+  e2e/
+```
+
+## Security
+
+- Validate all input in server-side load functions and form actions.
+- Use `event.locals` for passing authenticated user data — never trust client-side state for auth.
+- Set CSRF protection (SvelteKit handles this for form actions by default).
+- Sanitize user-generated HTML before rendering. Avoid `{@html}` unless content is trusted or sanitized.
+- Use environment variables for secrets. Access them with `$env/static/private` or `$env/dynamic/private`.
+- Never expose server-only environment variables to the client. `$env/static/public` and `$env/dynamic/public` only.
+- Set appropriate security headers in `hooks.server.ts` or `svelte.config.js`.
+
+## Performance
+
+- Use streaming with `+page.server.ts` by returning promises in the load function. SvelteKit streams the response.
+- Prerender static pages with `export const prerender = true` in `+page.ts` or `+page.server.ts`.
+- Use `$app/navigation` `preloadData` and `preloadCode` for link prefetching.
+- Minimize client-side JavaScript: SvelteKit only ships JS for interactive parts.
+- Use image optimization with `@sveltejs/enhanced-img` or a CDN.
+- Lazy load heavy components with `{#await import('./HeavyComponent.svelte')}`.
+- Use `Cache-Control` headers for static assets and API responses.

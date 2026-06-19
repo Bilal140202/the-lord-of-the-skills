@@ -1,0 +1,174 @@
+# Docker and DevOps — Cursor Rules
+
+You are an expert DevOps engineer working with Docker, CI/CD pipelines, and infrastructure as code, following production-grade containerization and deployment practices.
+
+## Dockerfile Best Practices
+
+- Use multi-stage builds to minimize final image size. Build stage installs dependencies and compiles; production stage copies only the artifacts.
+- Always specify exact base image tags, never use `latest`: `node:20.11-alpine3.19`, not `node:latest`.
+- Use Alpine-based images when possible for smaller image sizes: `python:3.12-alpine`, `node:20-alpine`.
+- Use Distroless images for production when minimal surface area is needed: `gcr.io/distroless/nodejs20-debian12`.
+- Order Dockerfile instructions from least to most frequently changing for optimal layer caching:
+  1. Base image
+  2. System packages
+  3. Package manager files (package.json, requirements.txt)
+  4. Install dependencies
+  5. Copy application code
+  6. Build step
+- COPY dependency files first, install, then copy the rest:
+  ```dockerfile
+  COPY package.json package-lock.json ./
+  RUN npm ci --production
+  COPY . .
+  ```
+- Use `.dockerignore` to exclude `node_modules`, `.git`, `.env`, `*.md`, test files, and other non-essential files.
+- Run as non-root user. Create a dedicated user:
+  ```dockerfile
+  RUN addgroup -g 1001 appgroup && adduser -u 1001 -G appgroup -s /bin/sh -D appuser
+  USER appuser
+  ```
+- Use `HEALTHCHECK` instruction for container health monitoring.
+- Set `WORKDIR` before any file operations. Use absolute paths.
+- Minimize the number of RUN layers. Combine related commands with `&&`.
+- Use `COPY` over `ADD` unless you need URL fetching or archive extraction.
+- Do not store secrets in the image. Use build-time secrets with `--mount=type=secret` or runtime environment variables.
+
+## Docker Compose
+
+- Use `docker-compose.yml` for local development and `docker-compose.prod.yml` for production overrides.
+- Define all services with explicit container names, ports, volumes, and networks.
+- Use named volumes for persistent data (databases). Use bind mounts only for development hot-reload.
+- Define a custom bridge network for inter-service communication. Do not use the default bridge.
+- Use `depends_on` with `condition: service_healthy` for startup ordering.
+- Use environment files (`.env`) for configuration. Define defaults in compose, override with `.env`.
+- Use `restart: unless-stopped` for production services.
+- Pin all image versions in compose files. Never use floating tags.
+- Define resource limits (`mem_limit`, `cpus`) for each service.
+
+## CI/CD Pipeline Design
+
+- Pipeline stages (in order): lint -> test -> build -> security scan -> deploy staging -> integration test -> deploy production.
+- Fail fast: run linting and unit tests before expensive build steps.
+- Use caching aggressively: dependency caches, Docker layer caches, build artifact caches.
+- Pin all CI action versions to a specific SHA or version tag. Never use `@latest` or `@main`.
+- Use matrix builds for testing across multiple environments (OS, language version).
+- Implement branch protection: require passing CI and code review before merging to main.
+- Use semantic versioning for releases. Automate version bumping based on commit messages.
+- Keep pipeline configuration DRY. Use reusable workflows (GitHub Actions) or templates (GitLab CI).
+
+## GitHub Actions
+
+- Use job-level `permissions` with least privilege. Never grant `write-all`.
+- Use `actions/checkout@v4`, `actions/setup-node@v4`, etc. (pinned versions).
+- Use `concurrency` groups to cancel outdated runs on the same branch.
+- Store secrets in GitHub Secrets, not in workflow files or environment variables.
+- Use OIDC for cloud provider authentication (AWS, GCP, Azure) instead of long-lived credentials.
+- Use artifacts for passing build outputs between jobs.
+- Run security scanning (Trivy, Snyk) on every PR and block merge on critical vulnerabilities.
+- Use environments with protection rules for production deployments.
+
+## Infrastructure as Code
+
+- Use Terraform or OpenTofu for cloud infrastructure. Use CloudFormation/SAM for AWS-native projects.
+- Separate infrastructure code from application code in the repository.
+- Use modules for reusable infrastructure components.
+- Store Terraform state remotely (S3 + DynamoDB for locking, Terraform Cloud).
+- Use workspaces or separate state files for environment isolation (dev, staging, production).
+- Use variables and locals for configuration. Never hardcode values in resource definitions.
+- Tag all resources with: `project`, `environment`, `owner`, `managed-by: terraform`.
+- Use `terraform plan` in CI before applying. Require manual approval for production changes.
+- Use `terraform fmt` and `terraform validate` in CI.
+
+## Container Security
+
+- Scan images for vulnerabilities with Trivy, Snyk, or Grype in CI.
+- Do not run containers as root. Use `USER` instruction in Dockerfile.
+- Use read-only root filesystem where possible: `--read-only` flag or `readOnlyRootFilesystem: true`.
+- Do not store secrets in images or environment variables visible in `docker inspect`. Use Docker secrets or vault.
+- Use minimal base images to reduce attack surface (Alpine, Distroless).
+- Keep images up to date. Rebuild regularly to pick up base image security patches.
+- Sign and verify container images in production (Docker Content Trust, cosign).
+- Use private registries for proprietary images. Enable vulnerability scanning on the registry.
+
+## Logging and Monitoring
+
+- Use structured JSON logging in all applications. Include timestamp, level, service name, request ID.
+- Send container logs to a centralized platform: ELK, Loki, CloudWatch, Datadog.
+- Use Docker logging drivers (`json-file`, `fluentd`, `awslogs`) appropriately for the deployment target.
+- Set log rotation on container logging drivers to prevent disk exhaustion.
+- Monitor container metrics: CPU, memory, network I/O, restart count.
+- Set up alerts for: container restarts, high resource usage, health check failures, error rate spikes.
+- Use distributed tracing (OpenTelemetry) for microservice architectures.
+
+## Networking
+
+- Use custom bridge networks in Docker for inter-service DNS resolution.
+- Expose only necessary ports. Internal services communicate over the Docker network, not published ports.
+- Use a reverse proxy (Nginx, Traefik, Caddy) for TLS termination, routing, and load balancing.
+- In production, use overlay networks (Docker Swarm) or service mesh (Kubernetes) for multi-node networking.
+- Set appropriate DNS TTLs for service discovery.
+
+## Environment Management
+
+- Use environment variables for all configuration. Twelve-Factor App methodology.
+- Use `.env` files for local development only. Never commit `.env` to version control.
+- Use different environment files per stage: `.env.development`, `.env.staging`, `.env.production`.
+- Validate environment variables at application startup. Fail fast if required vars are missing.
+- Use a secrets manager (HashiCorp Vault, AWS Secrets Manager, Doppler) for sensitive configuration.
+- Separate build-time variables (`ARG` in Dockerfile) from runtime variables (`ENV`).
+
+## Testing Infrastructure
+
+- Test Dockerfiles with hadolint for best practices compliance.
+- Test CI/CD pipelines with `act` (GitHub Actions local runner) for local development.
+- Test Terraform with `terraform plan` and `terraform validate`. Use `tfsec` for security scanning.
+- Use container structure tests (`container-structure-test`) to verify image contents and configuration.
+- Implement smoke tests after deployment: health check endpoints, basic functionality verification.
+- Use chaos engineering tools (Chaos Monkey, Litmus) for resilience testing.
+
+## File Structure
+
+```
+.github/
+  workflows/
+    ci.yml              — Lint, test, build on every PR
+    deploy.yml          — Deploy to staging/production
+    security.yml        — Weekly security scans
+docker/
+  Dockerfile            — Production Dockerfile
+  Dockerfile.dev        — Development Dockerfile with hot-reload
+  docker-compose.yml    — Local development environment
+  docker-compose.prod.yml — Production overrides
+  .dockerignore
+infrastructure/
+  terraform/
+    modules/
+      ecs/              — ECS service module
+      rds/              — Database module
+      vpc/              — Networking module
+    environments/
+      dev/
+        main.tf
+        terraform.tfvars
+      production/
+        main.tf
+        terraform.tfvars
+    backend.tf          — Remote state configuration
+    variables.tf
+    outputs.tf
+scripts/
+  deploy.sh             — Deployment helper script
+  healthcheck.sh        — Container health check
+  setup-dev.sh          — Development environment setup
+```
+
+## Performance
+
+- Minimize Docker image size: use multi-stage builds, Alpine base, remove build tools in final stage.
+- Use BuildKit (`DOCKER_BUILDKIT=1`) for parallel builds and advanced caching.
+- Cache Docker layers in CI with `--cache-from` and `--cache-to` flags.
+- Use `.dockerignore` aggressively to reduce build context size.
+- Optimize `COPY` instructions: copy only what's needed, not the entire repository.
+- Use health checks with appropriate intervals: not too frequent (CPU overhead) or too infrequent (slow detection).
+- Profile container resource usage and set appropriate limits and requests.
+- Use horizontal scaling (more containers) over vertical scaling (bigger containers) for stateless services.

@@ -1,0 +1,60 @@
+---
+description: Vue.js 3 best practices and patterns for modern web applications.
+globs: **/*.vue, src/**/*.js, src/**/*.ts
+alwaysApply: false
+---
+
+# Vue.js 3 Best Practices
+
+## Core Principles
+- Declarative Rendering: Use Vue's template syntax to declaratively bind the DOM to the underlying component state.
+- Reactivity: Leverage Vue's reactivity system. Understand how changes to reactive state automatically update the DOM.
+- Component-Based: Build interfaces by composing small, reusable components.
+
+## API Styles (Options vs. Composition)
+- Understand Both: Be familiar with both Options API and Composition API. Choose based on project needs, team preference, or complexity.
+    - Options API: Organizes code by options (`data`, `methods`, `computed`, `watch`, lifecycle hooks). Good for simpler components or class-based mental models.
+    - Composition API: Organizes code by logical concern using imported functions (`ref`, `reactive`, `computed`, `watch`, lifecycle hooks). Excellent for logic reuse (Composables) and managing complex components. Often used with `<script setup>`.
+- Consistency: Maintain consistency in the chosen API style within a project or team if possible.
+
+## Single-File Components (SFCs - `.vue` files)
+- Structure: Use SFCs to encapsulate template (`<template>`), logic (`<script>` or `<script setup>`), and styles (`<style>`) in one file.
+- `<script setup>`: Prefer `<script setup>` when using Composition API for reduced boilerplate and better TypeScript inference.
+- Scoped Styles: Use `<style scoped>` to limit CSS rules to the current component, preventing global scope pollution.
+
+## Component Design
+- Keep Components Focused: Design components with a single, clear responsibility.
+- Props for Input: Pass data down from parent to child components using `props`. Define props clearly with types and validation.
+- Events for Output: Emit events (`$emit`) from child components to communicate changes or actions back to the parent.
+- Slots for Content Distribution: Use `slots` to allow parent components to pass template fragments into child components, enhancing flexibility and composition.
+- Provide/Inject: Use `provide` and `inject` for dependency injection, especially for deeply nested components, but use with caution as it makes components less explicitly coupled.
+
+## Reactivity Fundamentals
+- Reactive State: Declare reactive state appropriately (using `data()` in Options API, or `ref()` / `reactive()` in Composition API).
+- Computed Properties: Use `computed` properties for derived state based on reactive dependencies. They are cached and only re-evaluate when dependencies change.
+- Watchers: Use `watch` or `watchEffect` to reactively perform side effects in response to state changes. Prefer `computed` for derived state. Use watchers judiciously.
+
+## Reusability
+- Composables (Composition API): Extract reusable stateful logic into composable functions (e.g., `useFeature.js`).
+- Custom Directives: Create custom directives (`v-directive`) for low-level DOM manipulation logic that needs to be reused.
+- Plugins: Develop plugins to add global-level functionality to your Vue application.
+
+## Built-in Features
+- Conditional Rendering: Use `v-if`/`v-else-if`/`v-else` for conditional rendering based on truthiness. Use `v-show` for toggling visibility via CSS `display` (use when toggling frequently).
+- List Rendering: Use `v-for` to render lists based on an array or object. Always provide a unique `key` attribute.
+- Event Handling: Use `@event` (shorthand for `v-on:event`) to listen to DOM events and call methods or inline handlers.
+- Form Input Bindings: Use `v-model` for two-way binding on form inputs (`<input>`, `<select>`, `<textarea>`) and custom components.
+- Template Refs: Use `ref` attribute in templates to get direct access to DOM elements or child component instances after mount.
+- Lifecycle Hooks: Use lifecycle hooks (`mounted`, `updated`, `unmounted`, etc. in Options API; `onMounted`, `onUpdated`, `onUnmounted`, etc. in Composition API) to perform actions at specific stages of a component's life.
+
+## Performance
+- Identify Bottlenecks: Use Vue Devtools to profile component performance and identify unnecessary updates.
+- `key` Attribute: Always use unique and stable `key`s in `v-for`.
+- `v-once`: Use `v-once` for parts of the template that are rendered once and never need to update.
+- Lazy Loading: Use async components (`defineAsyncComponent`) and route-based code splitting to lazy-load parts of your application.
+
+## General Best Practices
+- Follow Vue Style Guide: Adhere to the official Vue Style Guide recommendations for consistency and maintainability.
+- TypeScript: Use TypeScript for enhanced type safety, especially in larger applications. Configure `tsconfig.json` appropriately.
+- Testing: Implement unit and component tests using appropriate testing libraries and utilities.
+- Accessibility (a11y): Build accessible interfaces using semantic HTML, ARIA attributes where necessary, and keyboard navigation considerations.

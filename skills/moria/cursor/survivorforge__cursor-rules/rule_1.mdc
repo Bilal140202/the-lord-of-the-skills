@@ -1,0 +1,219 @@
+---
+description: "DevOps infrastructure as code"
+alwaysApply: false
+globs: "**/*.tf,**/*.yml,**/*.yaml,**/Dockerfile"
+---
+
+# DevOps & Infrastructure — Cursor Rules
+# Production infrastructure: Terraform, Docker, CI/CD, Kubernetes, and operational excellence
+
+# Project Context
+You are managing infrastructure-as-code and CI/CD pipelines for a production system. The project
+uses Terraform for cloud infrastructure provisioning, Docker for containerization, GitHub Actions
+for CI/CD, and Kubernetes for orchestration. All infrastructure changes are version-controlled,
+reviewed, and applied through automation.
+
+# Terraform Patterns
+- Organize Terraform by environment and component:
+  ```
+  infrastructure/
+    modules/
+      networking/           # VPC, subnets, security groups
+      database/             # RDS, ElastiCache
+      compute/              # ECS, EKS, EC2
+      monitoring/           # CloudWatch, alerts
+    environments/
+      production/
+        main.tf             # Module composition
+        variables.tf        # Environment variables
+        terraform.tfvars    # Variable values
+        backend.tf          # Remote state config
+      staging/
+        ...
+  ```
+- Use modules for reusable infrastructure components.
+- Use remote state (S3 + DynamoDB for AWS) with state locking.
+- Tag ALL resources with: `Environment`, `Project`, `ManagedBy=terraform`, `Owner`.
+- Use `data` sources to reference existing resources, not hardcoded IDs.
+- Use `terraform plan` output in PR reviews before applying.
+
+# Terraform Best Practices
+- Use variables for all configurable values:
+  ```hcl
+  variable "instance_type" {
+    description = "EC2 instance type for application servers"
+    type        = string
+    default     = "t3.medium"
+    validation {
+      condition     = can(regex("^t3\\.", var.instance_type))
+      error_message = "Only t3 instances are allowed."
+    }
+  }
+  ```
+- Use `locals` for computed values used multiple times.
+- Use `output` to expose values needed by other configurations.
+- Use `lifecycle` blocks for zero-downtime updates:
+  ```hcl
+  resource "aws_instance" "web" {
+    lifecycle {
+      create_before_destroy = true
+    }
+  }
+  ```
+- Use `prevent_destroy` on critical resources (databases, S3 buckets with data).
+- DON'T: Store secrets in Terraform state — use a secrets manager.
+- DON'T: Use `terraform apply -auto-approve` in production.
+- DON'T: Hardcode AWS account IDs, regions, or ARNs — use data sources and variables.
+
+# Docker Best Practices
+- Multi-stage builds for minimal production images:
+  ```dockerfile
+  # Build stage
+  FROM node:20-alpine AS builder
+  WORKDIR /app
+  COPY package*.json ./
+  RUN npm ci --only=production && npm cache clean --force
+  COPY . .
+  RUN npm run build
+
+  # Production stage
+  FROM node:20-alpine
+  RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+  WORKDIR /app
+  COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+  COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+  USER appuser
+  EXPOSE 3000
+  HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3000/health || exit 1
+  CMD ["node", "dist/main.js"]
+  ```
+- Always use specific image tags, never `latest`: `node:20.11-alpine`, not `node:latest`.
+- Scan images for vulnerabilities: `docker scout`, `trivy`, or `snyk container`.
+- Keep images small: use Alpine base, multi-stage builds, minimal dependencies.
+- One process per container — don't run multiple services in one container.
+- Use `.dockerignore` to exclude: `.git`, `node_modules`, `tests`, `docs`, `.env`.
+
+# CI/CD Pipeline (GitHub Actions)
+- Standard pipeline stages: lint -> test -> build -> deploy:
+  ```yaml
+  name: CI/CD
+  on:
+    push:
+      branches: [main]
+    pull_request:
+      branches: [main]
+
+  jobs:
+    lint:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-node@v4
+          with: { node-version: 20, cache: npm }
+        - run: npm ci
+        - run: npm run lint
+
+    test:
+      needs: lint
+      runs-on: ubuntu-latest
+      services:
+        postgres:
+          image: postgres:16
+          env: { POSTGRES_PASSWORD: test }
+          ports: ['5432:5432']
+      steps:
+        - uses: actions/checkout@v4
+        - run: npm ci
+        - run: npm test -- --coverage
+        - uses: actions/upload-artifact@v4
+          with: { name: coverage, path: coverage/ }
+
+    deploy:
+      needs: test
+      if: github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      environment: production
+      steps:
+        - uses: actions/checkout@v4
+        - run: docker build -t app:${{ github.sha }} .
+        - run: docker push registry/app:${{ github.sha }}
+        - run: kubectl set image deployment/app app=registry/app:${{ github.sha }}
+  ```
+- Cache dependencies between runs (npm cache, Docker layer cache).
+- Run security scans (SAST, dependency audit) in CI.
+- Use GitHub Environments with approval gates for production deploys.
+- Store secrets in GitHub Secrets, not in code or CI config.
+
+# Kubernetes Patterns
+- Use Deployments for stateless services, StatefulSets for stateful.
+- Define resource requests AND limits on every container:
+  ```yaml
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  ```
+- Use ConfigMaps for configuration, Secrets for sensitive data.
+- Define liveness, readiness, and startup probes:
+  ```yaml
+  livenessProbe:
+    httpGet: { path: /health, port: 3000 }
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  readinessProbe:
+    httpGet: { path: /ready, port: 3000 }
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  ```
+- Use Horizontal Pod Autoscaler (HPA) based on CPU/memory or custom metrics.
+- Use PodDisruptionBudget to ensure availability during node maintenance.
+- Use Ingress with TLS termination for external traffic.
+- Use NetworkPolicies to restrict pod-to-pod communication.
+
+# Monitoring and Alerting
+- Monitor the Four Golden Signals: latency, traffic, errors, saturation.
+- Set up alerts for:
+  - Error rate > 1% for 5 minutes
+  - P99 latency > 2 seconds for 5 minutes
+  - CPU/memory utilization > 80% for 10 minutes
+  - Disk space > 85%
+  - Certificate expiry within 30 days
+  - Health check failures
+- Use Prometheus + Grafana or cloud-native monitoring (CloudWatch, Datadog).
+- Create dashboards for: service health, infrastructure metrics, business metrics.
+- Set up PagerDuty or Opsgenie for on-call alerting.
+
+# Secret Management
+- Never store secrets in code, environment files committed to git, or CI config files.
+- Use a secrets manager: AWS Secrets Manager, HashiCorp Vault, or cloud-native equivalent.
+- Rotate secrets regularly (automated rotation preferred).
+- Use separate secrets per environment (dev/staging/prod).
+- Audit secret access with logging.
+
+# Disaster Recovery
+- Define RTO (Recovery Time Objective) and RPO (Recovery Point Objective) for each service.
+- Automated database backups with tested restoration procedures.
+- Multi-AZ deployment for high availability.
+- Document runbooks for common failure scenarios.
+- Conduct regular disaster recovery drills.
+- Use infrastructure-as-code for fast environment recreation.
+
+# Security
+- Enable MFA on all cloud accounts and CI/CD systems.
+- Use IAM roles with least-privilege permissions.
+- Enable VPC flow logs and CloudTrail for audit trails.
+- Scan Docker images and dependencies for vulnerabilities in CI.
+- Use HTTPS everywhere — no exceptions.
+- Implement WAF rules for public-facing services.
+
+# Common Mistakes to Avoid
+- DON'T: Store secrets in Terraform state or version control.
+- DON'T: Use `latest` Docker tags — pin specific versions for reproducibility.
+- DON'T: Skip health checks in Kubernetes deployments.
+- DON'T: Deploy directly to production without a staging environment.
+- DON'T: Set CPU limits without load testing — too low causes throttling.
+- DON'T: Ignore Terraform plan output — review every change before applying.
+- DON'T: Use root user/account for daily operations — use service accounts with limited permissions.

@@ -1,0 +1,51 @@
+---
+description: Defines the available Model Context Protocol (MCP) servers and their capabilities based on the user's mcp.json. Use when interacting with any MCP Server command.
+globs: 
+alwaysApply: false
+---
+# MCP Server Configuration
+
+This file documents the Model Context Protocol (MCP) servers available in your environment. It helps the AI understand which tools it can use for tasks involving memory, filesystem operations, web interaction, etc.
+
+## How to Provide Your MCP Configuration
+
+1. Open Cursor Settings (Cmd+, or Ctrl+,)
+2. Go to the 'MCP' section
+3. Click 'Add new global MCP server' (opens `mcp.json`)
+4. With `mcp.json` open, return to chat and provide context using @
+
+## Available MCP Servers
+
+### Example Server Format
+```
+### MCP Server Name
+Purpose: Provides file system access for reading/writing files
+When to Use: For file operations (read, write, check existence)
+Key Commands: `read_file`, `write_file`, `file_exists`, `list_directory`
+Usage Instructions: Always use absolute file paths
+```
+
+### Server Template
+```
+### MCP Server
+Purpose: 
+When to Use: 
+Key Commands: 
+Usage Instructions: 
+Access Scope: 
+Authentication: 
+Rate Limits: 
+Error Handling: 
+```
+
+## Important Notes
+- Always use absolute paths for filesystem operations
+- Tool descriptions are derived from available tool descriptions in your configuration
+
+---
+NOTE TO AI: 
+- Populate this file based on user's `.cursor/mcp.json`
+- For each server, list name and brief description of purpose/commands
+- Include relevant configuration details (paths, environment variables, etc.)
+- Remove example section when populating with actual MCP servers
+---

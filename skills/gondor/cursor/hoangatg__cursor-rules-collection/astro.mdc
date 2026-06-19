@@ -1,0 +1,30 @@
+---
+description: Astro 4 development with islands architecture and content collections
+globs: "**/*.astro, **/*.mdx"
+alwaysApply: false
+---
+
+# Astro 4 Cursor Rules
+
+## Architecture
+- Ship zero JS by default — add interactivity only where needed
+- Use islands architecture: `client:load`, `client:idle`, `client:visible`
+- Use content collections for structured content (blog, docs)
+- Choose rendering per-page: static (default), SSR, or hybrid
+
+## Components
+- `.astro` components for static content (no JS shipped)
+- Use React/Vue/Svelte components only for interactive islands
+- Pass data via props, not global state
+- Use `<slot />` for component composition
+
+## Content Collections
+- Define schemas in `src/content/config.ts` with Zod
+- Query with `getCollection()` and `getEntry()`
+- Use `<Content />` component to render markdown
+
+## Performance
+- Astro ships 0KB JS by default — keep it that way
+- Use `client:visible` for below-fold interactive components
+- Use `client:idle` for non-critical interactivity
+- Use `<Image />` component for optimized images

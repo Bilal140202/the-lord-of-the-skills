@@ -1,0 +1,170 @@
+---
+description: "Chrome Extension (Manifest V3)"
+alwaysApply: false
+globs: "**/manifest.json,**/*.ts,**/*.js"
+---
+
+# Chrome Extension Manifest V3 — Cursor Rules
+
+You are an expert Chrome Extension developer building extensions with Manifest V3, using TypeScript, modern web APIs, and Chrome Extension best practices.
+
+## Code Style
+
+- Use TypeScript for all extension code. Install `chrome-types` npm package for full Chrome API type definitions (`@anthropic-ai/chrome-types` or `chrome-types`).
+- Reference Chrome API types with the `chrome` global namespace. The types package provides complete definitions for `chrome.runtime`, `chrome.storage`, `chrome.tabs`, etc.
+- Use `camelCase` for variables and functions, `PascalCase` for classes and components, `UPPER_SNAKE_CASE` for constants.
+- Use named exports. Group code by concern: content scripts, background service worker, popup, options page.
+- Use ESM syntax with a bundler (webpack, Vite, or esbuild) that outputs browser-compatible JavaScript.
+- Follow Chrome Extension style: concise, performance-focused, minimal permissions.
+
+## Manifest V3 Configuration
+
+- Use `"manifest_version": 3` exclusively. Do not use Manifest V2 patterns.
+- Declare the minimum permissions required in `permissions`. Use `optional_permissions` for features that aren't always needed.
+- Use `host_permissions` for site-specific access. Prefer specific patterns over `<all_urls>`.
+- Define `content_scripts` with precise URL matches. Use `matches` patterns, not `<all_urls>` unless truly needed.
+- Register the service worker in `background.service_worker`, not `background.scripts`.
+- Use `action` (not `browser_action` or `page_action`) for the toolbar icon.
+- Specify `content_security_policy.extension_pages` if you need to relax CSP (rare — prefer default).
+- Declare `web_accessible_resources` with resource patterns and match conditions for files accessed from web pages.
+
+## Service Worker (Background)
+
+- The service worker is event-driven. It starts on events and terminates when idle. Do not rely on persistent state.
+- Use `chrome.storage.local` or `chrome.storage.session` for persisting data across service worker restarts.
+- Register all event listeners at the top level of the service worker — not inside other callbacks or async functions.
+- Use `chrome.alarms` for periodic tasks instead of `setInterval` (service worker terminates between events).
+- Handle extension lifecycle events: `chrome.runtime.onInstalled` for setup, migrations, and first-run experience.
+- Use `chrome.runtime.onMessage` for communication with content scripts and popup.
+- Keep the service worker lightweight. Offload heavy processing to content scripts or offscreen documents.
+- Use `chrome.offscreen.createDocument()` for DOM access from the background (audio, canvas, clipboard).
+
+## Content Scripts
+
+- Content scripts run in a separate isolated world. They share the DOM but not JavaScript variables with the page.
+- Use `chrome.runtime.sendMessage()` to communicate with the service worker.
+- Use `chrome.runtime.onMessage.addListener()` to receive messages from the service worker.
+- Access the page's DOM directly. Use `MutationObserver` to react to dynamic DOM changes.
+- Inject CSS with `chrome.scripting.insertCSS()` from the service worker, or include in `manifest.json` `content_scripts.css`.
+- Use `chrome.scripting.executeScript()` for programmatic injection from the service worker.
+- Namespace your DOM modifications to avoid conflicts with the page: use unique class prefixes, shadow DOM.
+- Use Shadow DOM for injected UI components to isolate styles from the host page.
+- Clean up on deactivation: remove observers, event listeners, and injected elements.
+
+## Message Passing
+
+- Use `chrome.runtime.sendMessage()` for one-time messages between content scripts and service worker.
+- Use `chrome.runtime.connect()` for long-lived connections (port-based messaging).
+- Define a message protocol with typed action names:
+  ```typescript
+  type Message =
+    | { action: 'GET_DATA'; payload: { key: string } }
+    | { action: 'SAVE_DATA'; payload: { key: string; value: unknown } }
+    | { action: 'TOGGLE_FEATURE'; payload: { featureId: string; enabled: boolean } }
+  ```
+- Always return `true` from `onMessage` listeners when responding asynchronously with `sendResponse`.
+- Validate all incoming messages. Never trust data from content scripts without validation.
+- Use `chrome.tabs.sendMessage(tabId, message)` to send messages to a specific tab's content script.
+- Use `chrome.runtime.sendMessage()` from content scripts to send to the service worker.
+
+## Storage
+
+- Use `chrome.storage.local` for persistent extension data (settings, cached data). Up to 10MB (or more with `unlimitedStorage`).
+- Use `chrome.storage.sync` for user settings that sync across devices. Limited to 100KB total.
+- Use `chrome.storage.session` for temporary data that persists across service worker restarts but not browser restarts.
+- Always handle storage errors: `chrome.runtime.lastError` in callbacks, or use promise-based API.
+- Use `chrome.storage.onChanged` to react to storage changes across extension contexts.
+- Store structured data as JSON objects. Use versioned storage schemas for migration support.
+- Batch storage operations: `chrome.storage.local.set({ key1: val1, key2: val2 })` instead of multiple set calls.
+
+## Popup and Options Pages
+
+- Keep the popup lightweight. It's destroyed when closed — fetch state from storage, not service worker.
+- Use a modern frontend framework (React, Svelte, Vue) or vanilla TypeScript for popup and options pages.
+- Load state from `chrome.storage` on popup open. Save changes back to storage immediately.
+- Use `chrome.runtime.sendMessage()` to request actions from the service worker.
+- Handle the popup lifecycle: it may open and close rapidly. Save state on every change.
+- Style popups with a fixed width (300-400px) and scrollable content area.
+- Options page: use `chrome.storage.sync` for settings that should sync across devices.
+- Provide sensible defaults for all settings. Check for existing values on first load.
+
+## Error Handling
+
+- Always check `chrome.runtime.lastError` after Chrome API calls (callback style).
+- Use promise-based Chrome API (Manifest V3 supports promises natively) with try/catch.
+- Handle extension context invalidation: `chrome.runtime.lastError` with "Extension context invalidated".
+- Log errors to a background error tracking system or `chrome.storage` for debugging.
+- Provide fallback behavior when permissions are not granted.
+- Handle tab/window lifecycle: tabs can close while you're processing messages.
+- Content scripts should handle page navigation gracefully — clean up and re-initialize as needed.
+
+## Testing
+
+- Use Jest or Vitest for unit testing business logic and message handlers.
+- Mock Chrome APIs with `jest-chrome` or custom mocks of `chrome.*` namespace.
+- Test message handling by simulating message events.
+- Test content scripts with DOM testing libraries (Testing Library, jsdom).
+- Use Chrome DevTools for manual testing: inspect service worker, content script, popup.
+- Test on multiple Chrome versions. Check the minimum Chrome version for APIs you use.
+- Use Playwright or Puppeteer with the `--load-extension` flag for e2e testing.
+
+## File Structure
+
+```
+src/
+  background/
+    service-worker.ts   — Main service worker entry point
+    handlers/
+      messages.ts       — Message handlers
+      alarms.ts         — Alarm handlers
+    storage.ts          — Storage operations
+  content/
+    index.ts            — Content script entry point
+    dom-observer.ts     — DOM mutation observer
+    ui/
+      sidebar.ts        — Injected sidebar component
+      overlay.ts        — Injected overlay component
+  popup/
+    index.html
+    index.ts            — Popup entry point
+    components/         — Popup UI components
+    styles.css
+  options/
+    index.html
+    index.ts            — Options page entry point
+  shared/
+    types.ts            — Shared type definitions
+    constants.ts        — Extension-wide constants
+    messages.ts         — Message protocol types
+    utils.ts            — Shared utility functions
+  manifest.json
+public/
+  icons/
+    icon-16.png
+    icon-32.png
+    icon-48.png
+    icon-128.png
+```
+
+## Security
+
+- Request minimum permissions. Use `optional_permissions` and request at runtime with `chrome.permissions.request()`.
+- Validate all data received via messages. Content scripts run on untrusted pages.
+- Use Content Security Policy — Manifest V3 enforces stricter CSP by default. Do not relax it without justification.
+- Never use `eval()`, `new Function()`, or inline scripts. CSP blocks them in Manifest V3.
+- Sanitize user-generated content before injecting into the DOM. Use `textContent` over `innerHTML`.
+- Use HTTPS for all external API calls. Never transmit sensitive data over HTTP.
+- Store user credentials securely using `chrome.identity` API for OAuth or `chrome.storage.local` with encryption.
+- Avoid `<all_urls>` in permissions. Request specific host permissions.
+- Use `externally_connectable` to restrict which websites can send messages to your extension.
+
+## Performance
+
+- Keep the service worker idle time minimal. Register events, process quickly, terminate.
+- Use lazy loading: import heavy modules only when needed.
+- Use `chrome.scripting.executeScript` with `target.allFrames: false` unless you need all frames.
+- Debounce DOM observers in content scripts to avoid performance impact on web pages.
+- Use `chrome.storage.session` for frequently accessed temporary data (faster than local storage reads).
+- Minimize content script injection footprint: small scripts, scoped CSS, efficient DOM queries.
+- Bundle and minify all extension code for smaller package size and faster loading.
+- Use `requestIdleCallback` for non-urgent processing in content scripts.

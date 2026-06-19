@@ -1,0 +1,290 @@
+# Rust + Actix Web — Cursor Rules
+# Comprehensive rules for building web APIs with Rust and Actix Web
+
+## Project Context
+You are working on a Rust web API built with the Actix Web framework. The codebase
+follows Rust idioms, emphasizes type safety and zero-cost abstractions, and uses the
+Rust ownership model for memory safety without a garbage collector. The project uses
+Cargo for dependency management and follows the Rust 2021 edition.
+
+## Tech Stack
+- Rust 2021 edition (stable toolchain)
+- Actix Web 4.x for HTTP framework
+- SQLx for async database access (compile-time checked queries)
+- Serde for serialization/deserialization
+- Tokio as async runtime (via Actix)
+- Tracing + tracing-subscriber for structured logging
+- Cargo for build and dependency management
+- Docker for deployment
+
+## Coding Style
+
+### Naming Conventions
+- Types/structs/enums: PascalCase (e.g., `UserService`, `OrderStatus`)
+- Functions/methods: snake_case (e.g., `create_user`, `get_order_by_id`)
+- Modules: snake_case (e.g., `user_handler`, `order_service`)
+- Constants: UPPER_SNAKE_CASE (e.g., `MAX_PAGE_SIZE`, `DEFAULT_TIMEOUT`)
+- Traits: PascalCase, descriptive of behavior (e.g., `UserRepository`, `Authenticator`)
+- Crate names: kebab-case in Cargo.toml, snake_case in code
+- Error types: PascalCase with `Error` suffix (e.g., `AppError`, `AuthError`)
+- Lifetimes: short, descriptive if multiple (`'a`, `'req`, `'conn`)
+
+### Project Structure
+```
+src/
+  main.rs                # Entry point, server setup
+  config.rs              # Configuration loading (env vars, files)
+  lib.rs                 # Library root (re-exports)
+  errors.rs              # Error types and conversions
+  handlers/              # HTTP handlers (thin — extract, delegate, respond)
+    mod.rs
+    user.rs
+    order.rs
+  services/              # Business logic
+    mod.rs
+    user.rs
+    order.rs
+  models/                # Domain types and database models
+    mod.rs
+    user.rs
+    order.rs
+  repositories/          # Data access layer
+    mod.rs
+    user.rs
+    order.rs
+  middleware/             # Actix middleware
+    mod.rs
+    auth.rs
+    logging.rs
+  extractors/            # Custom Actix extractors
+    mod.rs
+    auth.rs
+migrations/              # SQLx migrations
+tests/                   # Integration tests
+  common/mod.rs          # Shared test utilities
+  api/                   # API integration tests
+```
+
+## Rust/Actix Patterns
+
+### Handler Pattern
+```rust
+use actix_web::{web, HttpResponse, Result};
+
+pub async fn get_user(
+    path: web::Path<i64>,
+    service: web::Data<UserService>,
+) -> Result<HttpResponse, AppError> {
+    let user_id = path.into_inner();
+    let user = service.find_by_id(user_id).await?;
+
+    match user {
+        Some(user) => Ok(HttpResponse::Ok().json(UserResponse::from(user))),
+        None => Err(AppError::NotFound(format!("User {} not found", user_id))),
+    }
+}
+
+pub async fn create_user(
+    body: web::Json<CreateUserRequest>,
+    service: web::Data<UserService>,
+) -> Result<HttpResponse, AppError> {
+    let input = body.into_inner();
+    let user = service.create(input).await?;
+    Ok(HttpResponse::Created().json(UserResponse::from(user)))
+}
+
+pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/users")
+            .route("", web::post().to(create_user))
+            .route("/{id}", web::get().to(get_user))
+            .route("/{id}", web::put().to(update_user))
+            .route("/{id}", web::delete().to(delete_user)),
+    );
+}
+```
+
+### Error Handling
+```rust
+use actix_web::{HttpResponse, ResponseError};
+use std::fmt;
+
+#[derive(Debug)]
+pub enum AppError {
+    NotFound(String),
+    BadRequest(String),
+    Unauthorized(String),
+    Internal(String),
+    Database(sqlx::Error),
+}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotFound(msg) => write!(f, "Not found: {msg}"),
+            Self::BadRequest(msg) => write!(f, "Bad request: {msg}"),
+            Self::Unauthorized(msg) => write!(f, "Unauthorized: {msg}"),
+            Self::Internal(msg) => write!(f, "Internal error: {msg}"),
+            Self::Database(e) => write!(f, "Database error: {e}"),
+        }
+    }
+}
+
+impl ResponseError for AppError {
+    fn error_response(&self) -> HttpResponse {
+        let (status, message) = match self {
+            Self::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+            Self::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            Self::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
+            Self::Internal(_) | Self::Database(_) => {
+                tracing::error!("Internal error: {self}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".into())
+            }
+        };
+        HttpResponse::build(status).json(serde_json::json!({"error": message}))
+    }
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(e: sqlx::Error) -> Self {
+        Self::Database(e)
+    }
+}
+```
+
+### Serde Models
+```rust
+use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct User {
+    pub id: i64,
+    pub email: String,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateUserRequest {
+    #[serde(deserialize_with = "validate_email")]
+    pub email: String,
+    pub name: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserResponse {
+    pub id: i64,
+    pub email: String,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<User> for UserResponse {
+    fn from(u: User) -> Self {
+        Self {
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            created_at: u.created_at,
+        }
+    }
+}
+```
+
+### Service Pattern
+```rust
+pub struct UserService {
+    pool: PgPool,
+}
+
+impl UserService {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn find_by_id(&self, id: i64) -> Result<Option<User>, AppError> {
+        let user = sqlx::query_as!(User, "SELECT * FROM users WHERE id = $1", id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(user)
+    }
+
+    pub async fn create(&self, input: CreateUserRequest) -> Result<User, AppError> {
+        let password_hash = hash_password(&input.password)?;
+        let user = sqlx::query_as!(
+            User,
+            "INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING *",
+            input.email, input.name, password_hash,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| match e {
+            sqlx::Error::Database(ref db_err) if db_err.constraint() == Some("users_email_key") => {
+                AppError::BadRequest("Email already registered".into())
+            }
+            e => AppError::Database(e),
+        })?;
+        Ok(user)
+    }
+}
+```
+
+## Ownership and Borrowing
+- Use `&str` for function parameters when you only need to read a string
+- Use `String` in structs that own their data
+- Use `Arc<T>` for shared ownership across threads/tasks (via `web::Data`)
+- Prefer cloning over complex lifetime annotations in web handlers
+- Use `Cow<'_, str>` when a function might or might not allocate
+
+## Testing
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, App};
+
+    #[actix_web::test]
+    async fn test_get_user_not_found() {
+        let pool = setup_test_db().await;
+        let service = web::Data::new(UserService::new(pool));
+        let app = test::init_service(
+            App::new().app_data(service.clone()).configure(configure),
+        ).await;
+
+        let req = test::TestRequest::get().uri("/users/999").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+}
+```
+
+## Performance Guidelines
+- Use `web::Data<T>` (wraps `Arc`) for shared application state
+- Use connection pooling with SQLx `PgPool`
+- Prefer `query_as!` macro for compile-time checked SQL
+- Use streaming responses for large payloads (`HttpResponse::Ok().streaming(...)`)
+- Avoid unnecessary allocations — use references and slices where possible
+- Use `tokio::spawn` for CPU-intensive work to avoid blocking the runtime
+- Profile with `cargo flamegraph` or `perf`
+
+## Security
+- Validate all input with serde and custom validators
+- Use parameterized queries (SQLx prevents SQL injection by default)
+- Hash passwords with `argon2` or `bcrypt` crate
+- Set security headers in middleware
+- Use `actix-cors` with explicit origins
+- Never expose internal errors to clients
+- Rate limit with `actix-governor`
+
+## Common Pitfalls
+- Forgetting to call `.await` on async functions (Rust won't warn if result is unused)
+- Holding a `MutexGuard` across `.await` points (causes deadlocks)
+- Not implementing `From` conversions for error types (verbose `map_err` everywhere)
+- Using `unwrap()` in production code — use `?` operator or handle explicitly
+- Blocking the async runtime with synchronous I/O (use `tokio::task::spawn_blocking`)
+- Circular module dependencies — restructure with traits
+- Forgetting `#[derive(Serialize)]` or `#[derive(Deserialize)]` on types used in JSON
+- Not running `cargo clippy` — it catches many subtle issues

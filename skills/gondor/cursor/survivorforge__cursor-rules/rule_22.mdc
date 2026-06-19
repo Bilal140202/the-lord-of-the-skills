@@ -1,0 +1,179 @@
+---
+description: "SaaS starter template patterns"
+alwaysApply: false
+globs: "**/*.tsx,**/*.ts"
+---
+
+# SaaS Starter — Cursor Rules
+# SaaS boilerplate patterns: auth, billing, multi-tenant, and subscription management
+
+# Project Context
+You are building a multi-tenant SaaS application. The stack includes a modern web framework
+(Next.js, Remix, or similar), a relational database with an ORM, Stripe for billing, and
+email-based authentication. The architecture supports team workspaces, role-based access,
+subscription tiers, and usage-based features.
+
+# Multi-Tenancy Architecture
+- Use a shared database with tenant isolation via `organizationId` foreign key on all tenant-scoped tables.
+- Every tenant-scoped query MUST include the organization filter:
+  ```typescript
+  // ALWAYS include organizationId in queries
+  const projects = await db.project.findMany({
+    where: { organizationId: currentOrg.id },
+  });
+  ```
+- Create a middleware or helper that automatically scopes queries to the current tenant.
+- Use a `memberships` join table for user-to-organization relationships:
+  ```
+  User -> Membership (role, joinedAt) -> Organization
+  ```
+- Support multiple organization membership per user (users can belong to multiple workspaces).
+- DON'T: Trust client-side organization IDs — always verify membership server-side.
+- DON'T: Use subdomain-based tenancy unless you need complete brand isolation.
+
+# Authentication Architecture
+- Implement email + password with secure password hashing (bcrypt, argon2).
+- Support OAuth providers (Google, GitHub) with account linking.
+- Email verification required before full account access.
+- Password reset flow: generate time-limited token, send reset email, validate on submission.
+- Session management with secure, HttpOnly, SameSite cookies.
+- Schema:
+  ```
+  User (id, email, name, emailVerifiedAt, hashedPassword)
+  Account (id, userId, provider, providerAccountId)  -- OAuth accounts
+  Session (id, userId, token, expiresAt)
+  VerificationToken (token, email, expiresAt)
+  ```
+
+# Role-Based Access Control (RBAC)
+- Define roles per organization membership, not per user:
+  ```typescript
+  enum MemberRole {
+    OWNER = 'owner',     // Full control, billing, can delete org
+    ADMIN = 'admin',     // Manage members, settings
+    MEMBER = 'member',   // Standard access
+    VIEWER = 'viewer',   // Read-only access
+  }
+  ```
+- Check permissions at the service layer, not in UI components:
+  ```typescript
+  function assertPermission(membership: Membership, action: Action): void {
+    if (!hasPermission(membership.role, action)) {
+      throw new ForbiddenError(`Role ${membership.role} cannot ${action}`);
+    }
+  }
+  ```
+- Hide UI elements based on role, but ALWAYS enforce on the server.
+- Organization owners cannot remove themselves — transfer ownership first.
+
+# Stripe Billing Integration
+- Use Stripe Checkout for new subscriptions (hosted payment page).
+- Use Stripe Customer Portal for managing existing subscriptions.
+- Store Stripe IDs in your database:
+  ```
+  Organization (stripeCustomerId, stripeSubscriptionId, stripePriceId, subscriptionStatus)
+  ```
+- Sync subscription state via webhooks, not API polling:
+  ```typescript
+  // Handle these webhook events:
+  // checkout.session.completed — new subscription created
+  // customer.subscription.updated — plan change, renewal
+  // customer.subscription.deleted — cancellation
+  // invoice.payment_succeeded — successful payment
+  // invoice.payment_failed — failed payment (trigger dunning)
+  ```
+- Create Stripe customer on organization creation, not on checkout.
+- Use Stripe's `metadata` to link Stripe objects back to your org: `metadata: { organizationId }`.
+- DON'T: Store credit card details — Stripe handles PCI compliance.
+- DON'T: Check subscription status from Stripe API on every request — cache in your database.
+
+# Subscription Tier Enforcement
+- Define feature flags per plan tier:
+  ```typescript
+  const PLAN_LIMITS = {
+    free: { maxMembers: 3, maxProjects: 5, storageGB: 1, hasApiAccess: false },
+    pro: { maxMembers: 20, maxProjects: 50, storageGB: 50, hasApiAccess: true },
+    enterprise: { maxMembers: -1, maxProjects: -1, storageGB: 500, hasApiAccess: true },
+  } as const;
+  ```
+- Check limits at the service layer before allowing operations:
+  ```typescript
+  async function createProject(orgId: string, data: CreateProjectInput) {
+    const org = await getOrganization(orgId);
+    const limits = PLAN_LIMITS[org.plan];
+    const projectCount = await db.project.count({ where: { organizationId: orgId } });
+    if (limits.maxProjects !== -1 && projectCount >= limits.maxProjects) {
+      throw new PlanLimitError('projects', limits.maxProjects, org.plan);
+    }
+    return db.project.create({ data: { ...data, organizationId: orgId } });
+  }
+  ```
+- Show upgrade prompts when users hit limits.
+- Grace period: don't immediately restrict access on payment failure.
+
+# Invitation System
+- Invite users by email to an organization with a specific role.
+- Generate time-limited invitation tokens.
+- Allow accepting invitations to create account or add to existing account.
+- Handle edge cases: expired invites, already-member, invite to non-existent email.
+- Schema:
+  ```
+  Invitation (id, email, organizationId, role, token, expiresAt, acceptedAt, invitedById)
+  ```
+
+# Email System
+- Use a transactional email provider (Resend, Postmark, SendGrid).
+- Template emails with consistent branding:
+  - Welcome email (after verification)
+  - Email verification
+  - Password reset
+  - Invitation to organization
+  - Subscription confirmation/change
+  - Payment failure notice
+- Always include unsubscribe links for marketing emails.
+- Queue emails for async sending — don't block the request.
+
+# API Design for SaaS
+- Scope all API routes under the organization: `/api/v1/orgs/:orgId/projects`.
+- Verify organization membership on every API request.
+- Include rate limiting per organization (not per user) for API access.
+- Use API keys for programmatic access with scoped permissions.
+- Version your API from day one: `/api/v1/`.
+
+# Onboarding Flow
+- Minimal friction: email -> verify -> create org -> first project.
+- Guide new users with an onboarding checklist.
+- Provide sample data / templates for immediate value.
+- Track onboarding completion for analytics.
+
+# Security Checklist
+- [ ] All tenant-scoped queries include organizationId filter.
+- [ ] Server-side permission checks on every mutation.
+- [ ] Stripe webhook signature verification.
+- [ ] Rate limiting on auth endpoints (login, register, password reset).
+- [ ] CSRF protection on all state-changing requests.
+- [ ] Input validation on all endpoints with zod or similar.
+- [ ] Secure session management (HttpOnly, Secure, SameSite cookies).
+- [ ] Audit logging for sensitive operations (role changes, billing, data deletion).
+
+# Database Schema Essentials
+- Soft-delete for organizations and user data (regulatory compliance).
+- Audit trail table for compliance-sensitive actions.
+- Use database-level constraints (unique, foreign key) as the last line of defense.
+- Index all foreign keys and commonly filtered columns.
+
+# Testing SaaS Features
+- Test multi-tenant isolation: ensure Org A cannot access Org B's data.
+- Test billing webhooks with Stripe's test mode and webhook testing tools.
+- Test role-based access: verify each role can/cannot perform expected actions.
+- Test invitation flow end-to-end.
+- Test subscription limit enforcement.
+- Test graceful degradation on payment failure.
+
+# Common Mistakes to Avoid
+- DON'T: Forget tenant scoping on any database query — this is a data leak.
+- DON'T: Check permissions only in the UI — always enforce server-side.
+- DON'T: Trust Stripe webhook data without verifying the signature.
+- DON'T: Block requests to check Stripe API — use webhook-synced local state.
+- DON'T: Let users downgrade if they exceed the lower plan's limits without resolution.
+- DON'T: Hard-delete user data — use soft-delete for compliance.

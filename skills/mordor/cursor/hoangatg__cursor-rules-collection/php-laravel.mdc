@@ -1,0 +1,46 @@
+---
+description: Laravel 11 Eloquent, Blade, Livewire, and API patterns
+globs: "**/*.php, **/*.blade.php"
+alwaysApply: false
+---
+
+# Laravel 11 Cursor Rules
+
+## Architecture
+- Follow Laravel conventions — don't fight the framework
+- Use Eloquent ORM for database operations
+- Keep controllers thin — use Form Requests, Actions, and Services
+- Use Actions pattern for complex business logic
+
+## Eloquent ORM
+- Define relationships in models: `hasMany`, `belongsTo`, `belongsToMany`
+- Use eager loading to prevent N+1: `with('relation')`
+- Use query scopes for reusable query logic
+- Use `$fillable` or `$guarded` for mass assignment protection
+- Use accessors/mutators for attribute transformation
+
+## API Development
+- Use API Resources for response transformation
+- Use Form Requests for validation
+- Return consistent responses: `response()->json(['data' => $data])`
+- Use API versioning in routes
+- Use Sanctum for API authentication
+
+## Security
+- Always validate inputs with Form Requests
+- Use CSRF protection (automatic in Blade forms)
+- Use `Gate` and `Policy` for authorization
+- Hash passwords with `Hash::make()` (bcrypt by default)
+- Use prepared statements (Eloquent handles this automatically)
+
+## Blade Templates
+- Use component-based approach: `<x-component />`
+- Use `@auth`, `@guest` directives for conditional content
+- Use `{{ }}` for escaped output, `{!! !!}` only when intentionally displaying HTML
+- Use layouts with `@extends` and `@section`, or component layouts
+
+## Testing
+- Use `RefreshDatabase` trait for database tests
+- Use factories for test data generation
+- Test with `actingAs()` for authenticated requests
+- Use `assertJson()`, `assertStatus()` for API tests

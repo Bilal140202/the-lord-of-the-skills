@@ -1,0 +1,45 @@
+---
+description: SaaS application patterns with auth, billing, dashboard, and multitenancy
+globs: "**/*.ts, **/*.tsx"
+alwaysApply: false
+---
+
+# SaaS Starter Cursor Rules
+
+## Core Features
+- Authentication: Email/password + OAuth (Google, GitHub)
+- Authorization: Role-based (Admin, Member, Viewer)
+- Billing: Stripe Checkout + Customer Portal
+- Dashboard: Analytics, settings, team management
+
+## Auth Architecture
+- Use NextAuth.js v5, Clerk, or Supabase Auth
+- Implement email verification flow
+- Support team/organization accounts
+- Session-based auth for web, JWT for API
+
+## Billing (Stripe)
+- Use Stripe Checkout for payment flow
+- Use webhooks for subscription lifecycle events
+- Implement Customer Portal for self-service billing
+- Gates: Check subscription status before premium features
+- Handle edge cases: failed payments, trial expiry, plan changes
+
+## Database Schema Patterns
+- Users → Organizations (many-to-many via memberships)
+- Organizations → Subscriptions (one-to-one)
+- Feature flags tied to subscription plans
+- Audit log for sensitive actions
+
+## Dashboard
+- Overview page with key metrics
+- Settings: profile, team, billing, API keys
+- Activity feed for recent actions
+- Responsive layout with collapsible sidebar
+
+## Security
+- CSRF protection on all forms
+- Rate limiting on auth endpoints
+- Input sanitization and validation
+- Webhook signature verification for Stripe
+- API key authentication for programmatic access

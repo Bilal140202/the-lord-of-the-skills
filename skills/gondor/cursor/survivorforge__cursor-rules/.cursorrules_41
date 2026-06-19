@@ -1,0 +1,222 @@
+# Go Production — Cursor Rules
+# Production Go: error handling, concurrency, interfaces, and clean architecture
+
+# Project Context
+You are writing production Go code (Go 1.21+). The project follows Go idioms and conventions,
+uses the standard library extensively, handles errors explicitly, and leverages goroutines and
+channels for concurrency. Code must be clean, testable, and maintainable.
+
+# Project Structure
+```
+cmd/
+  server/
+    main.go              # Entry point, DI wiring
+  cli/
+    main.go              # CLI entry point
+internal/                # Private application code
+  handler/               # HTTP handlers
+  service/               # Business logic
+  repository/            # Data access
+  model/                 # Domain models
+  middleware/             # HTTP middleware
+  config/                # Configuration loading
+pkg/                     # Public reusable packages
+  httpclient/
+  logger/
+migrations/              # SQL migrations
+api/                     # API specs (OpenAPI, proto)
+```
+
+# Error Handling (Go's Most Important Pattern)
+- Always check errors immediately. Never ignore an error return value.
+- Wrap errors with context using `fmt.Errorf` and `%w`:
+  ```go
+  user, err := repo.FindByID(ctx, id)
+  if err != nil {
+      return fmt.Errorf("finding user %d: %w", id, err)
+  }
+  ```
+- Define sentinel errors for expected conditions:
+  ```go
+  var (
+      ErrNotFound     = errors.New("not found")
+      ErrUnauthorized = errors.New("unauthorized")
+      ErrConflict     = errors.New("conflict")
+  )
+  ```
+- Define custom error types for errors with structured data:
+  ```go
+  type ValidationError struct {
+      Field   string
+      Message string
+  }
+  func (e *ValidationError) Error() string {
+      return fmt.Sprintf("validation: %s — %s", e.Field, e.Message)
+  }
+  ```
+- Use `errors.Is()` and `errors.As()` for error checking — not type assertions.
+- DON'T: Use `panic()` for expected errors — only for unrecoverable programmer errors.
+- DON'T: Return error messages that expose internal implementation details.
+- DON'T: Log and return the same error — do one or the other.
+
+# Interface Design
+- Define interfaces where they're consumed, not where they're implemented.
+- Keep interfaces small — 1-3 methods maximum:
+  ```go
+  type UserStore interface {
+      FindByID(ctx context.Context, id int64) (*User, error)
+      Create(ctx context.Context, user *User) error
+  }
+  ```
+- Accept interfaces, return structs:
+  ```go
+  func NewUserService(store UserStore, logger Logger) *UserService { ... }
+  ```
+- Use the `io.Reader`, `io.Writer`, `io.Closer` patterns from the standard library as models.
+- DON'T: Create interfaces with many methods — break them into smaller, focused interfaces.
+- DON'T: Create interfaces prematurely — wait until you need the abstraction.
+
+# Concurrency Patterns
+- Use goroutines for concurrent I/O operations. Use `sync.WaitGroup` to wait for completion:
+  ```go
+  var wg sync.WaitGroup
+  for _, item := range items {
+      wg.Add(1)
+      go func(item Item) {
+          defer wg.Done()
+          process(item)
+      }(item)
+  }
+  wg.Wait()
+  ```
+- Use `errgroup.Group` from `golang.org/x/sync/errgroup` for goroutines that can fail:
+  ```go
+  g, ctx := errgroup.WithContext(ctx)
+  g.Go(func() error { return fetchUsers(ctx) })
+  g.Go(func() error { return fetchProducts(ctx) })
+  if err := g.Wait(); err != nil { return err }
+  ```
+- Use channels for communication between goroutines. Use `select` for multiplexing.
+- Always pass `context.Context` as the first parameter for cancellation support.
+- Use `context.WithTimeout` and `context.WithCancel` for deadline/cancellation control.
+- Use `sync.Once` for one-time initialization.
+- Use `sync.Map` only when the key set is stable — otherwise use a regular map with `sync.RWMutex`.
+- DON'T: Use goroutines without a way to stop them — always accept context or a done channel.
+- DON'T: Share memory between goroutines — communicate by sending data on channels.
+
+# HTTP Handler Patterns
+- Use `http.Handler` and `http.HandlerFunc` interfaces.
+- Parse and validate input at the handler level, pass typed structs to service layer:
+  ```go
+  func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
+      var req CreateUserRequest
+      if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+          h.respondError(w, http.StatusBadRequest, "invalid request body")
+          return
+      }
+      if err := req.Validate(); err != nil {
+          h.respondError(w, http.StatusUnprocessableEntity, err.Error())
+          return
+      }
+      user, err := h.service.CreateUser(r.Context(), req)
+      if err != nil {
+          h.handleServiceError(w, err)
+          return
+      }
+      h.respondJSON(w, http.StatusCreated, user)
+  }
+  ```
+- Write helper methods: `respondJSON`, `respondError` for consistent response formatting.
+- Use middleware for cross-cutting concerns: logging, auth, recovery, request ID.
+
+# Struct Design
+- Use constructor functions: `func NewUser(name, email string) (*User, error)`.
+- Validate in constructors — return errors for invalid state.
+- Use pointer receivers for methods that modify state, value receivers for methods that don't.
+- Use struct embedding for composition (not inheritance):
+  ```go
+  type TimestampedModel struct {
+      CreatedAt time.Time `json:"created_at" db:"created_at"`
+      UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+  }
+  type User struct {
+      TimestampedModel
+      ID    int64  `json:"id" db:"id"`
+      Email string `json:"email" db:"email"`
+  }
+  ```
+- Use struct tags consistently: `json`, `db`, `validate`.
+
+# Testing
+- Table-driven tests for functions with multiple input/output cases:
+  ```go
+  tests := []struct {
+      name    string
+      input   string
+      want    int
+      wantErr bool
+  }{
+      {name: "valid input", input: "42", want: 42},
+      {name: "empty input", input: "", wantErr: true},
+  }
+  for _, tt := range tests {
+      t.Run(tt.name, func(t *testing.T) {
+          got, err := Parse(tt.input)
+          if (err != nil) != tt.wantErr { t.Fatalf(...) }
+          if got != tt.want { t.Errorf(...) }
+      })
+  }
+  ```
+- Use `testify/assert` or `testify/require` for cleaner assertions.
+- Use `httptest.NewServer` for HTTP handler testing.
+- Use interfaces for dependency injection — mock interfaces in tests.
+- Use `t.Parallel()` for tests that don't share state.
+- Use `testcontainers-go` for integration tests with real databases.
+
+# Configuration
+- Use environment variables for configuration. Parse at startup in main.go.
+- Use a struct for configuration with validation:
+  ```go
+  type Config struct {
+      Port        int    `env:"PORT" envDefault:"8080"`
+      DatabaseURL string `env:"DATABASE_URL,required"`
+      LogLevel    string `env:"LOG_LEVEL" envDefault:"info"`
+  }
+  ```
+- Use `github.com/caarlos0/env` or `github.com/kelseyhightower/envconfig` for parsing.
+- Fail fast on missing required configuration — don't use defaults for critical values.
+
+# Logging
+- Use structured logging with `slog` (standard library, Go 1.21+):
+  ```go
+  slog.Info("user created",
+      slog.Int64("user_id", user.ID),
+      slog.String("email", user.Email),
+  )
+  ```
+- Include context in all log messages: request_id, user_id, operation.
+- Log at appropriate levels: Error (action needed), Warn (unexpected but handled), Info (key events), Debug (development).
+- DON'T: Use `fmt.Println` or `log.Println` — use structured logging.
+
+# Database Access
+- Use `sqlx` for typed database access or `pgx` for PostgreSQL-specific features.
+- Use prepared statements and parameterized queries — never concatenate SQL.
+- Use connection pooling with appropriate `MaxOpenConns` and `MaxIdleConns`.
+- Use transactions for multi-step operations:
+  ```go
+  tx, err := db.BeginTxx(ctx, nil)
+  if err != nil { return err }
+  defer tx.Rollback()
+  // ... operations ...
+  return tx.Commit()
+  ```
+- Use migrations (golang-migrate, goose) — never modify schemas manually.
+
+# Common Mistakes to Avoid
+- DON'T: Ignore error return values — always check them.
+- DON'T: Use `init()` functions for complex initialization — use explicit setup in main.
+- DON'T: Use package-level variables for mutable state — pass dependencies explicitly.
+- DON'T: Use `interface{}` / `any` when a specific type or generic constraint works.
+- DON'T: Start goroutines without a cancellation mechanism.
+- DON'T: Use `time.Sleep` in production code — use timers, tickers, or context deadlines.
+- DON'T: Return `nil, nil` — either return a value or return an error, never neither.

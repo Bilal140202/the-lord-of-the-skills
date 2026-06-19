@@ -1,0 +1,101 @@
+---
+description: Node.js and Express.js best practices for backend development, emphasizing modern ESM usage.
+globs: **/*.js,**/*.mjs,**/*.cjs,**/*.ts, src/**/*.js, src/**/*.ts, package.json
+alwaysApply: false
+---
+
+# Node.js and Express.js Best Practices
+
+## Module System (ESM vs CommonJS)
+- Prefer ES Modules (ESM) for new projects (`import`/`export`). Set `"type": "module"` in `package.json`.
+- Use `.mjs` extension for ESM files if `package.json` lacks `"type": "module"` or is set to `"commonjs"`.
+- Use `.cjs` extension for CommonJS files if `package.json` is set to `"type": "module"`.
+- Be explicit: Always include the `"type"` field in `package.json` (`"module"` or `"commonjs"`).
+- Use full file paths with extensions in `import` statements (e.g., `import { func } from './utils.js';`). Directory imports (e.g., `./utils`) might behave differently between CJS and ESM.
+- Understand differences: ESM does not have `require`, `module.exports`, `__filename`, or `__dirname`. Use `import.meta.url`, `import.meta.resolve`, and utilities like `path.dirname(fileURLToPath(import.meta.url))` instead.
+- For interoperability:
+    - You can `import` CommonJS modules from ESM.
+    - You *cannot* directly `require()` ES Modules from CommonJS. Use dynamic `import()` instead.
+
+## `package.json` Configuration
+- Define package entry points using the `"exports"` field (Node.js 12+). This offers more control than `"main"` and allows defining subpath exports and conditional exports (e.g., different entries for `require` vs `import`).
+    - Example: `{ "exports": { ".": "./index.js", "./utils": "./lib/utils.js" } }`
+    - Conditional Example: `{ "exports": { "import": "./index.mjs", "require": "./index.cjs" } }`
+- All paths in `"exports"` must start with `./`.
+- Use `"imports"` (Node.js 14.6+) for internal package mappings (e.g., `#utils` -> `./lib/utils.js`).
+- Keep dependencies (`dependencies`, `devDependencies`) up-to-date and remove unused ones.
+- Specify the Node.js engine version(s) required: `"engines": { "node": ">=18.0.0" }`.
+
+## Project Structure
+- Organize code logically by feature or domain (e.g., `/src/users`, `/src/products`).
+- Separate routes, controllers/services, models, utilities, and configuration.
+- Example Structure:
+    - `/src`
+        - `/api` (or `/routes`): Express route definitions
+        - `/controllers` (or `/services`): Business logic
+        - `/models`: Data access layer / schemas
+        - `/middleware`: Express middleware
+        - `/config`: Application configuration
+        - `/utils`: Shared utility functions
+    - `/tests`
+    - `server.js` (or `index.js`, `app.js`): Main application entry point
+    - `package.json`
+    - `.env`
+    - `Dockerfile` (if applicable)
+
+## Asynchronous Operations
+- Use `async/await` for all asynchronous operations (I/O, database calls, promises).
+- Avoid blocking the event loop. Use worker threads (`worker_threads`) for CPU-intensive tasks.
+- Properly handle promise rejections using `try...catch` with `async/await` or `.catch()` with promises.
+- Beware of unhandled promise rejections; they can crash the application. Use `process.on('unhandledRejection', ...)` for logging/cleanup if necessary, but prefer explicit handling.
+
+## Error Handling
+- Implement a centralized error handling middleware in Express (must have 4 arguments: `(err, req, res, next)`).
+- Use custom error classes extending `Error` for specific error types (e.g., `NotFoundError`, `ValidationError`).
+- Avoid using `throw` with non-Error objects (e.g., strings).
+- Gracefully handle operational errors (e.g., invalid input, DB connection failed) and distinguish them from programmer errors (bugs).
+- Shut down gracefully on unrecoverable errors, logging the error details.
+
+## Express Setup & Middleware
+- Use standard security middleware for tasks like setting security headers, enabling CORS (configure appropriately), and rate limiting.
+- Use middleware for request validation (schema validation libraries are recommended). Validate input *before* processing.
+- Structure middleware logically; apply global middleware first, then route-specific middleware.
+- Serve static files using `express.static()`, typically placed behind authentication/authorization middleware if needed.
+
+## API Design (RESTful)
+- Use standard HTTP methods correctly (GET, POST, PUT, PATCH, DELETE).
+- Use appropriate HTTP status codes (200, 201, 204, 400, 401, 403, 404, 500, etc.).
+- Implement clear and consistent API versioning (e.g., `/api/v1/users`).
+- Use consistent response formats (e.g., `{ "data": ..., "error": null }` or `{ "data": null, "error": { "message": ... } }`).
+- Document APIs using standards like OpenAPI (Swagger). Consider tools that generate or serve Swagger UI.
+
+## Database Integration
+- Choose an appropriate data access strategy (ORM, query builder, or direct driver usage) based on project needs.
+- Use connection pooling to manage database connections efficiently.
+- Implement database migrations for schema changes using appropriate tools or ORM features.
+- Handle transactions properly for operations requiring multiple atomic steps.
+- Sanitize inputs to prevent SQL injection if not using an ORM/ODM that handles it automatically.
+
+## Security
+- Hash passwords securely using strong, modern algorithms.
+- Implement robust authentication and authorization (role-based access control) using established patterns and libraries.
+- Validate and sanitize all user inputs (request bodies, query params, headers).
+- Protect against common vulnerabilities (XSS, CSRF, injection attacks).
+- Keep dependencies updated to patch known vulnerabilities (e.g., using `npm audit fix`).
+
+## Logging & Monitoring
+- Use a structured logging library. Avoid `console.log` in production.
+- Log meaningful information, including request IDs for tracing.
+- Implement application monitoring and alerting using appropriate tools/services.
+
+## Testing
+- Write unit tests for individual functions/modules using a suitable testing framework.
+- Write integration tests for API endpoints and interactions between components.
+- Use mocking/stubbing libraries to isolate units during testing.
+- Aim for good test coverage, especially for critical paths.
+
+## Deployment & Process Management
+- Use environment variables for configuration (database URLs, API keys, etc.). Consider libraries for loading `.env` files in local development.
+- Implement CI/CD pipelines for automated testing and deployment.
+- Use a process manager to handle restarts and manage Node.js processes in production. Use appropriate tools for watching changes during development.
+- Handle process signals (SIGINT, SIGTERM) for graceful shutdown (close database connections, finish requests).

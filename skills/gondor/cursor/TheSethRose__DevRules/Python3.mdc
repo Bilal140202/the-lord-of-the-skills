@@ -1,0 +1,101 @@
+---
+description: Python 3 best practices and patterns for modern software development.
+globs: **/*.py, src/**/*.py, tests/**/*.py, pyproject.toml
+alwaysApply: false
+---
+
+# Python 3 Best Practices
+
+## Project Structure & Packaging
+- Prefer `pyproject.toml` for project metadata, build system configuration, and dependencies. Use `requirements.txt` as a fallback or for specific environment pinning.
+- Use a `src`-layout: Place main application code inside a `src/your_package_name/` directory.
+- Place tests in a `tests/` directory parallel to `src/`.
+- Keep configuration separate (e.g., in environment variables, `.env` files loaded via appropriate libraries, or dedicated config files/modules).
+- Structure code logically by feature or domain within the `src` directory.
+
+## Code Style & Formatting
+- Adhere strictly to PEP 8.
+- Use an automated code formatter for consistency.
+- Use an import sorting tool for consistent import ordering.
+- Use a linter (identifying style issues, potential bugs, complexity).
+- Configure these tools appropriately (e.g., in `pyproject.toml`).
+- Naming Conventions (PEP 8):
+  - `snake_case` for functions, methods, variables, and modules.
+  - `PascalCase` (or `CapWords`) for classes.
+  - `UPPER_SNAKE_CASE` for constants.
+  - Leading underscore (`_`) for internal/protected attributes/methods.
+  - Double leading underscore (`__`) for name mangling (use sparingly).
+
+## Language Features & Idioms
+- Use f-strings for string formatting (`f"Value is {variable}"`). Avoid older formatting methods.
+- Use context managers (`with` statement) for resources that need cleanup (files, network connections, locks, database connections). Implement `__enter__` and `__exit__` for custom context managers or use `contextlib`.
+- Use list/dict/set comprehensions and generator expressions for concise and efficient creation of sequences.
+- Leverage built-in functions and modules (e.g., `itertools`, `collections`, `functools`) where appropriate.
+- Prefer exceptions for error handling over returning error codes or `None` for exceptional situations.
+- Use `pathlib` for object-oriented filesystem path manipulation instead of `os.path`.
+- Use `enum.Enum` for enumerations.
+- Use `dataclasses` (or similar libraries) for classes primarily holding data.
+
+## Type Hints (PEP 484+)
+- Add type hints to all function/method signatures (parameters and return values) and key variables.
+- Use standard types from the `typing` module (`List`, `Dict`, `Tuple`, `Set`, `Optional`, `Union`, `Any`, `Callable`, etc.). Use built-in generics (e.g., `list[int]`, `dict[str, int]`) in Python 3.9+.
+- Use `TypeAlias` (Python 3.10+) or assignment for complex type definitions.
+- Use `TypeVar` for generic functions and classes.
+- Define custom data structures using `TypedDict` or dataclass-like structures.
+- Use `typing.Protocol` for structural subtyping (duck typing interfaces).
+- Run a static type checker as part of CI/linting.
+
+## Object-Oriented Programming
+- Follow SOLID principles where applicable.
+- Use composition over inheritance when appropriate.
+- Use properties (`@property`) for accessing attributes when logic is involved, but prefer simple public attributes otherwise.
+- Understand and use dunder methods (`__init__`, `__str__`, `__repr__`, etc.) appropriately.
+
+## Error Handling & Exceptions
+- Be specific when catching exceptions (`except SpecificError:` instead of `except Exception:` or bare `except:`).
+- Define custom exception classes inheriting from `Exception` for application-specific errors.
+- Use `try...except...else...finally` blocks effectively.
+  - `else` block runs if no exception occurred in `try`.
+  - `finally` block always runs for cleanup.
+- Log exceptions with tracebacks before re-raising or handling.
+
+## Testing
+- Use a standard testing framework
+- Organize tests mirroring the `src` structure within the `tests/` directory.
+- Write clear, focused test functions (unit, integration).
+- Use framework features (e.g., fixtures) for test setup and teardown.
+- Use mocking libraries to isolate dependencies.
+- Measure test coverage using appropriate tools and aim for meaningful coverage.
+- Parameterize tests to test multiple scenarios efficiently.
+
+## Virtual Environments & Dependency Management
+- Always use virtual environments (`venv` module is built-in). Avoid installing packages globally.
+- Manage dependencies using `pip` with `pyproject.toml` or dedicated dependency management tools.
+- Pin dependencies (specify exact versions) for reproducible builds, especially for applications. Use lock files or pinned requirements files.
+- Separate development dependencies from production dependencies.
+- Regularly update dependencies and check for security vulnerabilities using appropriate tools.
+
+## Documentation
+- Write clear docstrings for all public modules, classes, functions, and methods, following a standard format.
+- Consider using tools to generate documentation from docstrings.
+- Maintain an informative `README.md` file.
+- Add comments to explain *why* non-obvious code exists, not *what* it does.
+
+## Security
+- Never trust user input. Validate and sanitize all external data.
+- Be aware of common vulnerabilities (injection attacks, insecure deserialization, etc.). Refer to OWASP Top 10.
+- Handle secrets securely (environment variables, secrets management tools). Do not commit secrets to version control.
+- Use linters and security scanning tools to identify potential issues.
+
+## Performance
+- Profile code using standard Python profiling tools to identify bottlenecks before optimizing.
+- Understand the time complexity of algorithms and data structures used.
+- Use appropriate data structures (`dict`/`set` for lookups, `list` for sequences, etc.).
+- Consider caching strategies where appropriate.
+
+## Web Framework Specific (If Applicable)
+- *If using a web framework:* Apply framework-specific best practices (e.g., application factory pattern, blueprint/router organization).
+- *If using an ORM:* Define models clearly, manage sessions/connections correctly, implement migrations.
+- *If applicable:* Implement proper authentication/authorization mechanisms.
+- *If applicable:* Use template engines securely (e.g., enable autoescaping).
+- *If applicable:* Implement CSRF protection for web forms.

@@ -1,0 +1,209 @@
+# LangChain / LLM Application Development — Cursor Rules
+
+You are an expert AI application developer building LLM-powered applications with LangChain, LangGraph, and related frameworks in Python.
+
+## Code Style
+
+- Use Python 3.11+ with type hints throughout. Type all function signatures.
+- Use `snake_case` for functions and variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants.
+- Use `async/await` for all LLM calls and I/O operations. LLM calls are I/O-bound.
+- Use `pydantic` v2 for all data models and configuration. LangChain uses Pydantic internally.
+- Use `python-dotenv` for environment variables. Never hardcode API keys.
+- Import LangChain modules specifically: `from langchain_openai import ChatOpenAI`, not `from langchain import *`.
+- Use the LangChain ecosystem packages: `langchain-core`, `langchain-openai`, `langchain-anthropic`, `langchain-community`.
+- Prefer `langchain-core` abstractions (Runnables, LCEL) over legacy Chain classes.
+- Follow Black formatting (88 char line length) and Ruff linting.
+
+## LangChain Expression Language (LCEL)
+
+- Use LCEL (pipe `|` syntax) for composing chains. It is the preferred way to build chains:
+  ```python
+  chain = prompt | llm | output_parser
+  result = await chain.ainvoke({"input": "Hello"})
+  ```
+- Use `RunnablePassthrough` for passing data through unchanged.
+- Use `RunnableLambda` for custom transformation functions in a chain.
+- Use `RunnableParallel` for executing multiple branches concurrently.
+- Use `RunnableBranch` for conditional routing between different chain paths.
+- Use `.with_retry()` for automatic retry on transient errors.
+- Use `.with_fallbacks()` for graceful degradation to alternative models.
+- Use `.batch()` for processing multiple inputs concurrently.
+- All chains should support both `.invoke()` (sync) and `.ainvoke()` (async).
+
+## Prompt Engineering
+
+- Use `ChatPromptTemplate` with explicit system, human, and AI message roles.
+- Store prompts in separate files or a prompt registry, not inline in code.
+- Use input variables with clear, descriptive names: `{user_query}`, `{document_context}`, `{chat_history}`.
+- Use few-shot examples in prompts for consistent output format.
+- Include output format instructions in the system prompt. Use structured output when possible.
+- Use `ChatPromptTemplate.from_messages()` for multi-turn conversation prompts.
+- Version your prompts. Track which prompt version was used for each response.
+- Test prompts with diverse inputs, including edge cases and adversarial inputs.
+- Keep system prompts concise and focused. One clear role, one clear task.
+
+## Structured Output
+
+- Use Pydantic models with `.with_structured_output()` for type-safe LLM responses:
+  ```python
+  class Analysis(BaseModel):
+      sentiment: Literal["positive", "negative", "neutral"]
+      confidence: float = Field(ge=0, le=1)
+      reasoning: str
+
+  chain = prompt | llm.with_structured_output(Analysis)
+  ```
+- Define clear field descriptions in Pydantic models — they help the LLM understand the expected output.
+- Use `Literal` types for fields with fixed allowed values.
+- Use `Field(description="...")` for every field to guide the LLM.
+- Handle parsing failures gracefully. Use fallback logic when structured output parsing fails.
+
+## RAG (Retrieval-Augmented Generation)
+
+- Use the standard RAG pipeline: query -> retrieve -> format context -> generate.
+- Split documents appropriately: use `RecursiveCharacterTextSplitter` with overlap for general text.
+- Choose chunk size based on the retrieval task: 500-1000 tokens for Q&A, larger for summarization.
+- Use embedding models matched to your vector store: `OpenAIEmbeddings`, `HuggingFaceEmbeddings`.
+- Store embeddings in a vector database: Chroma (local), Pinecone, Weaviate, Qdrant (production).
+- Use metadata filtering on retrieval for scoping results (by document type, date, source).
+- Implement hybrid search: combine vector similarity with keyword search (BM25) for better recall.
+- Use `MultiQueryRetriever` or query expansion for improved retrieval on complex questions.
+- Use `ContextualCompressionRetriever` to filter and compress retrieved documents before generation.
+- Always include source attribution in RAG responses. Return the source documents with the answer.
+- Handle the "no relevant documents found" case — tell the user when the knowledge base doesn't have the answer.
+
+## Agents and Tools
+
+- Use LangGraph for complex agent workflows. It provides better control flow than legacy AgentExecutor.
+- Define tools with clear descriptions and typed parameters:
+  ```python
+  @tool
+  def search_database(query: str, limit: int = 10) -> list[dict]:
+      """Search the product database for items matching the query.
+      Args:
+          query: Natural language search query
+          limit: Maximum number of results to return
+      """
+  ```
+- Keep tool descriptions concise but precise. The LLM uses descriptions to decide when to use each tool.
+- Validate tool inputs before execution. Return clear error messages for invalid inputs.
+- Implement tool timeouts. LLM-called tools should not block indefinitely.
+- Use `ToolMessage` for returning tool results to the LLM.
+- Limit the number of tools available to an agent (5-10 max). Too many tools degrade tool selection accuracy.
+- Log all tool calls for debugging and auditing.
+
+## LangGraph
+
+- Use LangGraph for stateful, multi-step agent workflows with conditional logic.
+- Define graph state with a TypedDict:
+  ```python
+  class AgentState(TypedDict):
+      messages: Annotated[list[BaseMessage], add_messages]
+      context: str
+      iteration_count: int
+  ```
+- Use nodes for processing steps and edges for flow control.
+- Use conditional edges for routing based on LLM decisions or state values.
+- Implement human-in-the-loop with `interrupt_before` or `interrupt_after` on nodes.
+- Use checkpointing (`MemorySaver`, `SqliteSaver`) for conversation persistence and state recovery.
+- Set maximum iteration limits to prevent infinite loops in agent cycles.
+- Use subgraphs for encapsulating complex sub-workflows.
+
+## Memory and Conversation
+
+- Use `ChatMessageHistory` implementations for conversation memory.
+- Use `RunnableWithMessageHistory` to attach memory to chains.
+- Choose memory strategy based on use case:
+  - `ConversationBufferMemory` for short conversations
+  - `ConversationSummaryMemory` for long conversations
+  - `ConversationBufferWindowMemory` for recent context only
+- Store conversation history in a persistent backend (Redis, PostgreSQL) for production apps.
+- Implement token-aware truncation to stay within model context limits.
+- Clear or summarize memory periodically for long-running conversations.
+
+## Error Handling
+
+- Catch LLM API errors explicitly: `openai.RateLimitError`, `openai.APIConnectionError`, `anthropic.APIError`.
+- Implement exponential backoff for rate limit errors. Use `.with_retry()` on chains.
+- Handle model output parsing failures gracefully. Log the raw output for debugging.
+- Set timeouts on all LLM calls. Use `timeout` parameter on model initialization.
+- Use fallback chains: `.with_fallbacks([fallback_chain])` to switch to cheaper/faster models on failure.
+- Return user-friendly error messages. Never expose raw API errors to end users.
+- Log all errors with context: model used, prompt template, input variables, raw response.
+
+## Evaluation and Testing
+
+- Use LangSmith for tracing, debugging, and evaluating LLM applications.
+- Create evaluation datasets with input-output pairs for regression testing.
+- Use LLM-as-judge evaluators for subjective quality metrics (relevance, correctness, helpfulness).
+- Test RAG pipelines separately: retrieval accuracy (recall@k) and generation quality.
+- Test edge cases: empty inputs, very long inputs, adversarial prompts, ambiguous queries.
+- Benchmark latency and cost for different model choices. Track cost per request.
+- Use unit tests for non-LLM components (data processing, tool logic, parsers).
+- Use integration tests for full chain execution with recorded/mocked LLM responses.
+
+## File Structure
+
+```
+src/
+  chains/
+    rag_chain.py         — RAG pipeline definition
+    analysis_chain.py    — Analysis chain
+    conversational.py    — Conversational chain with memory
+  agents/
+    research_agent.py    — LangGraph agent definition
+    assistant.py         — General assistant agent
+  tools/
+    search.py            — Search tool definitions
+    calculator.py        — Calculator tool
+    database.py          — Database query tool
+  prompts/
+    system_prompts.py    — System prompt templates
+    few_shot_examples.py — Few-shot examples
+  models/
+    schemas.py           — Pydantic models for structured output
+    state.py             — LangGraph state definitions
+  retrieval/
+    vectorstore.py       — Vector store initialization
+    embeddings.py        — Embedding model setup
+    splitters.py         — Document splitting configuration
+  memory/
+    chat_history.py      — Conversation memory setup
+  config/
+    settings.py          — Application settings (BaseSettings)
+    models.py            — Model configuration (name, temp, max_tokens)
+  utils/
+    callbacks.py         — Custom callbacks for logging/streaming
+    token_counter.py     — Token counting utilities
+tests/
+  test_chains.py
+  test_tools.py
+  test_retrieval.py
+  evaluation/
+    datasets/            — Evaluation datasets
+    evaluators.py        — Custom evaluators
+```
+
+## Security
+
+- Never expose API keys in code, logs, or error messages. Use environment variables.
+- Sanitize user input before including it in prompts. Prevent prompt injection attacks.
+- Implement input validation: maximum length, content filtering, format checking.
+- Use output filtering to prevent the LLM from generating harmful content.
+- Rate limit end-user requests to prevent abuse and control costs.
+- Log all interactions for auditing. Exclude sensitive user data from logs.
+- Use the minimum token limits needed. Set `max_tokens` on model calls to control costs.
+- Review and sanitize tool outputs before returning them to users.
+- Implement guardrails: content moderation, PII detection, output validation.
+
+## Performance and Cost
+
+- Use streaming (`astream`, `astream_events`) for better user experience on long responses.
+- Cache LLM responses for identical inputs with `CacheBackedEmbeddings` or custom caching.
+- Use cheaper, faster models (GPT-4o-mini, Claude Haiku) for simple tasks. Reserve powerful models for complex reasoning.
+- Batch similar requests with `.batch()` for throughput optimization.
+- Monitor token usage per request. Set budgets and alerts.
+- Use async operations throughout for concurrent processing.
+- Profile chain execution with LangSmith to identify bottlenecks.
+- Optimize RAG retrieval: tune chunk size, top-k, and similarity thresholds for your use case.
+- Use model routing: classify the query complexity and route to the appropriate model.

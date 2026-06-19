@@ -1,0 +1,43 @@
+---
+description: Go 1.22 concurrency patterns, error handling, and project structure
+globs: "**/*.go"
+alwaysApply: false
+---
+
+# Go 1.22 Cursor Rules
+
+## Project Structure
+- Follow Standard Go Project Layout: `cmd/`, `internal/`, `pkg/`
+- `cmd/` — Main applications entry points
+- `internal/` — Private application code (cannot be imported by other modules)
+- `pkg/` — Public library code (importable by external projects)
+
+## Error Handling
+- Always check and handle errors — never use `_` to ignore errors
+- Return errors as the last return value
+- Use `fmt.Errorf("context: %w", err)` for error wrapping
+- Use custom error types for domain errors
+- Use `errors.Is()` and `errors.As()` for error checking
+- DON'T: Use `panic()` for business logic errors — only for truly unrecoverable situations
+
+## Concurrency
+- Use goroutines for concurrent work, channels for communication
+- Use `context.Context` for cancellation and timeouts
+- Use `sync.WaitGroup` for waiting on multiple goroutines
+- Use `sync.Mutex` for shared state (prefer channels when possible)
+- Always handle goroutine cleanup — avoid goroutine leaks
+- Use `errgroup` for concurrent operations with error handling
+
+## Code Style
+- Use `gofmt` / `goimports` for formatting (non-negotiable)
+- Use meaningful variable names (not single letters except loop vars)
+- Exported names are PascalCase, unexported are camelCase
+- Interfaces are named with `-er` suffix: `Reader`, `Writer`, `Closer`
+- Keep functions short and focused — one responsibility
+
+## Performance
+- Use `sync.Pool` for frequently allocated objects
+- Profile with `pprof` before optimizing
+- Use `strings.Builder` for string concatenation
+- Avoid allocations in hot paths
+- Use buffered channels for producer-consumer patterns

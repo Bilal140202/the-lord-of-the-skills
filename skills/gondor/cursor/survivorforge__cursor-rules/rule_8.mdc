@@ -1,0 +1,192 @@
+---
+description: "Supabase full-stack development"
+alwaysApply: false
+globs: "**/*.ts,**/*.tsx,**/*.sql"
+---
+
+# Supabase Full-Stack Development — Cursor Rules
+
+You are an expert full-stack developer building applications with Supabase as the backend, including database, auth, storage, edge functions, and real-time subscriptions.
+
+## Code Style
+
+- Use TypeScript throughout. Generate types from Supabase with `supabase gen types typescript`.
+- Never use `any` when working with Supabase queries — use the generated `Database` type.
+- Type your Supabase client: `const supabase = createClient<Database>(url, key)`.
+- Use `camelCase` for application code, `snake_case` for database column and table names.
+- Keep database queries in a data access layer (repository or service module), not in UI components.
+- Use the Supabase client libraries, not raw HTTP calls to the REST API.
+
+## Database Design
+
+- Use PostgreSQL best practices. Supabase is PostgreSQL — leverage its full power.
+- Use `uuid` primary keys generated with `gen_random_uuid()` for all tables.
+- Include `created_at` (with default `now()`) and `updated_at` timestamps on every table.
+- Use foreign key constraints for all relationships. Define `ON DELETE` behavior explicitly (CASCADE, SET NULL, RESTRICT).
+- Use `text` over `varchar` in PostgreSQL (no performance difference, simpler). Add `CHECK` constraints for length limits.
+- Use database enums for columns with fixed allowed values.
+- Add indexes on columns used in WHERE, JOIN, and ORDER BY clauses.
+- Use composite indexes for queries that filter on multiple columns.
+- Name constraints and indexes explicitly: `idx_users_email`, `fk_posts_user_id`, `chk_users_email_format`.
+
+## Row-Level Security (RLS)
+
+- ALWAYS enable RLS on every table. No exceptions. Tables without RLS are publicly accessible.
+- Write policies for every operation: SELECT, INSERT, UPDATE, DELETE. Be explicit about who can do what.
+- Use `auth.uid()` to reference the current user in policies:
+  ```sql
+  CREATE POLICY "Users can read own data" ON users
+    FOR SELECT USING (auth.uid() = id);
+  ```
+- Use `auth.jwt()` for claims-based access: `(auth.jwt() ->> 'role')::text = 'admin'`.
+- Test RLS policies with different user roles. Use Supabase's policy testing tools.
+- For public tables (e.g., published posts), create an explicit SELECT policy: `USING (published = true)`.
+- Service role key bypasses RLS — never use it in client-side code.
+- Use security definer functions for operations that need elevated privileges.
+
+## Authentication
+
+- Use Supabase Auth for all authentication. Do not build custom auth.
+- Support multiple auth providers as needed: email/password, OAuth (Google, GitHub), magic link.
+- Use `supabase.auth.getSession()` to check auth state. Use `supabase.auth.onAuthStateChange()` for reactive auth.
+- Store user metadata in a separate `profiles` table linked to `auth.users` with a trigger:
+  ```sql
+  CREATE FUNCTION handle_new_user()
+  RETURNS trigger AS $$
+  BEGIN
+    INSERT INTO public.profiles (id, email, full_name)
+    VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data ->> 'full_name');
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER;
+  ```
+- Implement proper sign-out: `await supabase.auth.signOut()`. Clear any local state.
+- Use `supabase.auth.getUser()` for server-side verification (validates JWT with Supabase).
+- Use `getSession()` for client-side checks only (session is from local storage, not verified).
+
+## Querying Data
+
+- Use the Supabase query builder for type-safe queries:
+  ```typescript
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id, title, author:profiles(name, avatar_url)')
+    .eq('published', true)
+    .order('created_at', { ascending: false })
+    .range(0, 9)
+  ```
+- Always handle errors: `if (error) { throw new Error(error.message) }`.
+- Use `.select()` with specific columns instead of `*` to minimize data transfer.
+- Use foreign table joins in `.select()` for related data: `'*, author:profiles(*)'`.
+- Use `.range(from, to)` for pagination. Use `.limit()` for limiting results.
+- Use `.single()` when expecting exactly one row (throws error if 0 or 2+ rows).
+- Use `.maybeSingle()` when expecting 0 or 1 rows.
+- Use RPC for complex queries: `supabase.rpc('function_name', { param: value })`.
+
+## Edge Functions
+
+- Write Edge Functions in TypeScript using Deno runtime.
+- Use Edge Functions for: webhooks, third-party API integrations, complex server logic, scheduled tasks.
+- Validate all input at the top of the function.
+- Use the Supabase client with the service role key inside Edge Functions for admin operations.
+- Set appropriate CORS headers for functions called from the browser.
+- Handle errors and return consistent JSON responses with appropriate status codes.
+- Use `Deno.env.get()` for accessing secrets and environment variables.
+- Keep Edge Functions focused — one function per responsibility.
+
+## Real-Time
+
+- Use Supabase Realtime for live updates: database changes, presence, broadcast.
+- Subscribe to database changes with channel subscriptions:
+  ```typescript
+  supabase.channel('posts')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, handleInsert)
+    .subscribe()
+  ```
+- Use filters in subscriptions to limit the data received: `filter: 'user_id=eq.${userId}'`.
+- Unsubscribe from channels when the component unmounts to prevent memory leaks.
+- Use Presence for tracking online users: `channel.track({ user_id, online_at })`.
+- Use Broadcast for ephemeral messages that don't need database persistence (typing indicators, cursor positions).
+- Handle reconnection gracefully. Supabase client reconnects automatically, but re-subscribe to channels after reconnect.
+
+## Storage
+
+- Use Supabase Storage for file uploads (images, documents, media).
+- Create storage buckets with appropriate policies:
+  ```sql
+  CREATE POLICY "Users can upload to own folder" ON storage.objects
+    FOR INSERT WITH CHECK (auth.uid()::text = (storage.foldername(name))[1]);
+  ```
+- Use signed URLs for private files. Use public URLs for publicly accessible assets.
+- Validate file type and size on both client and server before upload.
+- Organize files by user or entity: `avatars/{user_id}/photo.jpg`, `posts/{post_id}/cover.png`.
+- Use image transformations for responsive images: `supabase.storage.from('bucket').getPublicUrl('path', { transform: { width: 200 } })`.
+
+## Migrations
+
+- Use Supabase CLI migrations for all schema changes: `supabase migration new migration_name`.
+- Write both up and down migrations.
+- Never modify a migration that has been applied to production. Create a new migration instead.
+- Include RLS policies in migrations, not as ad-hoc SQL.
+- Use seed files (`supabase/seed.sql`) for development test data.
+- Test migrations locally with `supabase db reset` before deploying.
+
+## Testing
+
+- Use the local Supabase development environment (`supabase start`) for testing.
+- Test RLS policies by creating test users and verifying access patterns.
+- Test Edge Functions with `supabase functions serve` and HTTP client tests.
+- Write integration tests that exercise the full stack: client -> RLS -> database.
+- Use database transactions for test isolation when possible.
+- Mock the Supabase client in unit tests for service logic.
+
+## File Structure
+
+```
+src/
+  lib/
+    supabase/
+      client.ts        — Supabase client initialization
+      types.ts         — Generated Database types
+      middleware.ts    — Auth middleware / session handling
+    services/
+      auth.ts          — Auth helper functions
+      posts.ts         — Post data access functions
+      storage.ts       — Storage upload/download helpers
+    hooks/             — React/Svelte hooks for Supabase
+      useAuth.ts
+      usePosts.ts
+      useRealtime.ts
+supabase/
+  config.toml          — Supabase project configuration
+  migrations/          — Database migrations
+    001_create_profiles.sql
+    002_create_posts.sql
+  functions/           — Edge Functions
+    send-email/
+      index.ts
+    process-webhook/
+      index.ts
+  seed.sql             — Development seed data
+```
+
+## Security
+
+- NEVER expose the service role key in client-side code. Use it only in server-side contexts (Edge Functions, server-side rendering).
+- Use the `anon` key in client-side applications. It respects RLS policies.
+- Enable RLS on ALL tables. Audit tables without RLS regularly.
+- Validate and sanitize all user input before database operations.
+- Use parameterized queries (Supabase client handles this). Never concatenate user input into SQL.
+- Implement rate limiting on Edge Functions that are publicly accessible.
+- Audit RLS policies when modifying table structures — new columns may need policy updates.
+- Use `security definer` functions cautiously. They run with the function owner's permissions.
+
+## Performance
+
+- Use database indexes for frequently queried columns.
+- Use `.select()` with specific columns to reduce payload size.
+- Implement pagination for list endpoints — never return unbounded result sets.
+- Use database functions (RPC) for complex aggregations instead of multiple client queries.
+- Cache Supabase auth sessions client-side (the Supabase client does this automatically).
+- Use connection pooling (Supabase uses PgBouncer). Prefer `transaction` mode for serverless.
+- Optimize real-time subscriptions: subscribe only to the data you need, use filters.

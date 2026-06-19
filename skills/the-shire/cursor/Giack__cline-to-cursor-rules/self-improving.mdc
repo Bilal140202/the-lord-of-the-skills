@@ -1,0 +1,45 @@
+---
+description: Defines a process for Cursor to reflect on interactions and suggest improvements to active .cursor/rules.
+globs:
+alwaysApply: false
+---
+
+# Self-Improving Cursor Reflection
+
+**Objective:** Offer opportunities to continuously improve `.cursor/rules` based on user interactions and feedback.
+
+**Trigger:** Before using the `attempt_completion` tool for any task that involved user feedback provided at any point during the conversation, or involved multiple non-trivial steps (e.g., multiple file edits, complex logic generation).
+
+**Process:**
+
+1.  **Offer Reflection:** Use the `ask_followup_question` tool to ask the user: "Before I complete the task, would you like me to reflect on our interaction and suggest potential improvements to the active `.cursor/rules`?" Provide "Yes, please reflect" and "No, proceed with completion" as options.
+2.  **Await User Confirmation:** If the user responds with "No, proceed with completion", proceed to `attempt_completion`.
+3.  **If User Confirms ("Yes, please reflect"):**
+    a. **Review Interaction:** Synthesize all feedback provided by the user throughout the entire conversation history for the task. Analyze how this feedback relates to the active `.cursor/rules` and identify areas where modified instructions could have improved the outcome or better aligned with user preferences.
+    b. **Identify Active Rules:** List the specific global and workspace `.cursor/rules` files active during the task.
+    c. **Formulate & Propose Improvements:** Generate specific, actionable suggestions for improving the _content_ of the relevant active rule files. Prioritize suggestions directly addressing user feedback. Use `replace_in_file` diff blocks when practical, otherwise describe changes clearly. When suggesting changes that involve `replace_in_file`, emphasize the importance of verifying the exact content of the target file, especially after previous modifications or auto-formatting.
+    d. **Handle Unexpected File System Changes:** If a tool operation (like `read_file` or `replace_in_file`) fails with a "file not found" error for a file that is expected to exist (e.g., listed in VSCode tabs or previously confirmed to exist), use `list_files` on the containing directory to verify the file's presence before reporting the issue or asking the user about it. This helps confirm if the file is truly missing or if there was a transient issue.
+    e. **Await User Action on Suggestions:** Ask the user if they agree with the proposed improvements and if they'd like me to apply them _now_ using the appropriate tool (`replace_in_file` or `write_to_file`). Apply changes if approved, then proceed to `attempt_completion`.
+
+**Constraint:** Do not offer reflection if:
+
+- No `.cursor/rules` were active.
+- The task was very simple and involved no feedback.
+
+## Reflection Process Details
+
+When a reflection is triggered, the following steps are performed:
+
+1.  **Review Interaction History:** Analyze the entire conversation for the current task, focusing on user requests, feedback, tool usage, and any issues encountered.
+2.  **Identify Active Rules:** List the specific global and workspace `.cursor/rules` files that were active during the task.
+3.  **Synthesize Feedback and Observations:** Correlate user feedback and observed difficulties with the content of the active rules. Identify areas where the rules were helpful, where they were insufficient, or where they could be improved for clarity or effectiveness.
+4.  **Formulate & Propose Improvements:** Generate specific, actionable suggestions for modifying the content of the relevant rule files. Prioritize changes that directly address recurring issues or user feedback. Suggestions may include:
+    - Adding more specific technical guidance for common tasks or technologies in the project.
+    - Clarifying existing instructions.
+    - Suggesting new rules for areas not currently covered.
+    - Providing examples of correct or incorrect patterns based on the interaction.
+5.  **Present Suggestions to User:** Offer the proposed improvements to the user for review and approval. Use `replace_in_file` diff blocks when suggesting code-like changes to rules, or describe changes clearly for prose.
+6.  **Apply Approved Changes:** If the user approves, use the appropriate tool (`replace_in_file` or `write_to_file`) to apply the changes to the `.cursor/rules` files.
+7.  **Proceed to Completion:** After addressing the reflection (either by applying changes or if the user declines), proceed with the `attempt_completion` tool for the original task.
+
+This detailed process ensures that reflections are thorough, directly tied to interaction experiences, and result in concrete, user-approved improvements to the `.cursor/rules`.

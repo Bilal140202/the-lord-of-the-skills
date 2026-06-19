@@ -1,0 +1,38 @@
+---
+description: Tailwind CSS v4 utility-first styling with design tokens and modern patterns
+globs: "**/*.tsx, **/*.jsx, **/*.vue, **/*.svelte, **/*.html, **/*.css"
+alwaysApply: false
+---
+
+# Tailwind CSS v4 Cursor Rules
+
+## Architecture
+- CSS-first configuration in v4 (no `tailwind.config.js`)
+- Define design tokens with `@theme` directive in CSS
+- Use `@layer` for component styles that need utility overriding
+- Use `@apply` sparingly — prefer utility classes directly
+
+## Best Practices
+- DO: Use semantic class grouping: layout → spacing → typography → colors → effects
+- DO: Use arbitrary values `[value]` when design tokens don't cover the case
+- DO: Use responsive prefixes mobile-first: `md:`, `lg:`, `xl:`
+- DO: Use `dark:` variant for dark mode support
+- DON'T: Create 20+ utilities on a single element — extract a component
+- DON'T: Use `@apply` for everything — defeats the purpose of utility-first
+
+## Responsive Design
+- Mobile-first: base styles → `sm:` → `md:` → `lg:` → `xl:` → `2xl:`
+- Use container queries `@container` for component-level responsiveness
+- Use `max-*` variants for max-width breakpoints
+
+## Modern Features (v4)
+- Use CSS variables for dynamic theming
+- Use `@variant` for custom variants
+- Use `color-mix()` for dynamic color adjustments
+- Use `has-*:` and `group-has-*:` for parent-based styling
+- Use `*:` variant for styling direct children
+
+## Component Extraction
+- Extract repeated patterns into components, not `@apply` classes
+- Use `cn()` / `clsx()` for conditional class merging
+- Keep utility strings readable with consistent ordering

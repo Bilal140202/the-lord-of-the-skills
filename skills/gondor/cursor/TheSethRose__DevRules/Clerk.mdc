@@ -1,0 +1,58 @@
+---
+description: "Guidelines and best practices for using Clerk for authentication and user management across various frameworks."
+globs: "**/clerk*.ts,**/clerk*.js,**/clerk*.astro,**/clerk*.jsx,**/clerk*.tsx,**/clerk*.vue,src/middleware.ts,src/middleware.js,*clerk*,*auth*"
+alwaysApply: false
+---
+
+# Clerk Development Guidelines
+
+You are implementing authentication and user management using Clerk.
+Reference: <https://clerk.com/docs>
+
+## Core Concepts
+
+- Complete User Management: Clerk provides sign-up, sign-in, profile management, organizations, roles, and permissions.
+- Multi-Framework SDKs: Offers SDKs for various frontend frameworks (Next.js, React, Vue, Astro, Remix, Angular, etc.) and backend languages/frameworks (Node.js/Express/Fastify, Python, Go, Ruby, C#, etc.).
+- UI Components: Pre-built components (`<SignIn>`, `<SignUp>`, `<UserButton>`, `<UserProfile>`, `<OrganizationSwitcher>`, etc.) for rapid integration.
+- Headless Libraries: JavaScript/React hooks (`useAuth`, `useUser`, `useOrganization`, etc.) and backend helpers for custom UI implementations.
+- Customization: Extensive options via the `appearance` prop, custom pages/flows, and localization.
+- Security Focused: Built-in protections against common threats (e.g., session hijacking, credential stuffing).
+- Organizations: Support for B2B/multi-tenant applications with shared accounts and role-based access control.
+
+## Key Features & APIs
+
+- Authentication Strategies: Email/Password, Passwordless (Email/SMS Code), Social Login (OAuth), Passkeys, SAML.
+- User Management: User profiles, metadata, MFA, session management, banning.
+- Organization Management: Invitations, memberships, roles, permissions.
+- Frontend API (`@clerk/clerk-js`, framework SDKs): Handles client-side session management, UI components, hooks for accessing auth state (`useUser`, `useAuth`).
+- Backend API (JS Backend SDK, Go, Python, Ruby, C# SDKs): Verify sessions, manage users/orgs server-side, interact with Clerk resources securely.
+- Webhooks: Receive events from Clerk for user actions (creation, updates, deletion, etc.).
+- Account Portal: Embeddable user self-service portal.
+
+## General Setup & Configuration
+
+1.  Clerk Account: Set up an application in the Clerk Dashboard (<https://dashboard.clerk.com>).
+2.  Environment Variables: Obtain API keys (`CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, etc.) from the dashboard and add them to your environment (e.g., `.env`).
+3.  SDK Installation: Install the appropriate Clerk SDK for your frontend and/or backend stack.
+4.  Initialization: Wrap your application with Clerk providers/middleware as per the specific SDK documentation.
+
+## Common Integration Patterns
+
+- Frontend Protection (Middleware/Loaders): Use framework-specific middleware (e.g., `clerkMiddleware` in Next.js/Astro/Express) or route loaders (e.g., `rootAuthLoader` in Remix) to protect routes and manage redirects.
+- Accessing Auth State:
+    - Server-Side (SSR/Backend): Use SDK helpers like `auth()` (Next.js App Router), `getAuth()` (Next.js Pages Router/Remix), `authenticateRequest()` (Backend SDKs) to get user/session info.
+    - Client-Side: Use hooks like `useUser()`, `useAuth()`, `useSession()` from framework SDKs or methods from `@clerk/clerk-js`.
+- UI Integration:
+    - Embed pre-built components (`<SignIn>`, `<UserButton>`) directly.
+    - Use hooks/headless methods to build custom UIs.
+- API Route Protection: Verify session tokens in your backend API routes using backend SDK helpers.
+
+## Best Practices
+
+- Secure Environment Variables: Never expose secret keys on the client-side.
+- Use Middleware/Loaders: Implement robust route protection at the edge or server level.
+- Prefer Pre-built Components: Leverage Clerk components for standard flows to reduce development time and ensure security.
+- Keep SDKs Updated: Regularly update Clerk SDKs for the latest features and security patches.
+- Configure Redirects: Set appropriate sign-in, sign-up, and after-sign-out URLs in the Clerk dashboard and your code.
+- Utilize Webhooks: For reacting to Clerk events asynchronously in your backend.
+- Understand Session Management: Familiarize yourself with how Clerk manages sessions and tokens, especially in different rendering modes (SSR, CSR, SSG).

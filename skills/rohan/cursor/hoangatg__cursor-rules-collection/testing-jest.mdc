@@ -1,0 +1,40 @@
+---
+description: Jest unit testing with mocking, snapshots, and coverage patterns
+globs: "**/*.test.ts, **/*.test.tsx, **/*.spec.ts"
+alwaysApply: false
+---
+
+# Jest Testing Cursor Rules
+
+## Test Structure (AAA Pattern)
+- Arrange: Set up test data and dependencies
+- Act: Execute the function/component under test
+- Assert: Verify the expected outcome
+- Use `describe()` blocks to group related tests
+- Use `it()` / `test()` with clear descriptions: "should return user when ID exists"
+
+## Mocking
+- Use `jest.mock()` for module mocking
+- Use `jest.spyOn()` for partial mocking (preserve original implementation)
+- Use `jest.fn()` for creating mock functions
+- Clear mocks between tests: `jest.clearAllMocks()` in `beforeEach()`
+- Mock external dependencies (API calls, database, file system)
+
+## Best Practices
+- DO: Test behavior, not implementation details
+- DO: Use `toEqual()` for deep equality, `toBe()` for reference equality
+- DO: Test edge cases: null, undefined, empty arrays, error scenarios
+- DO: Use `toThrow()` for error testing
+- DON'T: Test private methods directly — test through public API
+- DON'T: Write tests that depend on execution order
+- DON'T: Snapshot test everything — only stable UI output
+
+## Async Testing
+- Use `async/await` in test functions
+- Use `waitFor()` in React Testing Library for async updates
+- Use `jest.useFakeTimers()` for time-dependent tests
+
+## Coverage
+- Aim for 80%+ coverage on business logic
+- Don't chase 100% — diminishing returns
+- Focus on critical paths and edge cases

@@ -1,0 +1,44 @@
+---
+description: TypeScript 5.x development with strict mode, advanced types, and best practices
+globs: "**/*.ts, **/*.tsx"
+alwaysApply: false
+---
+
+# TypeScript 5 Cursor Rules
+
+## Strict Configuration
+- Enable `strict: true` in tsconfig.json (includes all strict checks)
+- Enable `noUncheckedIndexedAccess` for safer array/object access
+- Enable `exactOptionalProperties` for precise optional handling
+
+## Type Patterns
+- Use `interface` for object shapes (extendable, better error messages)
+- Use `type` for unions, intersections, mapped types, and utility types
+- Use `as const` for literal type inference
+- Use `satisfies` operator to validate types without widening
+- Prefer `unknown` over `any` — force safe narrowing
+
+## DO
+- Use discriminated unions for state machines and tagged types
+- Use `Record<string, T>` for typed dictionaries
+- Use `readonly` for immutable data structures
+- Use template literal types for string patterns
+- Export types alongside their implementations
+- Use `Zod` or `valibot` for runtime validation matching TS types
+
+## DON'T
+- DON'T use `any` — use `unknown` and narrow
+- DON'T use `enum` — use `as const` objects or union types
+- DON'T use `!` non-null assertion — handle null cases explicitly
+- DON'T ignore TypeScript errors with `@ts-ignore` — use `@ts-expect-error` if necessary
+- DON'T overuse generics — only when the type truly varies
+
+## Error Handling
+- Return `Result<T, E>` pattern instead of throwing
+- Use type narrowing with `instanceof` and custom type guards
+- Define custom error classes extending `Error` with specific types
+
+## Function Patterns
+- Use overloads sparingly — prefer union types in parameters
+- Use generic constraints: `<T extends Base>` for bounded generics
+- Return explicit types for public API functions

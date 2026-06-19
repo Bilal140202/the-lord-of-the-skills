@@ -1,0 +1,201 @@
+---
+description: "Vue 3 Composition API with TypeScript"
+alwaysApply: false
+globs: "**/*.vue,**/*.ts"
+---
+
+# Vue 3 Composition API — Cursor Rules
+# Comprehensive rules for Vue 3 development with the Composition API
+
+## Project Context
+You are working on a Vue 3 application using the Composition API with `<script setup>`
+syntax. The project uses TypeScript, Vite as the build tool, and follows Vue's official
+style guide recommendations. Pinia is used for state management and Vue Router for routing.
+
+## Tech Stack
+- Vue 3.4+ with `<script setup>` syntax
+- TypeScript (strict mode)
+- Vite for building and dev server
+- Pinia for state management
+- Vue Router 4+ for routing
+- VueUse for composable utilities
+- Vitest + Vue Test Utils for testing
+
+## Coding Style
+
+### Naming Conventions
+- Components: PascalCase files matching component name (e.g., `UserProfile.vue`)
+- Composables: camelCase with `use` prefix (e.g., `useAuth.ts`, `useFetchData.ts`)
+- Stores (Pinia): camelCase with `use` prefix and `Store` suffix (e.g., `useUserStore.ts`)
+- Event emits: kebab-case (e.g., `update:modelValue`, `item-selected`)
+- Props: camelCase in script, kebab-case in template
+- Directives: kebab-case with `v-` prefix in template
+- Provide/Inject keys: Symbol constants in a shared file
+
+### File Structure
+```
+src/
+  components/
+    ui/               # Generic reusable UI components
+    forms/            # Form-related components
+    layout/           # Layout components (Header, Sidebar, Footer)
+  composables/        # Shared composable functions
+  stores/             # Pinia stores
+  views/              # Route page components
+  router/             # Router config and guards
+  types/              # TypeScript type definitions
+  utils/              # Pure utility functions
+  assets/             # Static assets (images, fonts)
+```
+
+## Component Patterns
+
+### Single File Component Order
+```vue
+<script setup lang="ts">
+// 1. Type imports
+// 2. Component imports
+// 3. Composable usage
+// 4. Props and emits definitions
+// 5. Reactive state (ref, reactive, computed)
+// 6. Watchers
+// 7. Lifecycle hooks
+// 8. Methods
+</script>
+
+<template>
+  <!-- Template content -->
+</template>
+
+<style scoped>
+/* Scoped styles */
+</style>
+```
+
+### Props and Emits with TypeScript
+```vue
+<script setup lang="ts">
+interface Props {
+  title: string;
+  count?: number;
+  items: Item[];
+  variant?: 'primary' | 'secondary';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  count: 0,
+  variant: 'primary',
+});
+
+const emit = defineEmits<{
+  'update:count': [value: number];
+  'item-click': [item: Item, index: number];
+}>();
+</script>
+```
+
+### Prefer
+- `<script setup>` over `setup()` function
+- `ref()` for primitives, `reactive()` for objects when destructuring is not needed
+- `computed()` for derived state
+- Composables to share logic between components
+- `defineModel()` for two-way binding (Vue 3.4+)
+- Template refs with `useTemplateRef()` (Vue 3.5+) or `ref<HTMLElement | null>(null)`
+- `v-bind` shorthand and `v-on` shorthand
+- Scoped styles to avoid leaking
+
+### Avoid
+- Options API in new code (use Composition API exclusively)
+- Mixins — use composables instead
+- `this` keyword (not available in `<script setup>`)
+- Mutating props directly — emit events to parent
+- `reactive()` for primitives (loses reactivity on reassignment)
+- Deeply nested `v-if`/`v-else` chains — use computed or component lookup
+- Global event bus — use Pinia stores or provide/inject
+- Watchers when `computed` would suffice
+
+## Composable Patterns
+```ts
+// composables/useFetch.ts
+import { ref, watchEffect, type Ref } from 'vue';
+
+export function useFetch<T>(url: Ref<string> | string) {
+  const data = ref<T | null>(null);
+  const error = ref<Error | null>(null);
+  const isLoading = ref(false);
+
+  async function execute() {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const response = await fetch(toValue(url));
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      data.value = await response.json();
+    } catch (e) {
+      error.value = e instanceof Error ? e : new Error(String(e));
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  watchEffect(() => { execute(); });
+
+  return { data, error, isLoading, refetch: execute };
+}
+```
+
+## Pinia Store Patterns
+```ts
+// stores/useUserStore.ts
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+
+export const useUserStore = defineStore('user', () => {
+  const user = ref<User | null>(null);
+  const isAuthenticated = computed(() => user.value !== null);
+
+  async function login(credentials: LoginCredentials) {
+    user.value = await authApi.login(credentials);
+  }
+
+  function logout() {
+    user.value = null;
+  }
+
+  return { user, isAuthenticated, login, logout };
+});
+```
+
+## Error Handling
+- Use `onErrorCaptured()` lifecycle hook for component-level error boundaries
+- Handle async errors in composables and expose error state via refs
+- Use Vue Router `onBeforeRouteLeave` to prevent unsaved data loss
+- Provide user-friendly error messages in the UI
+- Type error states explicitly
+
+## Testing
+- Use Vitest with `@vue/test-utils` for component testing
+- Mount components with `mount()` for full rendering, `shallowMount()` for isolation
+- Test composables independently by wrapping in a test component
+- Mock Pinia stores with `createTestingPinia()`
+- Test async behavior with `await flushPromises()`
+- Prefer testing user-visible behavior over internal state
+
+## Performance Guidelines
+- Use `v-once` for static content that never changes
+- Use `v-memo` for expensive list rendering that rarely updates
+- Use `defineAsyncComponent()` for lazy-loaded components
+- Use `<KeepAlive>` for caching expensive component trees
+- Use `shallowRef()` for large objects where deep reactivity is unnecessary
+- Avoid expensive operations in computed — they re-run on every dependency change
+- Use virtual scrolling for large lists (`vue-virtual-scroller`)
+
+## Common Pitfalls
+- Destructuring `reactive()` objects loses reactivity — use `toRefs()` or keep as object
+- Forgetting `.value` when accessing `ref()` in script (not needed in template)
+- Watching a getter instead of a ref: `watch(() => state.count, ...)` vs `watch(countRef, ...)`
+- Not using `toValue()` / `unref()` in composables to accept both refs and plain values
+- Creating watchers without cleanup in composables used outside components
+- Using `v-if` and `v-for` on the same element (v-if has higher priority in Vue 3)
+- Forgetting `key` attribute on `<component :is>` to force re-mount on type change
+- Not marking raw large objects with `markRaw()` when reactivity is unnecessary

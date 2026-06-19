@@ -1,0 +1,35 @@
+---
+description: HTMX hypermedia-driven development with progressive enhancement
+globs: "**/*.html, **/*.jinja, **/*.ejs, **/*.hbs"
+alwaysApply: false
+---
+
+# HTMX Cursor Rules
+
+## Architecture
+- Return HTML fragments from server, not JSON
+- Use hypermedia as the engine of application state (HATEOAS)
+- Progressive enhancement — pages work without JavaScript
+- Server renders the UI, HTMX handles the interactivity
+
+## Core Attributes
+- `hx-get/post/put/patch/delete` — HTTP methods
+- `hx-target` — Where to put the response (CSS selector)
+- `hx-swap` — How to swap: `innerHTML`, `outerHTML`, `beforeend`, `afterbegin`
+- `hx-trigger` — Event that triggers the request
+- `hx-indicator` — Loading indicator element
+
+## Best Practices
+- DO: Return minimal HTML fragments, not full pages
+- DO: Use `hx-boost` on navigation links for SPA-like transitions
+- DO: Use `hx-push-url` for browser history management
+- DO: Use `hx-confirm` for destructive actions
+- DON'T: Build complex client-side state — keep state on the server
+- DON'T: Return JSON — return HTML
+
+## Patterns
+- Use `hx-swap="outerHTML"` for replacing elements (forms, cards)
+- Use `hx-swap="beforeend"` for infinite scroll / append
+- Use `hx-trigger="intersect"` for lazy loading
+- Use `hx-vals` for sending additional data
+- Combine with Alpine.js for client-side micro-interactions
