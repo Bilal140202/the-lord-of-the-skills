@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Lint
+        run: pnpm run lint
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Format check
+        run: pnpm run fmt:check
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    # Unit tests run via vitest in node/jsdom and never launch the Electron
+    # runtime, so skip the flaky Chromium binary download. Native node modules
+    # (better-sqlite3, node-pty) are still built by the install scripts below.
+    # ELECTRON_OVERRIDE_DIST_PATH lets `require("electron")` resolve to a path
+    # string without the binary present, so suites that import the module (but
+    # never spawn it) load instead of throwing from electron/index.js.
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      ELECTRON_OVERRIDE_DIST_PATH: node_modules/electron/dist
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm install --frozen-lockfile; then
+              exit 0
+            fi
+            echo "::warning::pnpm install failed on attempt $attempt; retrying in 15s"
+            sleep 15
+          done
+          echo "::error::pnpm install failed after 3 attempts"
+          exit 1
+
+      - name: Ensure native dependencies
+        run: node scripts/ensure-native-deps.mjs
+
+      - name: Test
+        run: pnpm run test

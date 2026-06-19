@@ -1,0 +1,27 @@
+name: install-smoke
+
+# Validates that the README's `curl | bash` install line still works on a
+# clean machine. The test image stubs the macOS gate and the clone/pull
+# network calls so we can exercise everything else on Linux — see
+# tests/install-smoke/Dockerfile for the honest list of caveats.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel any in-flight run on the same ref the moment a new commit lands.
+# Keeps PR feedback snappy and stops main from queueing up redundant work.
+concurrency:
+  group: install-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: clean-install in docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build install-smoke image (build IS the test)
+        run: ./scripts/test-install.sh

@@ -1,0 +1,38 @@
+/analyze_flaky_tests
+
+# CONTEXT
+- Framework: [Playwright (TypeScript) / Selenium (Java) / Appium (Java)]
+- Test Runner: [Playwright Test / TestNG / Pytest]
+- Môi trường: [Local / CI/CD pipeline]
+- Mode: [ANALYZE (chỉ báo cáo) / FIX (báo cáo + tự sửa code)]
+
+# TEST BỊ FLAKY
+[Cung cấp 1 trong các thông tin sau:]
+
+## Cách 1: File path + error log
+- Test file: [path/to/test_file.ts]
+- Tần suất fail: [VD: 3/10 lần chạy]
+- Error log:
+```
+[DÁN ERROR LOG / STACK TRACE VÀO ĐÂY]
+```
+
+## Cách 2: Chỉ file path (agent tự chạy test)
+- Test file: [path/to/test_file.ts]
+- Agent sẽ tự chạy 3 lần để tái hiện lỗi
+
+## Cách 3: Source code
+```typescript
+[DÁN SOURCE CODE VÀO ĐÂY]
+```
+
+# OUTPUT FORMAT
+1. Bảng Root Cause Analysis:
+   | # | Vị trí | Category | Mô tả | Mức độ | Fix đề xuất |
+2. Code fix cụ thể (code cũ → code mới)
+3. Stability checklist
+4. Kết quả verify (nếu Mode FIX)
+
+# GHI CHÚ
+- Mode ANALYZE: Agent chỉ phân tích + báo cáo, không sửa code
+- Mode FIX: Agent phân tích + tự sửa code + chạy verify 3 lần liên tiếp PASS

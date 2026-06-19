@@ -13,20 +13,25 @@
 
 | Metric | Count |
 |:---|---:|
-| Total artifacts | 703 |
-| Source repositories | 27 |
+| Total artifacts | 914 |
+| Source repositories | 107 |
 | Canonical (⭐) | 40 |
-| Frameworks represented | 5 |
+| Frameworks represented | 10 |
 
 ## ⚙ Frameworks
 
 | Framework | Artifacts |
 |:---|---:|
-| claude-code | 521 |
-| general | 150 |
-| cursor | 28 |
+| claude-code | 564 |
+| general | 226 |
+| antigravity | 83 |
+| cursor | 29 |
+| codex | 3 |
+| roo | 3 |
 | openhands | 2 |
 | continue | 2 |
+| copilot | 1 |
+| cline | 1 |
 
 ## 📁 Directory Layout
 

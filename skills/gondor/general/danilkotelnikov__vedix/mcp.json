@@ -1,0 +1,89 @@
+{
+  "mcpServers": {
+    "vedix": {
+      "command": "python",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp/server.py",
+        "--mode",
+        "stdio"
+      ],
+      "env": {
+        "VEDIX_HOME": "${env:HOME}/.vedix",
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/mcp/lib"
+      }
+    },
+    "mempalace": {
+      "command": "mempalace-mcp",
+      "args": [],
+      "env": {
+        "MEMPALACE_ROOT": "${env:HOME}/.vedix/palace"
+      }
+    },
+    "openalex": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/drAbreu/alex-mcp.git@4.1.0",
+        "alex-mcp"
+      ],
+      "env": {
+        "OPENALEX_MAILTO": "${env:OPENALEX_EMAIL}",
+        "OPENALEX_RATE_PER_SEC": "10"
+      }
+    },
+    "semanticscholar": {
+      "command": "python",
+      "args": [
+        "${env:HOME}/.vedix/external/semanticscholar-MCP-Server/semantic_scholar_server.py"
+      ],
+      "env": {
+        "SEMANTIC_SCHOLAR_API_KEY": "${env:SEMANTIC_SCHOLAR_KEY}"
+      }
+    },
+    "arxiv": {
+      "command": "uvx",
+      "args": [
+        "arxiv-mcp-server"
+      ]
+    },
+    "biorxiv": {
+      "command": "python",
+      "args": [
+        "${env:HOME}/.vedix/external/bioRxiv-MCP-Server/biorxiv_server.py"
+      ]
+    },
+    "pubmed": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "pubmed-mcp"
+      ]
+    },
+    "annas-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "annas-mcp",
+        "mcp"
+      ],
+      "env": {
+        "ANNAS_BASE_URL": "${env:ANNAS_BASE_URL}",
+        "ANNAS_DOWNLOAD_PATH": "${env:ANNAS_DOWNLOAD_PATH}",
+        "ANNAS_SECRET_KEY": "${env:ANNAS_SECRET_KEY}"
+      }
+    },
+    "scihub": {
+      "command": "python",
+      "args": [
+        "${env:HOME}/.vedix/external/Sci-Hub-MCP-Server/sci_hub_server.py"
+      ]
+    },
+    "fetcher": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "fetcher-mcp"
+      ]
+    }
+  }
+}

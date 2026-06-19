@@ -1,0 +1,39 @@
+name: External bootstrap smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: external-bootstrap-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install and test
+        run: |
+          npm ci
+          npm test
+
+      - name: Validate example labs
+        run: |
+          npm run validate -- --target examples/minimal-lab
+          npm run validate -- --target examples/hybrid-governance-lab
+
+      - name: README-equivalent bootstrap (isolated target)
+        run: |
+          npm run lab:init -- "./.tmp/ext-bootstrap-${{ github.run_id }}"
+          npm run lab:verify

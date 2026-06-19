@@ -1,0 +1,16 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run typecheck
+      - run: bun test
+      - name: Smoke test
+        run: |
+          bun build src/main.ts --compile --outfile dist/mmx
+          ./dist/mmx --version

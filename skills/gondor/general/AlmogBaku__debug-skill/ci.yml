@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.11.1
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install debugpy
+        run: pip install debugpy
+
+      - name: Unit & E2E tests
+        run: go test -v -timeout 300s ./...
+
+      - name: Build
+        run: make build

@@ -1,0 +1,210 @@
+name: Build and Release Binaries
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '构建目标平台 (留空构建所有平台)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - linux-x64
+          - linux-arm64
+          - win-x64
+          - macos-x64
+          - macos-arm64
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: windows-latest
+            target: win-x64
+          - os: macos-15-intel
+            target: macos-x64
+          - os: macos-14
+            target: macos-arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # IMPORTANT: better-sqlite3 原生模块 ABI 必须与 pkg 内嵌的 Node 版本匹配
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build single-file binary
+        run: node scripts/build.js --target ${{ matrix.target }}
+
+      - name: List build output
+        run: ls -la dist/release/
+        shell: bash
+
+      - name: Smoke test (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist/release
+          tar -xzf antigravity-proxy-${{ matrix.target }}.tar.gz
+
+          # 启动服务
+          ./antigravity-proxy-${{ matrix.target }} &
+          PID=$!
+          sleep 5
+
+          # 健康检查
+          curl -f http://127.0.0.1:8088/ || (kill $PID 2>/dev/null; exit 1)
+
+          echo "✓ Smoke test passed"
+          kill $PID 2>/dev/null || true
+
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd dist/release
+          Expand-Archive -Path antigravity-proxy-${{ matrix.target }}.zip -DestinationPath test -Force
+
+          # 启动服务
+          $proc = Start-Process -FilePath ".\test\antigravity-proxy-${{ matrix.target }}.exe" -PassThru
+          Start-Sleep -Seconds 5
+
+          # 健康检查
+          try {
+            Invoke-WebRequest -Uri "http://127.0.0.1:8088/" -UseBasicParsing | Out-Null
+            Write-Host "✓ Smoke test passed"
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: antigravity-proxy-${{ matrix.target }}
+          path: |
+            dist/release/*.tar.gz
+            dist/release/*.zip
+            dist/release/*.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/artifacts
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: |
+          echo "=== Downloaded artifacts ==="
+          find dist/artifacts -type f -ls
+
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          cat << 'EOF' > release_notes.md
+          ## 📦 Antigravity Proxy ${{ github.ref_name }}
+
+          ### 一键安装（推荐）
+
+          **Linux / macOS:**
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/Kazuki-0147/Antigravity-Proxy/main/install.sh | bash
+          ```
+
+          **Windows (PowerShell):**
+          ```powershell
+          irm https://raw.githubusercontent.com/Kazuki-0147/Antigravity-Proxy/main/install.ps1 | iex
+          ```
+
+          指定安装目录：
+          ```bash
+          # Linux/macOS
+          curl -fsSL https://raw.githubusercontent.com/Kazuki-0147/Antigravity-Proxy/main/install.sh | bash -s -- -d /opt/antigravity
+
+          # Windows
+          $env:INSTALL_DIR="C:\antigravity"; irm https://raw.githubusercontent.com/Kazuki-0147/Antigravity-Proxy/main/install.ps1 | iex
+          ```
+
+          ### 手动下载
+
+          | 平台 | 文件 |
+          |-----|------|
+          | Linux x64 | `antigravity-proxy-linux-x64.tar.gz` |
+          | Windows x64 | `antigravity-proxy-win-x64.zip` |
+          | macOS x64 | `antigravity-proxy-macos-x64.tar.gz` |
+          | macOS ARM64 | `antigravity-proxy-macos-arm64.tar.gz` |
+
+          每个压缩包包含：
+          - 可执行文件
+          - `.env.example` 配置示例
+
+          ### 使用方法
+
+          ```bash
+          # Linux/macOS
+          tar -xzf antigravity-proxy-linux-x64.tar.gz
+          cp .env.example .env
+          # 编辑 .env 修改配置
+          chmod +x antigravity-proxy-linux-x64
+          ./antigravity-proxy-linux-x64
+
+          # Windows (PowerShell)
+          Expand-Archive antigravity-proxy-win-x64.zip -DestinationPath .
+          copy .env.example .env
+          # 编辑 .env 修改配置
+          .\antigravity-proxy-win-x64.exe
+          ```
+
+          ### 环境变量
+
+          | 变量 | 说明 | 默认值 |
+          |-----|------|-------|
+          | `PORT` | 监听端口 | `8088` |
+          | `HOST` | 监听地址 | `127.0.0.1` |
+          | `ADMIN_PASSWORD` | 管理密码 | `admin123` |
+          | `OUTBOUND_PROXY` | 出站代理 | 无 |
+
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Antigravity Proxy ${{ github.ref_name }}
+          body_path: release_notes.md
+          files: dist/artifacts/*
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

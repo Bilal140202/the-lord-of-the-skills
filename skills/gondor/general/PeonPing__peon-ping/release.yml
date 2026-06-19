@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate checksums
+        run: |
+          files=(
+            install.sh
+            uninstall.sh
+            peon.sh
+            relay.sh
+            completions.bash
+            completions.fish
+            VERSION
+            config.json
+            adapters/codex.sh
+            adapters/cursor.sh
+            adapters/opencode.sh
+            adapters/opencode/peon-ping.ts
+            skills/peon-ping-toggle/SKILL.md
+            skills/peon-ping-config/SKILL.md
+            docs/peon-icon.png
+          )
+          shasum -a 256 "${files[@]}" > checksums.txt
+
+      - name: Create release with checksums
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-tap:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version from tag
+        id: version
+        run: echo "TAG=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute tarball SHA256
+        id: sha
+        run: |
+          URL="https://github.com/PeonPing/peon-ping/archive/refs/tags/${{ steps.version.outputs.TAG }}.tar.gz"
+          SHA=$(curl -fsSL "$URL" | shasum -a 256 | cut -d' ' -f1)
+          echo "SHA256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Tarball SHA256: $SHA"
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: PeonPing/homebrew-tap
+          token: ${{ secrets.TAP_TOKEN }}
+          path: tap
+
+      - name: Update formula
+        run: |
+          cd tap
+          TAG="${{ steps.version.outputs.TAG }}"
+          SHA="${{ steps.sha.outputs.SHA256 }}"
+          sed -i "s|url \"https://github.com/PeonPing/peon-ping/archive/refs/tags/.*\.tar\.gz\"|url \"https://github.com/PeonPing/peon-ping/archive/refs/tags/${TAG}.tar.gz\"|" Formula/peon-ping.rb
+          sed -i "s|sha256 \"[a-f0-9]\{64\}\"|sha256 \"${SHA}\"|" Formula/peon-ping.rb
+          echo "Updated formula:"
+          grep -E "url|sha256" Formula/peon-ping.rb
+
+      - name: Commit and push
+        run: |
+          cd tap
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add Formula/peon-ping.rb
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "chore: update peon-ping to ${{ steps.version.outputs.TAG }}"
+          git push

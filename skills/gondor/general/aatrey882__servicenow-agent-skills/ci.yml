@@ -1,0 +1,33 @@
+name: Validate Skills
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install skills-ref
+        run: uv tool install git+https://github.com/agentskills/agentskills.git#subdirectory=skills-ref
+
+      - name: CI-01 — skills-ref validate
+        run: |
+          skills-ref validate sn-sdk-fluent
+          skills-ref validate sn-sdk-setup
+          skills-ref validate sn-scripting
+
+      - name: CI-02 — Token counter gate
+        run: bash scripts/check-tokens.sh
+
+      - name: CI-03 — Tool-specific API lint
+        run: bash scripts/check-tool-apis.sh
+
+      - name: CI-04 — Import path check
+        run: bash scripts/check-imports.sh

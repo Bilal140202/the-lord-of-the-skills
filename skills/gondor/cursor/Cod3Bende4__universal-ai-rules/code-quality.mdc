@@ -1,0 +1,18 @@
+---
+description: Code quality standards for all code changes
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb"]
+alwaysApply: true
+---
+
+# Code Quality Rules
+
+Read and follow ALL rules in `.ai-suite/core/code-quality.md`.
+
+Key rules:
+- Functions: max 20 lines, ≤4 parameters, single responsibility
+- Names: descriptive, verbs for functions, booleans start with is/has/can
+- No magic numbers — extract to named constants
+- No commented-out code — delete it, git has history
+- File organization: one module/component per file, max 300 lines
+- Every public function has a docstring/JSDoc
+- Imports organized by group with blank lines between

@@ -1,0 +1,149 @@
+# CI for screen-studio-alternative
+#
+# CAVEAT — the FULL product is macOS-only. The Swift `events-log` logger and the
+# capture path depend on `screencapture` + CoreGraphics event taps that only exist
+# on macOS. What CI covers here is the *cross-platform Python core*:
+#   - render.py  (virtual-camera zoom/pan; encodes via h264_videotoolbox on mac,
+#                 else falls back to libx264 — so it runs on any runner with ffmpeg)
+#   - polish.py  (--speedup idle-compression path needs no events, no capture)
+#   - fcpxml.py  (FCPXML generation, single-clip + multi-clip sequence; built-in self-test)
+#   - studio.py / sequence.py  (orchestrators; smoke = parse cleanly)
+#
+# So `python-smoke` runs on ubuntu/macos/windows × py3.11/3.12 and exercises a real
+# render + a real speedup. `swift-build` runs on macOS only and just *builds*
+# events-log.swift (running it would need screen-recording entitlements CI can't grant).
+
+name: CI
+
+# NOTE: `on` is quoted because YAML 1.1 parsers (PyYAML) coerce a bare `on:` key to
+# the boolean True. GitHub Actions reads it fine either way; quoting keeps local
+# `yaml.safe_load` validation honest.
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-smoke:
+    name: python-smoke (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # ffmpeg per-OS. Linux/macOS use the native package managers; Windows uses the
+      # setup-ffmpeg action (more reliable than `choco install ffmpeg`, which has been
+      # flaky on hosted runners and is slow to provision).
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        uses: FedericoCarboni/setup-ffmpeg@v3
+        with:
+          ffmpeg-version: release
+
+      - name: Verify ffmpeg + ffprobe on PATH
+        run: |
+          ffmpeg -version
+          ffprobe -version
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 1) every core module parses
+      - name: Smoke — all core modules parse
+        run: python -c "import ast; [ast.parse(open(f, encoding='utf-8').read()) for f in ['studio.py','sequence.py','render.py','polish.py','fcpxml.py']]"
+
+      # 2) fcpxml self-test (well-formed XML, retime math, baked keyframes) — exits 0
+      - name: Smoke — fcpxml self-test
+        run: python fcpxml.py
+
+      # 3) build the deterministic fixture (synthetic recording + matching events)
+      - name: Build fixture
+        run: python make-fixture.py fixture.mp4 fixture.events.jsonl
+
+      # 4) write a tiny regions.json (zoom on the top-left button between t=1s and t=3s)
+      - name: Write tiny regions.json
+        shell: python
+        run: |
+          import json
+          with open("regions.json", "w") as f:
+              json.dump([{"t0": 1.0, "t1": 3.0, "z": 2.0, "cx": 180, "cy": 160}], f)
+
+      # 5) real render smoke — exercises the libx264 fallback on non-mac runners.
+      #    Assert out.mp4 exists and ffprobe reports an h264 stream.
+      - name: Smoke — render + assert h264
+        shell: python
+        run: |
+          import subprocess, sys, os
+          subprocess.run([
+              sys.executable, "render.py", "fixture.mp4",
+              "--events", "fixture.events.jsonl",
+              "--regions", "regions.json",
+              "--out", "out.mp4",
+              "--aspect", "16:9", "--fps", "30",
+          ], check=True)
+          assert os.path.exists("out.mp4"), "render produced no out.mp4"
+          assert os.path.getsize("out.mp4") > 0, "out.mp4 is empty"
+          codec = subprocess.run(
+              ["ffprobe", "-v", "error", "-select_streams", "v:0",
+               "-show_entries", "stream=codec_name",
+               "-of", "default=nw=1:nk=1", "out.mp4"],
+              check=True, capture_output=True, text=True,
+          ).stdout.strip()
+          print("out.mp4 codec_name =", codec)
+          assert codec == "h264", f"expected h264, got {codec!r}"
+
+      # 6) polish --speedup-only smoke (no events, non-interactive idle compression)
+      - name: Smoke — polish --speedup
+        shell: python
+        run: |
+          import subprocess, sys, os
+          subprocess.run([
+              sys.executable, "polish.py", "fixture.mp4",
+              "--speedup", "--out", "polished.mp4",
+          ], check=True)
+          assert os.path.exists("polished.mp4"), "polish produced no polished.mp4"
+          assert os.path.getsize("polished.mp4") > 0, "polished.mp4 is empty"
+          print("polished.mp4 OK")
+
+  swift-build:
+    name: swift-build (macos)
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build only. RUNNING events-log needs screen-recording / accessibility
+      # entitlements that hosted CI can't grant, so we just confirm it compiles.
+      - name: Build events-log.swift
+        run: swiftc -O events-log.swift -o events-log
+
+      - name: Assert binary exists
+        shell: python
+        run: |
+          import os, sys
+          assert os.path.exists("events-log"), "swiftc produced no events-log binary"
+          assert os.path.getsize("events-log") > 0, "events-log binary is empty"
+          print("events-log built OK")

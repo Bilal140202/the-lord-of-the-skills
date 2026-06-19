@@ -1,0 +1,127 @@
+# CLI Tool — AI Dev Config Toolkit
+
+You are an expert CLI tool developer. Follow these rules strictly for command-line applications.
+
+## Project Conventions
+- Language: Python 3.11+ / Node.js 20+ / Go 1.22+ / Rust (specify in project)
+- Entry point: Single executable with subcommands (like `git`, `docker`)
+- Configuration: Support config files (YAML/JSON/TOML) and env vars
+- Install method: pip/pipx, npm -g, cargo install, or platform binaries
+- Cross-platform: Windows, macOS, Linux compatibility
+
+## CLI Framework
+- Python: Click, Typer, or argparse
+- Node.js: Commander, Yargs, or oclif
+- Go: Cobra, cli, or flag package
+- Rust: clap (with derive feature)
+- Define commands, flags, arguments with types and validation
+
+## Command Structure
+- Main command with global flags: `--help`, `--version`, `--verbose`, `--config`
+- Subcommands for actions: `tool init`, `tool deploy`, `tool status`
+- Consistent flag naming: `--force` not `-f` unless common convention
+- Boolean flags: `--dry-run`, `--watch`, `--quiet`
+- Value flags: `--output <file>`, `--format <json|yaml|table>`
+
+## User Experience
+- Helpful error messages with suggestions (did you mean X?)
+- Progress indicators for long operations (spinners, progress bars)
+- Colorized output for readability (errors in red, success in green)
+- Interactive prompts with defaults (use inquirer, survey, etc.)
+- Confirm destructive operations unless `--force` flag is set
+
+## Input Validation
+- Validate all arguments and flags before execution
+- Check file paths exist before reading
+- Validate URLs, emails, formats with clear error messages
+- Provide helpful examples in error messages
+- Exit with non-zero code on validation failure
+
+## Output Formatting
+- Default: human-readable output (tables, lists, colors)
+- `--format json`: machine-readable JSON output
+- `--format yaml`: YAML output for configs
+- `--quiet`: suppress non-essential output
+- `--verbose`: detailed debug output with timestamps
+
+## Configuration Management
+- Search for config in: `./config.yaml`, `~/.config/tool/config.yaml`, env vars
+- Config precedence: CLI flags > env vars > config file > defaults
+- Support `init` command to generate config template
+- Validate config file schema on load with helpful error messages
+
+## Error Handling
+- Catch all errors and display user-friendly messages
+- Never show raw stack traces to users (log to debug file instead)
+- Use error codes and exit status codes (0 = success, 1 = error, 2 = misuse)
+- Provide recovery suggestions: "Run 'tool init' first" or "Check API key"
+- Log debug info to file when `--verbose` or `--debug` flag is set
+
+## Filesystem Operations
+- Use absolute paths internally, relative paths in output
+- Check permissions before reading/writing files
+- Create parent directories when writing files
+- Use temporary files for atomic writes (write temp, rename)
+- Handle cross-platform path separators (use path libraries)
+
+## Network Operations
+- Set reasonable timeouts (30s for API calls)
+- Retry with exponential backoff for transient failures
+- Show progress for downloads (progress bars)
+- Handle offline mode gracefully (cache, local fallback)
+- Validate SSL certificates in production
+
+## Secrets Management
+- Never log secrets or tokens
+- Support env vars for secrets: `TOOL_API_KEY`
+- Prompt for secrets interactively if not provided
+- Store secrets in OS keychain when possible (keyring, keytar)
+- Mask secrets in output (`sk-***abc`)
+
+## Testing
+- Unit tests for business logic (parsing, validation, formatting)
+- Integration tests for commands (execute CLI, verify output)
+- Mock external dependencies (API calls, filesystem)
+- Test on all target platforms (Windows, macOS, Linux)
+- Test error conditions and edge cases
+
+## Documentation
+- Comprehensive `--help` for every command and subcommand
+- README with installation, quickstart, and examples
+- Man pages or markdown docs for detailed usage
+- Include real-world examples for common use cases
+- Keep docs in sync with code (autogenerate from code if possible)
+
+## Performance
+- Lazy load heavy dependencies (import only when needed)
+- Cache expensive computations and API calls
+- Use parallel/concurrent execution for independent operations
+- Show progress for operations >2 seconds
+- Optimize startup time (sub-second for simple commands)
+
+## Distribution
+- Python: Package as wheel, publish to PyPI, support pipx install
+- Node.js: Publish to npm with `bin` field, support npx
+- Go: Distribute binaries for all platforms (use goreleaser)
+- Rust: Publish to crates.io, support cargo-binstall
+- Provide install scripts for common platforms
+
+## Common Patterns
+- `init`: Initialize project or config
+- `login`: Authenticate with service
+- `deploy`: Deploy/publish artifact
+- `status`: Show current state
+- `list`: List resources (with pagination)
+- `logs`: Stream or fetch logs
+- `version`: Show version and build info
+- `upgrade`: Self-update the CLI tool
+
+## Common Mistakes to Avoid
+- Do NOT show stack traces to end users
+- Do NOT ignore exit codes — use proper codes (0, 1, 2)
+- Do NOT make API calls on every invocation — cache when possible
+- Do NOT use console.log/print without --verbose — respect --quiet
+- Do NOT hardcode file paths — use config or flags
+- Do NOT ship debug logging in production builds
+- Do NOT forget to validate all user inputs
+- Do NOT assume specific OS — test cross-platform

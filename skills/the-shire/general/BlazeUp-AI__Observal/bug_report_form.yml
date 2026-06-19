@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 Naraen Rammoorthi <naraen13@gmail.com>
+# SPDX-FileCopyrightText: 2026 Shaan Narendran <shaannaren06@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-only
+
+name: 🐞 Bug
+description: File a bug
+type: "Bug"
+labels:  ["Needs Triage"]
+
+body:
+
+  - type: checkboxes
+    id: contact
+    attributes:
+      label: Checked for duplicates?
+      description: Quickly search our [issues](https://github.com/BlazeUp-AI/Observal/issues) to see if a similar issue exists
+      options:
+        - label: This issue is not a duplicate
+          required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: What are the steps to reproduce this bug?
+      description: Briefly explain what you did which caused this bug to occur
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected behaviour
+      description: Briefly describe what happened, and what should have happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: support_bundle
+    attributes:
+      label: Support bundle
+      description: |
+        Please attach a support bundle to help us diagnose the issue.
+        Generate one with `observal support bundle` and attach the resulting `.tar.gz` file.
+        You can review its contents before sharing with `observal support inspect <bundle.tar.gz>`.
+      placeholder: Drag and drop the .tar.gz file here, or paste the output of `observal support inspect`
+
+  - type: textarea
+    id: extra_info
+    attributes:
+      label: (Optional) Anything else you want to share?
+      placeholder: List any extra information

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "asana": {
+      "type": "remote",
+      "url": "https://mcp.claude.ai/asana"
+    }
+  }
+}

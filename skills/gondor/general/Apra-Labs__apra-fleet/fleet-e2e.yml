@@ -1,0 +1,532 @@
+name: Fleet E2E Test Suite
+run-name: Fleet E2E Test Suite ${{ inputs.suite }} - ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Test suite to run. s*.1/.2/.3 = co-located fleet members (local processes, still registered+paired via fleet); s7.x = all-Gemini; fleet-less local-subagent runs are in fleet-lite-e2e (s10).'
+        required: true
+        type: choice
+        options: [s1, s1.1, s1.2, s1.3, s2, s3, s4, s5, s6, s7.1, s7.2, s7.3, s8.1, s8.2, s8.3, s9, s9.1, s9.2, s9.3]
+
+jobs:
+  e2e:
+    name: 'Fleet E2E - ${{ inputs.suite }}'
+    env:
+      GEMINI_CLI_TRUST_WORKSPACE: "true"
+    runs-on:
+      - self-hosted
+      - ${{ inputs.suite == 's1'   && 'fleet-windows'
+         || inputs.suite == 's1.1' && 'fleet-windows'
+         || inputs.suite == 's1.2' && 'fleet-linux'
+         || inputs.suite == 's1.3' && 'fleet-macos'
+         || inputs.suite == 's2'   && 'fleet-linux'
+         || inputs.suite == 's3'   && 'fleet-macos'
+         || inputs.suite == 's4'   && 'fleet-windows'
+         || inputs.suite == 's5'   && 'fleet-linux'
+         || inputs.suite == 's7.1' && 'fleet-windows'
+         || inputs.suite == 's7.2' && 'fleet-linux'
+         || inputs.suite == 's7.3' && 'fleet-macos'
+         || inputs.suite == 's8.1' && 'fleet-windows'
+         || inputs.suite == 's8.2' && 'fleet-linux'
+         || inputs.suite == 's8.3' && 'fleet-macos'
+         || inputs.suite == 's9'   && 'fleet-opencode'
+         || inputs.suite == 's9.1' && 'fleet-opencode-win'
+         || inputs.suite == 's9.2' && 'fleet-opencode'
+         || inputs.suite == 's9.3' && 'fleet-opencode-mac'
+         || 'fleet-macos' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create run directory
+        shell: bash
+        run: |
+          RUN_DIR="$(dirname "$GITHUB_WORKSPACE")/testRuns/${{ github.run_id }}-${{ github.run_attempt }}"
+          mkdir -p "$RUN_DIR/logs"
+          echo "RUN_DIR=$RUN_DIR" >> "$GITHUB_ENV"
+          echo "Run directory: $RUN_DIR"
+
+      - name: Check runner prerequisites
+        shell: bash
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          jq --version || { echo "::error::jq is not installed on this runner"; exit 1; }
+
+      - name: Load suite config
+        id: suite
+        shell: bash
+        run: |
+          SUITE='${{ inputs.suite }}'
+          CONFIG=$(cat .github/e2e/suites.json)
+          MEMBERS=$(cat .github/e2e/members.json)
+
+          PM_PROVIDER=$(echo $CONFIG | jq -r ".suites[\"$SUITE\"].pm.provider")
+          PM_OS=$(echo $CONFIG      | jq -r ".suites[\"$SUITE\"].pm.os")
+          DOER_OS=$(echo $CONFIG    | jq -r ".suites[\"$SUITE\"].doer.os")
+          DOER_PROV=$(echo $CONFIG  | jq -r ".suites[\"$SUITE\"].doer.provider")
+          DOER_TYPE=$(echo $CONFIG  | jq -r ".suites[\"$SUITE\"].doer.type")
+          REV_OS=$(echo $CONFIG     | jq -r ".suites[\"$SUITE\"].reviewer.os")
+          REV_PROV=$(echo $CONFIG   | jq -r ".suites[\"$SUITE\"].reviewer.provider")
+          REV_TYPE=$(echo $CONFIG   | jq -r ".suites[\"$SUITE\"].reviewer.type")
+          VCS=$(echo $CONFIG        | jq -r ".suites[\"$SUITE\"].vcs")
+
+          DOER_HOST=$(echo $MEMBERS   | jq -r ".$DOER_OS.host")
+          DOER_USER=$(echo $MEMBERS   | jq -r ".$DOER_OS.username // empty")
+          DOER_FOLDER=$(echo $MEMBERS | jq -r ".$DOER_OS.work_folder")
+          REV_HOST=$(echo $MEMBERS    | jq -r ".$REV_OS.host")
+          REV_USER=$(echo $MEMBERS    | jq -r ".$REV_OS.username  // empty")
+          REV_FOLDER=$(echo $MEMBERS  | jq -r ".$REV_OS.work_folder")
+          TOY_URL=$(echo $MEMBERS     | jq -r ".toy_projects.$VCS")
+
+          echo "pm_provider=$PM_PROVIDER"   >> $GITHUB_OUTPUT
+          echo "pm_os=$PM_OS"               >> $GITHUB_OUTPUT
+          echo "doer_os=$DOER_OS"           >> $GITHUB_OUTPUT
+          echo "doer_provider=$DOER_PROV"   >> $GITHUB_OUTPUT
+          echo "doer_type=$DOER_TYPE"       >> $GITHUB_OUTPUT
+          echo "doer_host=$DOER_HOST"       >> $GITHUB_OUTPUT
+          echo "doer_user=$DOER_USER"       >> $GITHUB_OUTPUT
+          echo "doer_folder=$DOER_FOLDER"   >> $GITHUB_OUTPUT
+          echo "reviewer_os=$REV_OS"        >> $GITHUB_OUTPUT
+          echo "reviewer_provider=$REV_PROV" >> $GITHUB_OUTPUT
+          echo "reviewer_type=$REV_TYPE"    >> $GITHUB_OUTPUT
+          echo "reviewer_host=$REV_HOST"    >> $GITHUB_OUTPUT
+          echo "reviewer_user=$REV_USER"    >> $GITHUB_OUTPUT
+          echo "reviewer_folder=$REV_FOLDER" >> $GITHUB_OUTPUT
+          echo "vcs=$VCS"                   >> $GITHUB_OUTPUT
+          echo "toy_url=$TOY_URL"           >> $GITHUB_OUTPUT
+
+      - name: Build and install fleet binary on PM
+        shell: bash
+        run: |
+          npm ci
+          npm run build:binary
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            BIN=$(ls dist/apra-fleet-installer-*.exe | head -1)
+          else
+            BIN=$(ls dist/apra-fleet-installer-* | grep -v -E '\.(blob|cjs|json|exe)$' | head -1)
+          fi
+          chmod +x "$BIN" 2>/dev/null || true
+          "$BIN" install --force --llm ${{ steps.suite.outputs.pm_provider }}
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            INSTALLED_BIN="$HOME/.apra-fleet/bin/apra-fleet.exe"
+          else
+            INSTALLED_BIN="$HOME/.apra-fleet/bin/apra-fleet"
+          fi
+          "$INSTALLED_BIN" --version
+
+      - name: Seed fleet credential store
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            FLEET_BIN="$HOME/.apra-fleet/bin/apra-fleet.exe"
+          else
+            FLEET_BIN="$HOME/.apra-fleet/bin/apra-fleet"
+          fi
+          echo "$E2E_BB_TOKEN"    | "$FLEET_BIN" secret --set e2e_bb_token    --persist -y
+          echo "$E2E_BB_USER"     | "$FLEET_BIN" secret --set e2e_bb_user     --persist -y
+          echo "$E2E_GH_TOKEN"    | "$FLEET_BIN" secret --set e2e_gh_token    --persist -y
+          echo "$E2E_ADO_TOKEN"   | "$FLEET_BIN" secret --set e2e_ado_token   --persist -y
+          echo "$E2E_ACRED"       | "$FLEET_BIN" secret --set E2E_ACRED       --persist -y
+        env:
+          E2E_BB_TOKEN:   ${{ secrets.E2E_BB_TOKEN }}
+          E2E_BB_USER:    ${{ secrets.E2E_BB_USER }}
+          E2E_GH_TOKEN:   ${{ secrets.E2E_GH_TOKEN }}
+          E2E_ADO_TOKEN:  ${{ secrets.E2E_ADO_TOKEN }}
+          E2E_ACRED:      ${{ secrets.E2E_ACRED }}
+
+      - name: Locate agy CLI if PM provider is agy
+        shell: bash
+        run: |
+          PROVIDER='${{ steps.suite.outputs.pm_provider }}'
+          if [ "$PROVIDER" = "agy" ]; then
+            echo "Adding standard agy CLI installation paths to PATH..."
+            if [ "$RUNNER_OS" = "Windows" ]; then
+              AGY_DIR="$LOCALAPPDATA/agy/bin"
+              [ -z "$LOCALAPPDATA" ] && AGY_DIR="$USERPROFILE/AppData/Local/agy/bin"
+              echo "$(cygpath -w "$AGY_DIR")" >> "$GITHUB_PATH"
+            elif [ "$RUNNER_OS" = "Linux" ]; then
+              echo "$HOME/.local/share/agy/bin" >> "$GITHUB_PATH"
+            elif [ "$RUNNER_OS" = "macOS" ]; then
+              echo "$HOME/Library/Application Support/agy/bin" >> "$GITHUB_PATH"
+            fi
+          fi
+
+      - name: Verify OpenCode + Ollama if PM provider is opencode
+        if: steps.suite.outputs.pm_provider == 'opencode'
+        shell: bash
+        run: |
+          echo "Verifying OpenCode CLI is installed..."
+          opencode --version || { echo "::error::opencode CLI not found; install with: npm install -g opencode-ai"; exit 1; }
+          MEMBERS=$(cat .github/e2e/members.json)
+          ENDPOINT=$(echo "$MEMBERS" | jq -r '.opencode.endpoint // "http://localhost:11434/v1"')
+          echo "Verifying Ollama endpoint at $ENDPOINT ..."
+          curl -sf "$ENDPOINT/models" > /dev/null 2>&1 \
+            || curl -sf "$(echo "$ENDPOINT" | sed 's|/v1$||')/api/tags" > /dev/null 2>&1 \
+            || { echo "::error::Ollama endpoint not reachable at $ENDPOINT"; exit 1; }
+          echo "OpenCode CLI and Ollama endpoint verified"
+
+      - name: Prepare clean PM environment
+        shell: bash
+        run: |
+          dir="$GITHUB_WORKSPACE"
+          while [ "$(dirname "$dir")" != "$dir" ]; do
+            dir="$(dirname "$dir")"
+            [ -f "$dir/.claude/settings.local.json" ] && rm -v "$dir/.claude/settings.local.json"
+            [ -f "$dir/.gemini/settings.json" ] && rm -v "$dir/.gemini/settings.json"
+          done
+          echo "Done."
+
+      - name: Smoke-test PM LLM auth and fleet MCP
+        shell: bash
+        run: |
+          cd "$RUN_DIR"
+          PROMPT="What is the version of the apra-fleet MCP server installed? If the tool is not available reply with: not installed. Also print names of your custom skills separated by comma."
+          PROVIDER='${{ steps.suite.outputs.pm_provider }}'
+          if [ "$PROVIDER" = "claude" ]; then
+            output=$(claude -p "$PROMPT" --model haiku 2>&1)
+            echo "$output"
+            echo "PM claude auth OK"
+          elif [ "$PROVIDER" = "gemini" ]; then
+            output=$(gemini -p "$PROMPT" --model auto --skip-trust 2>&1)
+            echo "$output"
+            echo "PM gemini auth OK"
+          elif [ "$PROVIDER" = "agy" ]; then
+            output=$(agy -p "$PROMPT" --dangerously-skip-permissions 2>&1)
+            echo "$output"
+            echo "PM agy auth OK"
+          elif [ "$PROVIDER" = "opencode" ]; then
+            output=$(opencode run "$PROMPT" --format json --dangerously-skip-permissions 2>&1)
+            echo "$output"
+            echo "PM opencode auth OK"
+          fi
+
+      - name: Purge fleet daemon logs
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            LOG_DIR="$(cygpath "$USERPROFILE")/.apra-fleet/data/logs"
+          else
+            LOG_DIR="$HOME/.apra-fleet/data/logs"
+          fi
+          rm -f "$LOG_DIR"/fleet-*.log
+          echo "Fleet logs purged"
+
+      - name: Pre-create local member work folders
+        shell: bash
+        run: |
+          DOER_HOST='${{ steps.suite.outputs.doer_host }}'
+          DOER_FOLDER='${{ steps.suite.outputs.doer_folder }}'
+          REV_HOST='${{ steps.suite.outputs.reviewer_host }}'
+          REV_FOLDER='${{ steps.suite.outputs.reviewer_folder }}'
+          if [ "$DOER_HOST" = "local" ]; then
+            mkdir -p "$DOER_FOLDER"
+          fi
+          if [ "$REV_HOST" = "local" ]; then
+            mkdir -p "$REV_FOLDER"
+          fi
+
+      - name: Render test scripts
+        shell: bash
+        run: |
+          # Literal token substitution via bash string replacement -- never sed.
+          # sed mangles Windows paths: backslashes vanish and \U/\l trigger
+          # GNU sed case-conversion escapes (C:\Users\... -> C:SERS...).
+          declare -A VARS=(
+            ["{{SUITE_ID}}"]='${{ inputs.suite }}'
+            ["{{PM_OS}}"]='${{ steps.suite.outputs.pm_os }}'
+            ["{{PM_PROVIDER}}"]='${{ steps.suite.outputs.pm_provider }}'
+            ["{{DOER_HOST}}"]='${{ steps.suite.outputs.doer_host }}'
+            ["{{DOER_USER}}"]='${{ steps.suite.outputs.doer_user }}'
+            ["{{DOER_OS}}"]='${{ steps.suite.outputs.doer_os }}'
+            ["{{DOER_TYPE}}"]='${{ steps.suite.outputs.doer_type }}'
+            ["{{DOER_PROVIDER}}"]='${{ steps.suite.outputs.doer_provider }}'
+            ["{{DOER_FOLDER}}"]='${{ steps.suite.outputs.doer_folder }}'
+            ["{{REVIEWER_HOST}}"]='${{ steps.suite.outputs.reviewer_host }}'
+            ["{{REVIEWER_USER}}"]='${{ steps.suite.outputs.reviewer_user }}'
+            ["{{REVIEWER_OS}}"]='${{ steps.suite.outputs.reviewer_os }}'
+            ["{{REVIEWER_TYPE}}"]='${{ steps.suite.outputs.reviewer_type }}'
+            ["{{REVIEWER_PROVIDER}}"]='${{ steps.suite.outputs.reviewer_provider }}'
+            ["{{REVIEWER_FOLDER}}"]='${{ steps.suite.outputs.reviewer_folder }}'
+            ["{{TOY_PROJECT_URL}}"]='${{ steps.suite.outputs.toy_url }}'
+            ["{{VCS}}"]='${{ steps.suite.outputs.vcs }}'
+            ["{{BRANCH_PREFIX}}"]='e2e-${{ inputs.suite }}-${{ github.run_id }}'
+          )
+
+          render() {
+            local content
+            content=$(cat "$1")
+            for token in "${!VARS[@]}"; do
+              content="${content//"$token"/${VARS[$token]}}"
+            done
+            printf '%s\n' "$content" > "$2"
+          }
+
+          render .github/e2e/setup-script.md "$RUN_DIR/rendered-setup.md"
+          render .github/e2e/sprint-script.md "$RUN_DIR/rendered-sprint.md"
+
+      - name: Seed PM permissions
+        shell: bash
+        run: |
+          PROVIDER='${{ steps.suite.outputs.pm_provider }}'
+          if [ "$PROVIDER" = "claude" ]; then
+            mkdir -p "$RUN_DIR/.claude"
+            cp "$GITHUB_WORKSPACE/.github/e2e/pm-settings/claude.settings.json" "$RUN_DIR/.claude/settings.json"
+          elif [ "$PROVIDER" = "gemini" ]; then
+            mkdir -p "$RUN_DIR/.gemini"
+            cp "$GITHUB_WORKSPACE/.github/e2e/pm-settings/gemini.settings.json" "$RUN_DIR/.gemini/settings.json"
+          elif [ "$PROVIDER" = "opencode" ]; then
+            mkdir -p "$RUN_DIR/.config/opencode"
+            echo '{"permissions":{"allow":["*"]}}' > "$RUN_DIR/.config/opencode/opencode.json"
+          else
+            mkdir -p "$RUN_DIR/.gemini/antigravity-cli"
+            cp "$GITHUB_WORKSPACE/.github/e2e/pm-settings/gemini.settings.json" "$RUN_DIR/.gemini/antigravity-cli/settings.json"
+          fi
+          echo "Seeded $PROVIDER PM permissions into $RUN_DIR"
+
+      - name: Run fleet e2e - setup phase (${{ steps.suite.outputs.pm_provider }})
+        id: e2e_setup
+        timeout-minutes: 120
+        shell: bash
+        run: |
+          PROVIDER='${{ steps.suite.outputs.pm_provider }}'
+          DOER_FOLDER='${{ steps.suite.outputs.doer_folder }}'
+          REVIEWER_FOLDER='${{ steps.suite.outputs.reviewer_folder }}'
+          if [ "$PROVIDER" = "agy" ]; then
+            CFG_DIR="$HOME/.gemini"
+          else
+            CFG_DIR="$HOME/.$PROVIDER"
+          fi
+          [ "$RUNNER_OS" = "Windows" ] && CFG_DIR="$(cygpath -w "$CFG_DIR")"
+          cd "$RUN_DIR"
+          LLM_EXIT=0
+          if [ "$PROVIDER" = "claude" ]; then
+            claude \
+              -p "$(cat "$RUN_DIR/rendered-setup.md")" \
+              --model sonnet \
+              --output-format stream-json \
+              --verbose \
+              --max-turns 80 \
+              --add-dir "$RUN_DIR" \
+              --add-dir "$HOME/.$PROVIDER" \
+              --add-dir "$(dirname "$DOER_FOLDER")" \
+              --add-dir "$(dirname "$REVIEWER_FOLDER")" \
+              > "$RUN_DIR/raw-setup.txt" 2>&1 || LLM_EXIT=$?
+          elif [ "$PROVIDER" = "gemini" ]; then
+            gemini --skip-trust \
+              --output-format stream-json \
+              --include-directories "$RUN_DIR,$CFG_DIR,$(dirname "$DOER_FOLDER"),$(dirname "$REVIEWER_FOLDER")" \
+              --allowed-mcp-server-names apra-fleet \
+              -p "$(cat "$RUN_DIR/rendered-setup.md")" \
+              > "$RUN_DIR/raw-setup.txt" 2>&1 || LLM_EXIT=$?
+          elif [ "$PROVIDER" = "opencode" ]; then
+            opencode run \
+              "$(cat "$RUN_DIR/rendered-setup.md")" \
+              --format json \
+              --dangerously-skip-permissions \
+              > "$RUN_DIR/raw-setup.txt" 2>&1 || LLM_EXIT=$?
+          else
+            agy --dangerously-skip-permissions \
+              --print-timeout 45m \
+              --add-dir "$RUN_DIR" \
+              --add-dir "$CFG_DIR" \
+              --add-dir "$(dirname "$DOER_FOLDER")" \
+              --add-dir "$(dirname "$REVIEWER_FOLDER")" \
+              -p "$(cat "$RUN_DIR/rendered-setup.md")" \
+              > "$RUN_DIR/raw-setup.txt" 2>&1 || LLM_EXIT=$?
+            # agy writes to CONOUT$ -- read transcript from disk after exit
+            RUN_DIR_WIN="$(cygpath -w "$RUN_DIR" 2>/dev/null || echo "$RUN_DIR")"
+            AGY_TRANSCRIPT_SCRIPT="const fs=require('fs'),path=require('path');const home=process.env.USERPROFILE||process.env.HOME||'';const cache=JSON.parse(fs.readFileSync(path.join(home,'.gemini','antigravity-cli','cache','last_conversations.json'),'utf8'));const norm=p=>path.resolve(p).toLowerCase().split(path.sep).join('/');const target=norm(process.argv[1]);let id='';for(const k of Object.keys(cache)){if(norm(k)===target){id=cache[k];break;}}if(!id){process.stdout.write('FLEET_TRANSCRIPT_MISSING:NO_CONV\n');process.exit(0);}const tp=path.join(home,'.gemini','antigravity-cli','brain',id,'.system_generated','logs','transcript.jsonl');if(fs.existsSync(tp)){process.stdout.write('FLEET_TRANSCRIPT_START\n');process.stdout.write(fs.readFileSync(tp,'utf8'));process.stdout.write('\nFLEET_TRANSCRIPT_END\n');}else{process.stdout.write('FLEET_TRANSCRIPT_MISSING:'+id+'\n');}"
+            node -e "$AGY_TRANSCRIPT_SCRIPT" "$RUN_DIR_WIN" >> "$RUN_DIR/raw-setup.txt" 2>&1 || true
+            # Resume loop: agy -p stops after each text response; loop until T2-done appears
+            for i in 1 2 3 4; do
+              if grep -q 'T2-done' "$RUN_DIR/raw-setup.txt" 2>/dev/null; then break; fi
+              echo "[e2e] setup resume attempt $i -- T2-done not yet found"
+              agy --dangerously-skip-permissions \
+                --print-timeout 45m \
+                --continue \
+                -p "Continue from where you left off. Complete all remaining tasks (T2, T2-done) without stopping. After each CHECKPOINT, call fleet_status then immediately start the next task." \
+                > /dev/null 2>&1 || true
+              node -e "$AGY_TRANSCRIPT_SCRIPT" "$RUN_DIR_WIN" >> "$RUN_DIR/raw-setup.txt" 2>&1 || true
+            done
+          fi
+
+          if [ "$LLM_EXIT" -ne 0 ]; then
+            echo "::error::LLM CLI ($PROVIDER) setup phase exited with code $LLM_EXIT"
+            RAW="$RUN_DIR/raw-setup.txt"
+            R=$(grep '"type":"result"' "$RAW" | tail -1)
+            if [ -n "$R" ]; then
+              echo "$R" | jq -r '"reason : " + (.subtype // "?") + (if .is_error then "  (is_error)" else "" end), "errors : " + ((.errors // []) | join("; ") | if . == "" then "(none)" else . end), "message: " + ((.result // "(no final text)") | gsub("\n";" ") | .[0:300])'
+            else
+              echo "(no result line -- LLM produced no final output)"
+            fi
+            exit "$LLM_EXIT"
+          fi
+
+      - name: Run fleet e2e - sprint phase (${{ steps.suite.outputs.pm_provider }})
+        id: e2e_sprint
+        timeout-minutes: 120
+        shell: bash
+        run: |
+          PROVIDER='${{ steps.suite.outputs.pm_provider }}'
+          DOER_FOLDER='${{ steps.suite.outputs.doer_folder }}'
+          REVIEWER_FOLDER='${{ steps.suite.outputs.reviewer_folder }}'
+          if [ "$PROVIDER" = "agy" ]; then
+            CFG_DIR="$HOME/.gemini"
+          else
+            CFG_DIR="$HOME/.$PROVIDER"
+          fi
+          [ "$RUNNER_OS" = "Windows" ] && CFG_DIR="$(cygpath -w "$CFG_DIR")"
+          cd "$RUN_DIR"
+          LLM_EXIT=0
+          if [ "$PROVIDER" = "claude" ]; then
+            claude \
+              -p "$(cat "$RUN_DIR/rendered-sprint.md")" \
+              --model sonnet \
+              --output-format stream-json \
+              --verbose \
+              --max-turns 80 \
+              --add-dir "$RUN_DIR" \
+              --add-dir "$HOME/.$PROVIDER" \
+              --add-dir "$(dirname "$DOER_FOLDER")" \
+              --add-dir "$(dirname "$REVIEWER_FOLDER")" \
+              > "$RUN_DIR/raw-sprint.txt" 2>&1 || LLM_EXIT=$?
+          elif [ "$PROVIDER" = "gemini" ]; then
+            gemini --skip-trust \
+              --output-format stream-json \
+              --include-directories "$RUN_DIR,$CFG_DIR,$(dirname "$DOER_FOLDER"),$(dirname "$REVIEWER_FOLDER")" \
+              --allowed-mcp-server-names apra-fleet \
+              -p "$(cat "$RUN_DIR/rendered-sprint.md")" \
+              > "$RUN_DIR/raw-sprint.txt" 2>&1 || LLM_EXIT=$?
+          elif [ "$PROVIDER" = "opencode" ]; then
+            opencode run \
+              "$(cat "$RUN_DIR/rendered-sprint.md")" \
+              --format json \
+              --dangerously-skip-permissions \
+              > "$RUN_DIR/raw-sprint.txt" 2>&1 || LLM_EXIT=$?
+          else
+            agy --dangerously-skip-permissions \
+              --print-timeout 45m \
+              --add-dir "$RUN_DIR" \
+              --add-dir "$CFG_DIR" \
+              --add-dir "$(dirname "$DOER_FOLDER")" \
+              --add-dir "$(dirname "$REVIEWER_FOLDER")" \
+              -p "$(cat "$RUN_DIR/rendered-sprint.md")" \
+              > "$RUN_DIR/raw-sprint.txt" 2>&1 || LLM_EXIT=$?
+            # agy writes to CONOUT$ -- read transcript from disk after exit
+            RUN_DIR_WIN="$(cygpath -w "$RUN_DIR" 2>/dev/null || echo "$RUN_DIR")"
+            AGY_TRANSCRIPT_SCRIPT="const fs=require('fs'),path=require('path');const home=process.env.USERPROFILE||process.env.HOME||'';const cache=JSON.parse(fs.readFileSync(path.join(home,'.gemini','antigravity-cli','cache','last_conversations.json'),'utf8'));const norm=p=>path.resolve(p).toLowerCase().split(path.sep).join('/');const target=norm(process.argv[1]);let id='';for(const k of Object.keys(cache)){if(norm(k)===target){id=cache[k];break;}}if(!id){process.stdout.write('FLEET_TRANSCRIPT_MISSING:NO_CONV\n');process.exit(0);}const tp=path.join(home,'.gemini','antigravity-cli','brain',id,'.system_generated','logs','transcript.jsonl');if(fs.existsSync(tp)){process.stdout.write('FLEET_TRANSCRIPT_START\n');process.stdout.write(fs.readFileSync(tp,'utf8'));process.stdout.write('\nFLEET_TRANSCRIPT_END\n');}else{process.stdout.write('FLEET_TRANSCRIPT_MISSING:'+id+'\n');}"
+            node -e "$AGY_TRANSCRIPT_SCRIPT" "$RUN_DIR_WIN" >> "$RUN_DIR/raw-sprint.txt" 2>&1 || true
+            # Safety resume loop: if the PM exited before writing T3-done to checkpoints.json,
+            # resume it with -c (last conversation). Check checkpoints.json (file-based, written
+            # by PM via tool call) rather than scanning text output.
+            for i in 1 2 3; do
+              if grep -q 'T3-done' "$RUN_DIR/checkpoints.json" 2>/dev/null; then break; fi
+              echo "[e2e] sprint resume attempt $i -- T3-done not in checkpoints.json"
+              agy --dangerously-skip-permissions \
+                --print-timeout 45m \
+                -c \
+                -p "Continue the sprint. Read projects.md and checkpoints.json to see current state. Do NOT re-run /pm init or /pm plan if the project is already active. Continue with /pm start doer or drive the reviewer loop as needed." \
+                > /dev/null 2>&1 || true
+              node -e "$AGY_TRANSCRIPT_SCRIPT" "$RUN_DIR_WIN" >> "$RUN_DIR/raw-sprint.txt" 2>&1 || true
+            done
+          fi
+
+
+          # Extract PM session ID from sprint phase
+          SESSION_ID=$(grep -m1 '"type":"system"' "$RUN_DIR/raw-sprint.txt" \
+            | jq -r '.session_id // ""' 2>/dev/null || true)
+          echo "session_id=$SESSION_ID" >> "$GITHUB_OUTPUT"
+
+          # Assemble results.json from both phases
+          node "$GITHUB_WORKSPACE/.github/e2e/extract-results.mjs" \
+            '${{ inputs.suite }}' \
+            '${{ steps.suite.outputs.pm_os }}' \
+            '${{ steps.suite.outputs.pm_provider }}' \
+            "$RUN_DIR/raw-setup.txt" \
+            "$RUN_DIR/raw-sprint.txt" \
+            > "$RUN_DIR/results.json" \
+            || echo '{"overall":"FAIL"}' > "$RUN_DIR/results.json"
+
+          if [ "$LLM_EXIT" -ne 0 ]; then
+            echo "::error::LLM CLI ($PROVIDER) sprint phase exited with code $LLM_EXIT"
+            RAW="$RUN_DIR/raw-sprint.txt"
+            R=$(grep '"type":"result"' "$RAW" | tail -1)
+            if [ -n "$R" ]; then
+              echo "$R" | jq -r '"reason : " + (.subtype // "?") + (if .is_error then "  (is_error)" else "" end), "errors : " + ((.errors // []) | join("; ") | if . == "" then "(none)" else . end), "message: " + ((.result // "(no final text)") | gsub("\n";" ") | .[0:300])'
+            else
+              echo "(no result line -- LLM produced no final output)"
+            fi
+            exit "$LLM_EXIT"
+          fi
+
+      - name: Collect fleet daemon logs
+        if: always()
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            LOG_DIR="$(cygpath "$USERPROFILE")/.apra-fleet/data/logs"
+          else
+            LOG_DIR="$HOME/.apra-fleet/data/logs"
+          fi
+          cat "$LOG_DIR"/fleet-*.log > "$RUN_DIR/logs/fleet-pm.log" 2>/dev/null || true
+
+      - name: Extract telemetry
+        if: always()
+        shell: bash
+        run: |
+          [ -n "$RUN_DIR" ] && cd "$RUN_DIR" || exit 1
+          node "$GITHUB_WORKSPACE/.github/e2e/extract-results.mjs" \
+            '${{ inputs.suite }}' \
+            '${{ steps.suite.outputs.pm_os }}' \
+            '${{ steps.suite.outputs.pm_provider }}' \
+            "$RUN_DIR/raw-setup.txt" \
+            "$RUN_DIR/raw-sprint.txt" \
+            > results.json
+
+      - name: Validate e2e test completion
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH_PREFIX="e2e-${{ inputs.suite }}-${{ github.run_id }}"
+          TOY_URL='${{ steps.suite.outputs.toy_url }}'
+          FAIL=0
+          OVERALL=$(jq -r '.overall // "MISSING"' "$RUN_DIR/results.json" 2>/dev/null || echo "MISSING")
+          [ "$OVERALL" = "PASS" ] || FAIL=1
+          [ "$FAIL" -eq 0 ] || exit 1
+
+      - name: Post job summary
+        if: always()
+        shell: bash
+        run: |
+          [ -n "$RUN_DIR" ] && cd "$RUN_DIR" || exit 1
+          node "$GITHUB_WORKSPACE/.github/e2e/post-summary.mjs"
+        env:
+          SUITE: ${{ inputs.suite }}
+
+      - name: T6 - Teardown
+        if: always()
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          PROVIDER='${{ steps.suite.outputs.pm_provider }}'
+          if [ "$PROVIDER" = "claude" ]; then
+            claude -p "$(cat "$GITHUB_WORKSPACE/.github/e2e/t6-teardown.md")" --model haiku > "$RUN_DIR/t6-output.txt" 2>&1 || true
+          elif [ "$PROVIDER" = "gemini" ]; then
+            gemini --skip-trust -p "$(cat "$GITHUB_WORKSPACE/.github/e2e/t6-teardown.md")" > "$RUN_DIR/t6-output.txt" 2>&1 || true
+          elif [ "$PROVIDER" = "opencode" ]; then
+            opencode run "$(cat "$GITHUB_WORKSPACE/.github/e2e/t6-teardown.md")" --format json --dangerously-skip-permissions > "$RUN_DIR/t6-output.txt" 2>&1 || true
+          else
+            agy --dangerously-skip-permissions --print-timeout 45m -p "$(cat "$GITHUB_WORKSPACE/.github/e2e/t6-teardown.md")" > "$RUN_DIR/t6-output.txt" 2>&1 || true
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ inputs.suite }}-${{ github.run_id }}
+          path: ${{ env.RUN_DIR }}

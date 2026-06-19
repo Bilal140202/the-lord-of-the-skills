@@ -1,0 +1,248 @@
+name: Go CI
+
+# Runs on every PR and push to main for the Go CLI port (cli-go/).
+# This workflow is independent of the existing bash CI (ci.yml) and
+# intentionally does not touch any bash CI jobs.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cli-go/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/install.sh'
+      - 'scripts/uninstall-yakos-go.sh'
+      - '.github/workflows/go-ci.yml'
+      # lib/ source paths that the Go embed + drift-guard tests read.
+      # Without these, changes to embedded lib content will not trigger
+      # this workflow — reproducing the #119→#122 incident class.
+      - 'lib/hooks/**'
+      - 'lib/settings/**'
+      - 'lib/agents/**'
+      - 'lib/rules/**'
+      - 'lib/playbooks/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cli-go/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/install.sh'
+      - 'scripts/uninstall-yakos-go.sh'
+      - '.github/workflows/go-ci.yml'
+      # lib/ source paths that the Go embed + drift-guard tests read.
+      # Without these, changes to embedded lib content will not trigger
+      # this workflow — reproducing the #119→#122 incident class.
+      - 'lib/hooks/**'
+      - 'lib/settings/**'
+      - 'lib/agents/**'
+      - 'lib/rules/**'
+      - 'lib/playbooks/**'
+  workflow_dispatch:
+
+jobs:
+  go-build-test:
+    name: build + test (${{ matrix.os }}, go ${{ matrix.go }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ['1.25']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - name: Set up Go ${{ matrix.go }}
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: cli-go/go.sum
+
+      - name: Download modules
+        working-directory: cli-go
+        run: go mod download
+
+      - name: Stage embedded lib
+        # Populate cli-go/internal/framework/embedded/ from repo-root lib/ so
+        # that (a) the drift-guard test runs with real content, and (b) the
+        # built binary is self-contained for the smoke tests below.
+        # On Windows, use the PowerShell-friendly robocopy path.
+        shell: bash
+        run: make embed-lib
+
+      - name: go vet
+        working-directory: cli-go
+        run: go vet ./...
+
+      - name: go test
+        working-directory: cli-go
+        # Use -count=1 to bypass test result cache in CI.
+        run: go test -count=1 -race -timeout 60s ./...
+
+      - name: Build binary (native)
+        # Build from the module root (cli-go/) and output to repo-root bin/.
+        # `go build -o` is literal — Windows needs the `.exe` suffix
+        # explicitly (unlike `go install`, which adds it automatically).
+        shell: bash
+        run: |
+          mkdir -p bin
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cd cli-go && go build -o ../bin/yakos.exe ./cmd/yakos
+          else
+            cd cli-go && go build -o ../bin/yakos ./cmd/yakos
+          fi
+
+      - name: Smoke test — --version flag (unix)
+        if: runner.os != 'Windows'
+        env:
+          YAKOS_IMPL: go
+        run: |
+          out=$(./bin/yakos --version)
+          echo "version output: $out"
+          echo "$out" | grep -E '\(go\)'
+
+      - name: Smoke test — --version flag (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          YAKOS_IMPL: go
+        run: |
+          # Flatten to single string — multi-line output makes PowerShell
+          # treat $out as an array, and `-notmatch` against an array returns
+          # the non-matching elements (truthy when any line doesn't match).
+          $out = (.\bin\yakos.exe --version) -join "`n"
+          Write-Host "version output: $out"
+          if ($out -notmatch '\(go\)') {
+            Write-Error "Expected (go) suffix in version output"
+            exit 1
+          }
+
+      - name: Smoke test — go-port-status (unix)
+        if: runner.os != 'Windows'
+        env:
+          YAKOS_IMPL: go
+        run: |
+          out=$(./bin/yakos go-port-status)
+          echo "$out"
+          echo "$out" | grep -E 'subcommand migration tracker'
+          # Phase 1 ships with 39+ subcommands ported; just verify the
+          # tracker emits a count line (not the v0.36-era "No subcommands
+          # ported to Go yet" sentinel).
+          echo "$out" | grep -E 'Ported: [0-9]+'
+
+      - name: Smoke test — go-port-status (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          YAKOS_IMPL: go
+        run: |
+          # Flatten to single string — see --version step for rationale.
+          $out = (.\bin\yakos.exe go-port-status) -join "`n"
+          Write-Host "$out"
+          if ($out -notmatch 'subcommand migration tracker') {
+            Write-Error "Expected migration tracker header"
+            exit 1
+          }
+          if ($out -notmatch 'Ported: \d+') {
+            Write-Error "Expected ported count line"
+            exit 1
+          }
+
+  install-sh-smoke:
+    # Validates install.sh --dry-run on each supported platform without
+    # requiring an actual published release. Uses mock env vars to exercise
+    # the platform-detection and argument-parsing paths.
+    name: install.sh smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # Windows Git Bash is tested via ubuntu-latest with OS override below.
+        # A separate windows-latest job is omitted: the install.sh is a POSIX
+        # sh script that requires Git Bash on Windows; runners have it but
+        # the default shell differs. The --dry-run path is safe to test on
+        # Linux/macOS runners for all platforms by overriding MOCK_OS.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - name: install.sh --dry-run (native platform)
+        shell: sh
+        run: |
+          # --dry-run must exit 0 and print the "DRY RUN" header.
+          out="$(sh scripts/install.sh --dry-run 2>&1)"
+          echo "$out"
+          echo "$out" | grep -F "DRY RUN"
+          echo "$out" | grep -F "Install path:"
+          echo "$out" | grep -F "No files were downloaded or modified."
+
+      - name: install.sh --dry-run --version arg
+        shell: sh
+        run: |
+          out="$(sh scripts/install.sh --dry-run --version 0.37.0 2>&1)"
+          echo "$out"
+          echo "$out" | grep -F "0.37.0"
+
+      - name: install.sh --dry-run --prefix arg
+        shell: sh
+        run: |
+          out="$(sh scripts/install.sh --dry-run --prefix /tmp/yakos-test 2>&1)"
+          echo "$out"
+          echo "$out" | grep -F "/tmp/yakos-test"
+
+      - name: install.sh --help exits 0
+        shell: sh
+        run: sh scripts/install.sh --help
+
+      - name: uninstall-yakos-go.sh --dry-run (nothing installed)
+        shell: sh
+        run: |
+          out="$(sh scripts/uninstall-yakos-go.sh --dry-run 2>&1)"
+          echo "$out"
+          echo "$out" | grep -F "DRY RUN"
+
+      - name: uninstall-yakos-go.sh --help exits 0
+        shell: sh
+        run: sh scripts/uninstall-yakos-go.sh --help
+
+      - name: POSIX sh compliance check (dash)
+        # dash is the strictest POSIX sh. ubuntu-latest has it; macOS uses sh.
+        if: runner.os == 'Linux'
+        run: |
+          # dash rejects bashisms. If install.sh has any, this fails.
+          dash scripts/install.sh --help
+          dash scripts/uninstall-yakos-go.sh --help
+
+  govulncheck:
+    # Advisory vulnerability scan for Go dependencies (cli-go/).
+    # Uses govulncheck from the Go vuln DB; catches known CVEs and
+    # advisories including pseudo-version packages (go.starlark.net etc.).
+    # Run on Linux only (single platform is sufficient; vuln DB is universal).
+    # This is a required gate: a newly-reported vuln in a dep should block
+    # merge so the dep can be updated before shipping.
+    name: govulncheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6
+        with:
+          go-version: '1.25'
+          cache-dependency-path: cli-go/go.sum
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        working-directory: cli-go
+        run: govulncheck ./...

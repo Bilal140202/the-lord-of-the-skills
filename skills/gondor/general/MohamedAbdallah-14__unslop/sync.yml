@@ -1,0 +1,39 @@
+name: Sync SSOT Mirrors
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - skills/unslop/SKILL.md
+      - skills/unslop-commit/SKILL.md
+      - skills/unslop-review/SKILL.md
+      - skills/unslop-help/SKILL.md
+      - rules/unslop-activate.md
+      - unslop/SKILL.md
+      - unslop/scripts/**
+      - scripts/sync-mirrors.sh
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run sync-mirrors script
+        run: bash scripts/sync-mirrors.sh
+
+      - name: Commit synced changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore(sync): propagate SSOT updates to mirrored locations"
+            git push
+          else
+            echo "Nothing to sync."
+          fi

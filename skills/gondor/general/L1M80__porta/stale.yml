@@ -1,0 +1,30 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: stale
+          stale-issue-message: >
+            This issue has been inactive for 60 days and is now marked
+            **stale**. It will be closed in 14 days unless there is new
+            activity. If this is still relevant, please leave a comment.
+          close-issue-message: >
+            Closed due to inactivity. Feel free to re-open if this is
+            still relevant.
+          exempt-issue-labels: "priority/high,security"
+          # PRs are handled by humans, not the bot
+          days-before-pr-stale: -1
+          days-before-pr-close: -1

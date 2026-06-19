@@ -1,0 +1,98 @@
+name: Cross-Platform Compatibility Test
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.11']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install pytest tomli
+
+      - name: Install tmux
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install tmux
+          else
+            sudo apt-get update
+            sudo apt-get install -y tmux
+          fi
+
+      - name: Run real ccb lifecycle smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          python -m pytest -q -m ccb_lifecycle_smoke \
+            test/test_v2_phase2_entrypoint.py \
+            test/test_v2_ccbd_start_matrix.py
+
+      - name: Run project_id tests
+        run: |
+          python -m pytest test/test_project_id.py -v
+
+      - name: Run registry tests
+        run: |
+          python -m pytest test/test_registry_project_id.py -v
+
+      - name: Test path normalization (cross-platform)
+        continue-on-error: true
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'lib')
+          from project.identity import normalize_work_dir
+
+          # Test basic normalization
+          result = normalize_work_dir('/a/b/../c')
+          assert result == '/a/c', f'Expected /a/c, got {result}'
+
+          print('✅ Path normalization test passed')
+          "
+
+      - name: Test unified commands syntax
+        shell: bash
+        run: |
+          ./bin/ask --help
+          ./ccb ping --help
+          ./ccb pend --help
+          echo "✅ Unified commands syntax test passed"
+
+      - name: Test completion hook imports
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'lib')
+          from provider_hooks.notifications import normalize_completion_status, completion_status_marker
+          from runtime_env import env_bool
+          assert normalize_completion_status('completed') == 'completed'
+          assert completion_status_marker('failed') == '[CCB_TASK_FAILED]'
+          print('Completion hook imports test passed')
+          "

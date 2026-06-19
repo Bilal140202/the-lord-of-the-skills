@@ -1,0 +1,67 @@
+name: Upstream Drift
+
+# Detects whether the upstream ECC repo has new commits beyond the
+# baseline recorded in upstream/.upstream-sync.json and maintains a
+# single rolling tracking issue labelled "🔄 Upstream Sync" that
+# reflects the current drift state.
+#
+# Schedule: weekly Sunday 21:00 UTC = Monday 06:00 KST (UTC+9).
+# Also runs on manual dispatch from the Actions tab.
+
+on:
+  schedule:
+    - cron: '0 21 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Check upstream drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Check upstream drift
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/upstream/check-upstream-drift.js
+
+      # Recursive failure-tracking: if the step above (or any prior
+      # step) failed, ensure a single rolling "⚠ Upstream Sync Failure"
+      # issue points at the failing run. Same idea as the drift tracker
+      # — make the action's own health a number on an open issue.
+      - name: Report action failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FAILURE_LABEL: "⚠ Upstream Sync Failure"
+        run: |
+          set -euo pipefail
+          # List every open failure issue, keep the first as the
+          # rolling tracker, and close any others as superseded — the
+          # intent is one and only one open issue at any time.
+          numbers=$(gh issue list --label "$FAILURE_LABEL" --state open --json number --jq '.[].number')
+          existing=$(printf '%s\n' "$numbers" | head -n 1)
+          title="Upstream-drift workflow failing"
+          body=$(printf '%s\n\n%s\n\n%s' \
+            "The \`upstream-drift\` workflow most recently failed on run ${RUN_URL}." \
+            "Investigate the run logs, fix the underlying cause, and close this issue once a subsequent run succeeds." \
+            "_Maintained automatically by \`.github/workflows/upstream-drift.yml\`._")
+          if [ -z "$existing" ]; then
+            gh issue create --label "$FAILURE_LABEL" --title "$title" --body "$body"
+          else
+            gh issue edit "$existing" --title "$title" --body "$body"
+            printf '%s\n' "$numbers" | tail -n +2 | xargs -r -I{} gh issue close {} --comment "Superseded by #$existing"
+          fi

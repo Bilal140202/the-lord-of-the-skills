@@ -1,0 +1,124 @@
+name: Release & Publish
+
+on:
+  push:
+    branches: [main]
+
+# Required for Trusted Publishing (OIDC) and creating releases/tags
+permissions:
+  contents: write   # create tags + GitHub releases
+  id-token: write   # signed provenance attestation
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install
+
+      # ── Read local version ─────────────────────────────────────────────────
+      - name: Get package version
+        id: pkg
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      # ── Compare with npm registry — skip if already published ──────────────
+      - name: Check npm registry
+        id: check
+        run: |
+          PUBLISHED=$(npm view figma-ui-mcp version 2>/dev/null || echo "0.0.0")
+          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
+          if [ "$PUBLISHED" = "${{ steps.pkg.outputs.version }}" ]; then
+            echo "skip=true"  >> $GITHUB_OUTPUT
+            echo "⏭  v${{ steps.pkg.outputs.version }} already on npm — skipping."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "🚀 New version v${{ steps.pkg.outputs.version }} (npm has $PUBLISHED) — releasing."
+          fi
+
+      # ── Publish to npm (NPM_TOKEN + provenance attestation) ──────────────────
+      - name: Publish to npm
+        if: steps.check.outputs.skip == 'false'
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # ── Tag the commit (idempotent — skip if maintainer already pushed) ────
+      - name: Create git tag
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          VERSION="v${{ steps.pkg.outputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --tags origin "refs/tags/$VERSION" | grep -q "$VERSION"; then
+            echo "Tag $VERSION already exists on origin — skipping."
+          else
+            git tag "$VERSION"
+            git push origin "$VERSION"
+          fi
+
+      # ── Extract this version's section from CHANGELOG.md ───────────────────
+      - name: Extract changelog
+        if: steps.check.outputs.skip == 'false'
+        id: changelog
+        run: |
+          VERSION="${{ steps.pkg.outputs.version }}"
+          awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md \
+            > /tmp/release-notes.md
+          cat /tmp/release-notes.md
+
+      # ── Create GitHub Release (idempotent — skip if exists) ────────────────
+      - name: Create GitHub Release
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ steps.pkg.outputs.version }}"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists — skipping."
+          else
+            gh release create "$VERSION" \
+              --title "$VERSION" \
+              --notes-file /tmp/release-notes.md \
+              --latest
+          fi
+
+      # ── Publish to MCP Registry ──────────────────────────────────────────
+      - name: Update server.json version
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          VERSION="${{ steps.pkg.outputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const s = JSON.parse(fs.readFileSync('server.json','utf8'));
+            s.version = '${VERSION}';
+            if (s.packages) s.packages.forEach(p => p.version = '${VERSION}');
+            fs.writeFileSync('server.json', JSON.stringify(s, null, 2) + '\n');
+          "
+          cat server.json
+
+      - name: Install mcp-publisher
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Publish to MCP Registry
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}

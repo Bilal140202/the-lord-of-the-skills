@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2026 Lokesh Selvam <lokeshselvam7025@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-only
+
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'BlazeUp-AI/Observal'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/Observal
+            git fetch origin main
+            git reset --hard origin/main
+
+            cd docker
+            docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build --remove-orphans
+
+            # Phase 1: Wait for API container to be alive (bypasses nginx).
+            # Uses direct container exec because curl through nginx fails
+            # when nginx caches a stale upstream IP from the old container.
+            echo "Waiting for API container to start..."
+            for i in $(seq 1 60); do
+              if docker compose exec -T observal-api python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez')" 2>/dev/null; then
+                echo "API process is alive"
+                break
+              fi
+              echo "Waiting for API process... ($i/60)"
+              sleep 5
+            done
+
+            # Nginx caches upstream container IPs — after rebuild the API
+            # gets a new IP but nginx still routes to the old one.
+            docker compose -f docker-compose.yml -f docker-compose.production.yml restart observal-lb
+            sleep 3
+
+            # Phase 2: Verify health through nginx (the path clients use)
+            for i in $(seq 1 30); do
+              if curl -sf https://localhost/health -k > /dev/null 2>&1; then
+                echo "API is healthy (full stack verified)"
+                exit 0
+              fi
+              echo "Waiting for health check... ($i/30)"
+              sleep 5
+            done
+
+            echo "API failed health check"
+            docker compose logs observal-api observal-init observal-lb observal-db observal-clickhouse --tail 20
+            exit 1

@@ -1,0 +1,297 @@
+name: Generate Updater Configuration
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+  repository_dispatch:
+    types: [generate-updater]
+
+concurrency:
+  group: updater-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-latest-json:
+    runs-on: ubuntu-latest
+    # Auto-trigger: only for non-prerelease releases
+    # Manual trigger: always execute
+    if: github.event_name == 'workflow_dispatch' || 
+        github.event_name == 'repository_dispatch' ||
+        (github.event_name == 'release' && github.event.release.prerelease == false)
+    
+    outputs:
+      json-url: ${{ steps.upload.outputs.json-url }}
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Extract tag information
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            TAG="${{ github.event.client_payload.tag }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          
+          if [ -z "$TAG" ]; then
+            echo "❌ Error: No tag specified"
+            exit 1
+          fi
+          
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          echo "📍 Processing tag: $TAG"
+
+      - name: Fetch release information
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          echo "📦 Fetching release information for $TAG..."
+          
+          # Get release details with assets
+          RELEASE_DATA=$(gh release view "$TAG" --repo "$REPO" --json body,publishedAt,assets --jq '.')
+          echo "$RELEASE_DATA" > release.json
+          
+          # Extract release body and published date
+          BODY=$(echo "$RELEASE_DATA" | jq -r '.body // ""')
+          PUB_DATE=$(echo "$RELEASE_DATA" | jq -r '.publishedAt // ""')
+          
+          if [ -z "$PUB_DATE" ]; then
+            PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          fi
+
+          # Keep updater notes short (prefer a dedicated block if present)
+          UPDATER_NOTES=$(printf '%s\n' "$BODY" | awk '
+            /<!-- updater-notes-start -->/ { in_block=1; found=1; next }
+            /<!-- updater-notes-end -->/ { in_block=0; next }
+            in_block { print }
+            END { if (!found) exit 0 }
+          ')
+
+          if [ -z "$UPDATER_NOTES" ]; then
+            UPDATER_NOTES="详见：https://github.com/$REPO/releases/tag/$TAG"
+          fi
+          
+          {
+            echo "release_body<<EOF"
+            printf '%s\n' "$BODY"
+            echo "EOF"
+            echo "updater_notes<<EOF"
+            printf '%s\n' "$UPDATER_NOTES"
+            echo "EOF"
+            echo "pub_date=$PUB_DATE"
+          } >> "$GITHUB_ENV"
+          
+          # Show assets count
+          ASSET_COUNT=$(echo "$RELEASE_DATA" | jq '.assets | length')
+          echo "Found $ASSET_COUNT assets in release"
+
+      - name: Download and analyze release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          echo "⬇️ Downloading release assets..."
+          
+          # Create assets directory
+          mkdir -p assets
+          cd assets
+          
+          # Download all assets
+          gh release download "$TAG" --repo "$REPO" --clobber
+          
+          echo ""
+          echo "=== 📋 Analyzing Downloaded Files ==="
+          
+          # Function to detect and categorize files
+          detect_file() {
+            local pattern="$1"
+            local platform="$2"
+            local arch="$3"
+            local type="$4"
+            
+            local file=$(find . -name "$pattern" | head -1)
+            if [ -n "$file" ] && [ -f "$file" ]; then
+              echo "✅ $platform-$arch: $(basename $file)"
+              local var_prefix="${platform}_${arch}"
+              echo "${var_prefix}_file=$file" >> $GITHUB_ENV
+              echo "${var_prefix}_type=$type" >> $GITHUB_ENV
+              
+              # Check for signature file
+              local sig_file="${file}.sig"
+              if [ ! -f "$sig_file" ]; then
+                echo "❌ Missing signature for $platform-$arch: $(basename $file)"
+                exit 1
+              fi
+              echo "${var_prefix}_sig=$sig_file" >> $GITHUB_ENV
+              echo "   └─ Signature: $(basename $sig_file)"
+              return 0
+            fi
+            return 1
+          }
+          
+          # Windows updater bundle (NSIS installer)
+          detect_file "*setup*.exe" "windows" "x86_64" "nsis" || detect_file "*.msi" "windows" "x86_64" "msi"
+          
+          # macOS updater bundle (app tarball)
+          detect_file "*aarch64*.app.tar.gz" "darwin" "aarch64" "app"
+          detect_file "*x86_64*.app.tar.gz" "darwin" "x86_64" "app"
+          
+          # Linux updater bundle (optional)
+          # Prefer AppImage artifacts. If unavailable, fallback to .deb when signed.
+          if detect_file "*amd64*.AppImage.tar.gz" "linux" "x86_64" "appimage" || detect_file "*amd64*.AppImage" "linux" "x86_64" "appimage"; then
+            echo "✅ Linux updater artifact detected via AppImage"
+          elif detect_file "*_amd64.deb" "linux" "x86_64" "deb"; then
+            echo "⚠️ Linux AppImage not found, fallback to signed .deb artifact"
+          else
+            echo "⚠️ No Linux updater artifact found, linux-x86_64 will be omitted from latest.json"
+          fi
+          
+          echo ""
+          echo "=== Detection Summary ==="
+          detected_count=$(env | grep -- '_file=' | wc -l)
+          echo "Detected $detected_count platform artifacts"
+
+      - name: Generate latest.json
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          cd assets
+          
+          BASE_URL="https://github.com/$REPO/releases/download/$TAG"
+          
+          # Initialize platforms object
+          PLATFORMS='{}'
+          
+          # Helper function to add platform
+          add_platform() {
+            local platform_id="$1"
+            local file_path="${!2}"
+            local sig_path="${!3}"
+            
+            if [ -n "$file_path" ] && [ -f "$file_path" ]; then
+              SIG_CONTENT=""
+              if [ -n "$sig_path" ] && [ -f "$sig_path" ]; then
+                SIG_CONTENT=$(cat "$sig_path")
+              fi
+              
+              if [ -z "$SIG_CONTENT" ]; then
+                echo "❌ Empty signature for $platform_id"
+                exit 1
+              fi
+               
+              # URL encode spaces
+              FILE_URL="$BASE_URL/$(basename "$file_path" | sed 's/ /%20/g')"
+              
+              PLATFORMS=$(echo "$PLATFORMS" | jq \
+                --arg sig "$SIG_CONTENT" \
+                --arg url "$FILE_URL" \
+                '. + {"'"$platform_id"'": {"signature": $sig, "url": $url}}')
+              
+              echo "✅ Added $platform_id platform"
+            fi
+          }
+          
+          # Add platforms
+          add_platform "windows-x86_64" "windows_x86_64_file" "windows_x86_64_sig"
+          add_platform "darwin-aarch64" "darwin_aarch64_file" "darwin_aarch64_sig"
+          add_platform "darwin-x86_64" "darwin_x86_64_file" "darwin_x86_64_sig"
+          add_platform "linux-x86_64" "linux_x86_64_file" "linux_x86_64_sig"
+          
+          # Generate final JSON
+          jq -n \
+            --arg version "$TAG" \
+            --arg notes "$updater_notes" \
+            --arg pub_date "$pub_date" \
+            --argjson platforms "$PLATFORMS" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: $platforms
+            }' > latest.json
+          
+          echo ""
+          echo "=== 📄 Generated latest.json ==="
+          cat latest.json
+          echo ""
+          
+          # Validate JSON
+          if ! jq empty latest.json; then
+            echo "❌ Invalid JSON generated!"
+            exit 1
+          fi
+          
+          # Show platform count
+          platform_count=$(jq '.platforms | keys | length' latest.json)
+          echo "✅ JSON valid with $platform_count platforms configured"
+
+      - name: Upload latest.json to release
+        id: upload
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd assets
+          
+          echo "📤 Uploading latest.json to release $TAG..."
+          gh release upload "$TAG" latest.json --clobber --repo "$REPO"
+          
+          # Generate download URL
+          JSON_URL="https://github.com/$REPO/releases/download/$TAG/latest.json"
+          echo "json-url=$JSON_URL" >> $GITHUB_OUTPUT
+          
+          echo "✅ Uploaded successfully!"
+          echo "📥 JSON URL: $JSON_URL"
+
+      - name: Create updater summary
+        if: always()
+        run: |
+          echo "## 🔄 Updater Configuration Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | ${{ steps.tag.outputs.tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "| JSON URL | [latest.json](${{ steps.upload.outputs.json-url }}) |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "### ✅ Generated Configuration" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat assets/latest.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Optional: Notify downstream systems
+  notify:
+    needs: generate-latest-json
+    runs-on: ubuntu-latest
+    if: success() && github.event_name == 'release'
+    steps:
+      - name: Update update server
+        # Custom step to notify your update server
+        run: |
+          echo "📢 Notifying update server about new release ${{ needs.generate-latest-json.outputs.tag }}"
+          # Add your custom notification logic here
+          # Example: curl -X POST https://your-update-server.com/webhook -d "tag=${{ needs.generate-latest-json.outputs.tag }}"

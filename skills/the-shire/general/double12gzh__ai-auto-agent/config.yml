@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+
+contact_links:
+    - name: 📖 提交 Issue 前请先阅读 / Read before submitting
+      url: https://github.com/double12gzh/ai-auto-agent/blob/main/README.md
+      about: 请先阅读文档，确认问题是否已有解决方案 / Please read the documentation to see if your issue is already resolved
+    - name: 💬 Discussions / 讨论区
+      url: https://github.com/double12gzh/ai-auto-agent/discussions
+      about: 如果不确定是 Bug 还是使用问题，可以先在 Discussions 中讨论 / If you are not sure whether it is a bug or a usage issue, discuss it here first

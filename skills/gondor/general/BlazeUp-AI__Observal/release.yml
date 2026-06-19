@@ -1,0 +1,423 @@
+# SPDX-FileCopyrightText: 2026 Hari Srinivasan <harisrini21@gmail.com>
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Automated release pipeline for Observal.
+#
+# Triggered automatically when a release PR merges to main (detected by
+# bump(release) commit), or manually via workflow_dispatch with a version input.
+# Creates the git tag, then builds: CLI binaries (6 platforms), Docker images
+# (GHCR), server tarball, PyPI package. All releases require approval.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.3.2). Leave empty to auto-detect from commit."
+        required: false
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/blazeup-ai/observal
+
+jobs:
+  # ── Preflight: detect release commit and create tag ────────
+  preflight:
+    name: Preflight checks
+    if: github.repository == 'BlazeUp-AI/Observal'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      bump_type: ${{ steps.version.outputs.bump_type }}
+      is_release: ${{ steps.version.outputs.is_release }}
+    steps:
+      - name: Generate release app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Detect release version
+        id: version
+        run: |
+          # Manual dispatch with explicit version takes priority
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            COMMIT_MSG=$(git log -1 --pretty=%s)
+            if [[ "$COMMIT_MSG" =~ ^bump\(release\):\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+              VERSION="${BASH_REMATCH[1]}"
+              echo "is_release=true" >> "$GITHUB_OUTPUT"
+              echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            else
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          # Validate version matches pyproject.toml
+          PKG_VERSION=$(python3 -c "import re, pathlib; m = re.search(r'^version\s*=\s*\"([^\"]+)\"', pathlib.Path('pyproject.toml').read_text(), re.M); print(m.group(1))")
+          if [ "$VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Release version v$VERSION does not match pyproject.toml ($PKG_VERSION)"
+            exit 1
+          fi
+
+          # Validate version matches web/package.json
+          WEB_VERSION=$(python3 -c "import json, pathlib; print(json.loads(pathlib.Path('web/package.json').read_text())['version'])")
+          if [ "$VERSION" != "$WEB_VERSION" ]; then
+            echo "::error::Release version v$VERSION does not match web/package.json ($WEB_VERSION)"
+            exit 1
+          fi
+
+          # Validate version matches packages/pi-extension/package.json
+          NPM_VERSION=$(python3 -c "import json, pathlib; print(json.loads(pathlib.Path('packages/pi-extension/package.json').read_text())['version'])")
+          if [ "$VERSION" != "$NPM_VERSION" ]; then
+            echo "::error::Release version v$VERSION does not match packages/pi-extension/package.json ($NPM_VERSION)"
+            exit 1
+          fi
+
+          # Detect bump type by comparing to previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "v0.0.0")
+          PREV="${PREV_TAG#v}"
+          IFS='.' read -r PM PMI PP <<< "$PREV"
+          IFS='.' read -r CM CMI CP <<< "$VERSION"
+          if [ "$CM" != "$PM" ]; then
+            echo "bump_type=major" >> "$GITHUB_OUTPUT"
+          elif [ "$CMI" != "$PMI" ]; then
+            echo "bump_type=feature" >> "$GITHUB_OUTPUT"
+          else
+            echo "bump_type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release tag
+        if: steps.version.outputs.is_release == 'true'
+        run: |
+          VERSION="v${{ steps.version.outputs.version }}"
+          git config user.name "observal-release[bot]"
+          git config user.email "observal-release[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+  # ── Job 1: Build CLI binaries (5-platform matrix) ──────────
+  cli-binaries:
+    name: CLI (${{ matrix.os }}-${{ matrix.arch }})
+    needs: preflight
+    if: needs.preflight.outputs.is_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x64
+            runner: ubuntu-latest
+            artifact: observal-linux-x64
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+            artifact: observal-linux-arm64
+          - os: macos
+            arch: arm64
+            runner: macos-15
+            artifact: observal-macos-arm64
+          - os: windows
+            arch: x64
+            runner: windows-latest
+            artifact: observal-windows-x64.exe
+          - os: windows
+            arch: arm64
+            runner: windows-latest
+            artifact: observal-windows-arm64.exe
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -e .
+
+      - name: Build binary
+        run: |
+          pyinstaller observal_cli/pyinstaller.spec --noconfirm
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Rename artifact (Unix)
+        if: matrix.os != 'windows'
+        run: mv dist/observal dist/${{ matrix.artifact }}
+
+      - name: Rename artifact (Windows)
+        if: matrix.os == 'windows'
+        run: mv dist/observal.exe dist/${{ matrix.artifact }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  # ── Job 2: Docker images to GHCR (native per-arch builds) ──
+  docker-build:
+    name: Docker (${{ matrix.image }}-${{ matrix.arch }})
+    needs: preflight
+    if: needs.preflight.outputs.is_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [api, web]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.${{ matrix.image }}
+          platforms: ${{ matrix.platform }}
+          provenance: false
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docker-digest-${{ matrix.image }}-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-merge:
+    name: Docker manifest (${{ matrix.image }})
+    needs: [preflight, docker-build]
+    if: needs.preflight.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [api, web]
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: docker-digest-${{ matrix.image }}-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        run: |
+          IMAGE="${{ env.IMAGE_PREFIX }}-${{ matrix.image }}"
+          VERSION="${{ needs.preflight.outputs.version }}"
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" \
+            -t "$IMAGE:latest" \
+            $(printf "$IMAGE@sha256:%s " $(ls /tmp/digests/))
+
+  # ── Job 3: Server deployment tarball ───────────────────────
+  server-package:
+    name: Server package
+    needs: preflight
+    if: needs.preflight.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build server tarball
+        run: |
+          VERSION="${{ needs.preflight.outputs.version }}"
+          STAGING="observal-server-v${VERSION}"
+          mkdir -p "$STAGING/clickhouse"
+          mkdir -p "$STAGING/grafana"
+
+          # Standalone compose (pre-built images, no source needed)
+          cp docker/server-package/docker-compose.yml "$STAGING/"
+          cp docker/server-package/setup.sh "$STAGING/"
+          cp docker/server-package/env.template "$STAGING/"
+          cp docker/nginx.conf "$STAGING/nginx.conf"
+          cp prometheus.yml "$STAGING/"
+          cp .env.example "$STAGING/"
+
+          # Supporting configs
+          cp -r docker/clickhouse/config.d "$STAGING/clickhouse/config.d"
+          cp -r docker/clickhouse/users.d "$STAGING/clickhouse/users.d"
+          cp -r grafana/provisioning "$STAGING/grafana/provisioning"
+          cp -r grafana/dashboards "$STAGING/grafana/dashboards"
+
+          tar -czf "observal-server-v${VERSION}.tar.gz" "$STAGING"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: observal-server-v${{ needs.preflight.outputs.version }}.tar.gz
+          path: observal-server-v${{ needs.preflight.outputs.version }}.tar.gz
+
+  # ── Approval gate (all releases) ────────────────────────────
+  approve:
+    name: Approval gate
+    needs: [preflight, cli-binaries, docker-merge, server-package]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "${{ needs.preflight.outputs.bump_type }} release v${{ needs.preflight.outputs.version }} approved"
+
+  # ── Job 4: PyPI publish (after approval) ───────────────────
+  pypi:
+    name: Publish to PyPI
+    needs: [preflight, approve]
+    if: needs.approve.result == 'success'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ── Job 5: npm publish (after approval) ────────────────────
+  npm:
+    name: Publish to npm
+    needs: [preflight, approve]
+    if: needs.approve.result == 'success'
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Sync version from release
+        run: |
+          VERSION="${{ needs.preflight.outputs.version }}"
+          cd packages/pi-extension
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Publish observal-pi
+        run: |
+          cd packages/pi-extension
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── Final: Create GitHub Release with all artifacts ────────
+  release:
+    name: GitHub Release
+    needs: [preflight, cli-binaries, docker-merge, server-package, pypi, npm, approve]
+    if: needs.approve.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: observal-*
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name 'observal-*' -o -name '*.tar.gz' \) -exec cp {} release/ \;
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum * > checksums.txt
+
+      - name: Generate release notes
+        run: |
+          pip install git-cliff
+          git-cliff --config cliff.toml --latest --strip header > release/RELEASE_NOTES.md
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: "release/observal-*"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ needs.preflight.outputs.version }}"
+
+          gh release create "$VERSION" \
+            --draft \
+            --title "Observal $VERSION" \
+            --notes-file release/RELEASE_NOTES.md \
+            --latest \
+            release/*
+
+      - name: Publish release (remove draft)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ needs.preflight.outputs.version }}"
+          gh release edit "$VERSION" --draft=false

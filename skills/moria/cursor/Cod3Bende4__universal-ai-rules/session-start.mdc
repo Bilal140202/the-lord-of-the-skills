@@ -1,0 +1,30 @@
+---
+description: Session initialization and rule loading for AI assistant
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Session Start
+
+At the start of every session:
+1. Read `.ai-suite/MASTER.md` — understand the full rule system
+2. ALWAYS load `.ai-suite/core/security.md` — no exceptions
+3. Follow `.ai-suite/workflows/session-start.md` Steps 1-5
+4. Based on the user's first message, load relevant phase files from MASTER.md
+
+# Phase Loading
+
+Load from `.ai-suite/phases/` based on user's task:
+- New project → `01-project-init.md`
+- Requirements → `02-requirements.md`
+- Architecture → `03-system-design.md`
+- Database → `04-database.md`
+- API → `05-api-design.md`
+- Frontend → `06-frontend.md`
+- Backend → `07-backend.md`
+- Testing → `08-testing.md`
+- CI/CD → `09-cicd.md`
+- Monitoring → `10-observability.md`
+- Performance → `11-performance.md`
+- Maintenance → `12-maintenance.md`
+- Documentation → `13-documentation.md`

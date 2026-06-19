@@ -1,0 +1,115 @@
+# The repo-self DOS gate — this repo runs its OWN verify-action on itself.
+#
+# This workflow is what makes the "verified by DOS" badge on the README a LIVE
+# verdict rather than an adoption pill: the badge is this workflow's status, and
+# the status is the kernel's exit code, computed by a trusted runner (this CI)
+# over git ancestry it checked out itself — never the repo's self-report
+# (docs/112 §4, trust posture 2: "the runner is the repo's own CI, the evidence
+# is its own git"). The workflow `name:` below IS the badge text — GitHub
+# renders "<name>: passing|failing".
+#
+# Three legs, each a kernel verdict whose exit code is the check (docs/82's
+# verdict-IS-the-exit-code shape), the first two shelled through ./verify-action
+# so the bundled Action has a consumer from day one — this repo:
+#
+#   1. commit-audit — each pushed/PR'd commit's SUBJECT claim vs its own DIFF.
+#      The honesty witness this repo actually has: its claims live in commit
+#      subjects (dos.toml [stamp] trailer grammar), not parseable plan tables
+#      (CLAUDE.md "DOS on DOS", step 6). This leg has live teeth — an
+#      over-claiming subject reddens the badge; a wip/merge/no-claim subject is
+#      an ABSTAIN, never a false block.
+#
+#   2. verify — the truth syscall over the repo's own ship-stamp: the badge's
+#      own phase (docs/112 Phase 0, the first trailer stamp in the public
+#      history) must answer SHIPPED from git ancestry. Not a tautology: it
+#      reddens if the [stamp] grammar in dos.toml stops parsing the repo's own
+#      stamps, or if a history rewrite drops the stamped commit from ancestry.
+#
+#   3. lint — the config-integrity linter (docs/227) over the repo's OWN
+#      dos.toml: a treeless lane, a dangling autopick target, a shadowed lane
+#      region — dead policy reddens the badge the same way an over-claiming
+#      subject does. The kernel adjudicates its own policy file, not just its
+#      commits.
+#
+# Scope honesty (docs/112 §6): a green badge asserts verified-SHIPPED claims,
+# diff-backed subjects, and a dead-policy-free dos.toml — never code
+# correctness. The test suite is ci.yml's job; this gate sits BESIDE it, not in
+# place of it.
+name: verified by DOS
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # Merge queue: the queue builds a SPECULATIVE merge commit and runs the
+  # required checks on it before anything lands. Without this trigger a
+  # required dos-verify check would never report in the queue and every queued
+  # PR would stall; with it, the action audits the queue's base_sha..head_sha —
+  # the exact commits about to land.
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dos-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  self-gate:
+    # The job name IS the status-check name branch protection and merge-queue
+    # rules match on — keep it the stable product name, not a sentence: a
+    # repo requires "dos-verify", and renaming it would silently un-require
+    # the gate everywhere it is pinned.
+    name: dos-verify
+    runs-on: ubuntu-latest
+    # Two kernel verdicts over an already-fetched history: minutes, not tens of
+    # them — bound it so a hung install can't sit on the 6-hour default.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # both legs read git ancestry, not a shallow tip
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      # Leg 1 — claim vs diff over the pushed commit (PRs: base..head).
+      # install-from: '.' installs the checked-out kernel itself — the action's
+      # default PyPI install resolves only after the PyPI release.
+      - name: dos commit-audit — does each subject's claim match its diff?
+        uses: ./verify-action
+        with:
+          install-from: "."
+          mode: commit-audit
+
+      # Leg 2 — the truth syscall on the repo's own ship-stamp grammar.
+      # "Phase 0" is the spelling the trailer rung recognizes (the stamp is
+      # written `(docs/112 Phase 0)`; see docs/112 §5 Phase 0).
+      - name: dos verify — did the badge's own phase ship?
+        uses: ./verify-action
+        with:
+          install-from: "."
+          mode: verify
+          plan: docs/112
+          phase: Phase 0
+
+      # Leg 3 — dead policy in the workspace's own declarations (docs/227). The
+      # verify-action legs above already pip-installed the checked-out kernel
+      # into this job's interpreter, so the verb is on PATH; --strict makes a
+      # warning-class finding redden the badge too.
+      - name: dos lint — dead policy in the repo's own dos.toml?
+        run: dos lint --strict --workspace .
+
+  # The reusable workflow's day-one consumer (the same role dos-gate plays for
+  # the composite action): this repo calls its own `workflow_call` surface, so
+  # a consumer's one-line integration path is exercised on every push/PR, not
+  # just documented. `install-from: "."` gates with the tree being pushed.
+  reusable-surface:
+    name: dos-verify (reusable workflow)
+    uses: ./.github/workflows/dos-verify.yml
+    with:
+      install-from: "."

@@ -1,0 +1,158 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_update:
+        description: 'Publish Update (trigger updater mechanism)'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Step 1: 先创建 Release
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#v}"
+          else
+            VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            TAG="v$VERSION"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: 'Antigravity Agent ${{ steps.version.outputs.tag }}'
+          body: |
+            ### VS Code 插件
+            - [VSIX安装包](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/antigravity-agent-${{ steps.version.outputs.version }}.vsix)
+
+            ### Windows
+            - [安装版(推荐)](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/Antigravity.Agent_${{ steps.version.outputs.version }}_x64-setup.exe) | [便携版](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/Antigravity-Agent-x86_64-Portable.zip)
+
+            ### macOS
+            - [Apple Silicon](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/Antigravity.Agent_${{ steps.version.outputs.version }}_aarch64.dmg) | [Intel芯片](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/Antigravity.Agent_${{ steps.version.outputs.version }}_x86_64.dmg)
+
+            ### Linux
+            - [Flatpak](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/antigravity-agent_${{ steps.version.outputs.version }}_amd64.flatpak) | [Deb安装包](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/antigravity-agent_${{ steps.version.outputs.version }}_amd64.deb)
+            ---
+
+            ## 📋 更新日志
+
+            ${{ github.event.release.body || format('请查看 [提交历史](https://github.com/{0}/commits/{1}) 获取详细的更新内容。', github.repository, steps.version.outputs.tag) }}
+
+            ---
+
+            🐛 如果发现问题或者需求请求，请[提交 Issue](https://github.com/MonchiLin/antigravity-agent/issues/new)
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Step 2: 并行构建和上传
+  build:
+    needs: prepare-release
+    uses: ./.github/workflows/tauri-build.yml
+    with:
+      tag: ${{ needs.prepare-release.outputs.tag }}
+      ref: ${{ github.ref }}
+      version: ${{ needs.prepare-release.outputs.version }}
+      cache_key_suffix: release
+    secrets: inherit
+
+  # Step 3: 触发 updater
+  trigger-updater:
+    needs: [prepare-release, build]
+    runs-on: ubuntu-latest
+    if: success() && (github.event_name != 'workflow_dispatch' || inputs.publish_update == true)
+    steps:
+      - name: Generate updater configuration
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          event-type: generate-updater
+          client-payload: '{"tag": "${{ needs.prepare-release.outputs.tag }}"}'
+
+  # Step 4: 构建 VS Code 插件
+  build-extension:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install Root Dependencies
+        run: npm ci --ignore-scripts --no-audit --prefer-offline
+
+      - name: Get Version
+        id: version
+        working-directory: ./vscode-extension
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        working-directory: ./vscode-extension
+        run: npm ci
+
+      - name: Type Check Extension
+        working-directory: ./vscode-extension
+        run: npm run check
+
+      - name: Build and Package Extension
+        working-directory: ./vscode-extension
+        run: npx @vscode/vsce package --out ./antigravity-agent-${{ steps.version.outputs.version }}.vsix
+
+      - name: Upload Extension to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+        run: |
+          gh release upload "$TAG" vscode-extension/antigravity-agent-${{ steps.version.outputs.version }}.vsix --clobber --repo "${{ github.repository }}"
+
+      - name: Publish to Open VSX
+        working-directory: ./vscode-extension
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "⚠️ OVSX_PAT secret not found, skipping Open VSX publish"
+            exit 0
+          fi
+          npx ovsx publish ./antigravity-agent-${{ steps.version.outputs.version }}.vsix --pat "$OVSX_PAT"

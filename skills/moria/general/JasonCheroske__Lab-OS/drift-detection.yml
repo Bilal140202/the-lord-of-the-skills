@@ -1,0 +1,120 @@
+name: drift-detection
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: "drift (${{ matrix.root }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - root: environments/dev/aws
+            cloud: aws
+          - root: environments/dev/azure
+            cloud: azure
+          - root: environments/dev/gcp
+            cloud: gcp
+          - root: environments/prod/aws
+            cloud: aws
+          - root: environments/prod/azure
+            cloud: azure
+          - root: environments/prod/gcp
+            cloud: gcp
+    defaults:
+      run:
+        working-directory: ${{ matrix.root }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Terraform init (AWS)
+        if: matrix.cloud == 'aws'
+        run: terraform init -input=false
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Terraform init (Azure)
+        if: matrix.cloud == 'azure'
+        run: terraform init -input=false
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+      - name: Terraform init (GCP)
+        if: matrix.cloud == 'gcp'
+        run: terraform init -input=false
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Plan with detailed exit code (AWS)
+        if: matrix.cloud == 'aws'
+        id: drift-aws
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -no-color -input=false
+          code=$?
+          set -e
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 1 ]; then echo "terraform plan failed"; exit 1; fi
+          exit 0
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Plan with detailed exit code (Azure)
+        if: matrix.cloud == 'azure'
+        id: drift-azure
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -no-color -input=false
+          code=$?
+          set -e
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 1 ]; then echo "terraform plan failed"; exit 1; fi
+          exit 0
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+      - name: Plan with detailed exit code (GCP)
+        if: matrix.cloud == 'gcp'
+        id: drift-gcp
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -no-color -input=false
+          code=$?
+          set -e
+          echo "exitcode=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 1 ]; then echo "terraform plan failed"; exit 1; fi
+          exit 0
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Fail on pending changes (drift signal)
+        if: |
+          steps.drift-aws.outputs.exitcode == '2' ||
+          steps.drift-azure.outputs.exitcode == '2' ||
+          steps.drift-gcp.outputs.exitcode == '2'
+        run: |
+          echo "terraform plan exit 2: changes detected in ${{ matrix.root }} — treat as drift signal per .lab/delta/DRIFT_POLICY.md"
+          echo "Notify Slack: set SLACK_WEBHOOK_URL and curl in this step when ready."
+          exit 1

@@ -1,0 +1,38 @@
+# ROLE
+Bạn là Senior QA Engineer với 10 năm kinh nghiệm trong Software Testing.
+
+# TASK
+Phân tích requirement và tạo bộ test case đầy đủ theo phương pháp Risk-Based Testing (RBT).
+
+# CONTEXT
+- Requirement: [DÁN NỘI DUNG REQUIREMENT VÀO ĐÂY]
+- System type: [Web / Mobile / API]
+- Module: [Tên module cần test]
+- URL (nếu có): [URL hệ thống]
+
+# CONSTRAINTS
+1. Phân tích requirement, xác định các luồng:
+   - Happy Path (luồng chính)
+   - Alternate Path (luồng rẽ nhánh)
+   - Exception Path (luồng ngoại lệ)
+2. Phát hiện Ambiguities (điểm mờ, thiếu sót, mâu thuẫn) và đặt câu hỏi Q&A.
+3. Đánh giá Risk Level cho từng module/chức năng:
+   - High Risk: Test kỹ (8-15+ TCs)
+   - Medium Risk: Test vừa phải (4-8 TCs)
+   - Low Risk: Test cơ bản (2-4 TCs)
+4. Áp dụng kỹ thuật thiết kế test case:
+   - Equivalence Partitioning (phân lớp tương đương)
+   - Boundary Value Analysis (giá trị biên)
+   - Decision Table (bảng quyết định — cho logic nhiều điều kiện)
+   - State Transition (chuyển trạng thái — cho workflow)
+5. Bao phủ: Happy path, Negative, Boundary, Edge cases, Security/Permission, Validation
+6. Test Data phải CỤ THỂ, không dùng mô tả chung:
+   - Đúng: "Nhập email: test_user_01@domain.com"
+   - Sai: "Nhập email hợp lệ"
+
+# OUTPUT FORMAT
+- Xuất kết quả ra file CSV (vd: testcases_module_name.csv) để mở trực tiếp bằng Excel.
+- Các cột bắt buộc:
+  TC ID, Module, Risk Level, Test Scenario, Pre-Condition, Test Steps, Test Data, Expected Result, Priority
+- Quy tắc TC ID: [DỰ_ÁN]_[MODULE]_TC_[SỐ] (Ví dụ: CRM_LOGIN_TC_001)
+

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "dos": {
+      "command": "dos-mcp",
+      "args": [],
+      "cwd": ".",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}

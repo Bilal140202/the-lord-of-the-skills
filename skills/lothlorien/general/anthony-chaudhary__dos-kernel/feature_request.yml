@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a new verdict, reason, renderer, judge, or kernel capability.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        DOS grows along a few deliberate **extension axes** (see
+        [HACKING.md](../../docs/HACKING.md) and
+        [docs/88](../../docs/88_the-adjudicator-population.md)). Most additions are
+        *userland policy* (a reason, a lane, a renderer, a judge) and need **no
+        kernel change** — those you can ship in your own `dos.toml` / a plugin
+        today. Open an issue when you want a **new mechanism** in the kernel, or to
+        discuss where a capability belongs.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of addition?
+      options:
+        - A new structured-refusal reason (vocabulary)
+        - A new output renderer
+        - A new judge (the JUDGE rung)
+        - A new deterministic verdict / syscall (kernel mechanism)
+        - A CLI / MCP ergonomics improvement
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What can't you express today?
+      description: The fleet failure or workflow gap this addresses. What does an agent currently get away with that it shouldn't?
+    validations:
+      required: true
+  - type: textarea
+    id: ground-truth
+    attributes:
+      label: What's the unforgeable evidence?
+      description: |
+        A DOS verdict reads an artifact the worker can't fake (git history, the
+        file tree, a clock). If you're proposing a new verdict, what would it read?
+        (If there's no forgery-proof signal, it may belong in a JUDGE, not a verdict.)
+    validations:
+      required: false

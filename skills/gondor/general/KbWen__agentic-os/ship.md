@@ -1,0 +1,285 @@
+---
+name: ship
+description: Final delivery and archival. Requires TESTED state and handoff gate.
+tasks:
+  - ship
+---
+
+# /ship
+
+> Canonical gate: `Ref: .agent/rules/state_machine.md`
+
+## Gate Engine (Turn 1 — Antigravity Hard Path)
+
+**Phase Verification** (per bootstrap §2b): Read `Current Phase` from Work Log header. Verify transition to `ship` is legal. If illegal, STOP. Otherwise update `Current Phase: ship`. If a new commit was created since the last `Checkpoint SHA`, SHOULD refresh it.
+
+Before ANY ship action, output the Minimal Gate Block:
+
+```yaml
+gate: ship
+classification: <from Work Log>
+branch: <current branch>
+checks:
+  worklog_exists: yes|no
+  spec_exists: yes|no|na
+  state_ok: yes|no
+  handoff_ok: yes|no|na
+verdict: pass|fail
+missing: []
+```
+
+- If `verdict: fail` → output ONLY the gate block. STOP.
+- **Gate Receipt**: After outputting the gate block, append a compact gate receipt to the Work Log under `## Gate Evidence`:
+  ```
+  - Gate: ship | Verdict: <PASS|FAIL> | Classification: <tier> | Timestamp: <ISO>
+  ```
+- Resolve the active Work Log path for the current `<worklog-key>` before evaluating `worklog_exists`.
+- If no active Work Log exists but archive context for the branch exists, create a follow-up active log, warn the user, and continue gate evaluation. Missing handoff references or missing evidence still require `verdict: fail`.
+- If classification is `feature` or `architecture-change`:
+  - If the user explicitly requested shipping, proceed directly after gate pass.
+  - Only ask for an extra confirmation if ship entry was inferred rather than explicitly requested, or if a separate high-impact choice appears inside `/ship` (for example, concurrent-state merge risk or knowledge-consolidation diff preview).
+- `quick-win` / `hotfix`: proceed directly after gate pass.
+
+## Work Log Compaction Check
+
+Before ship evaluation, check the active Work Log size. If it exceeds compaction thresholds (see `.agent/config.yaml` §worklog), compact per `/handoff` §6 BEFORE proceeding. Ship with a bloated log risks archiving an unnecessarily large file.
+
+## Pre-flight Advisory Checks
+
+Run these BEFORE evaluating Ship Checklist. Both are ADVISORY — warn, do not hard-block.
+
+### Rollback Plan Check (feature / architecture-change only)
+
+Skip for `quick-win`, `hotfix`, `tiny-fix`. For `feature` and `architecture-change`: scan Work Log `## Known Risk` for any line containing "rollback" or "revert". If none found, output:
+`"⚠️ No rollback plan found in ## Known Risk. Add at least one line describing rollback/revert strategy before shipping."`
+Record the warning in `## Known Risk` if the section is otherwise empty.
+
+### Gate Receipt Audit (/ship only)
+
+Scan Work Log `## Gate Evidence` for receipts from required prior phases:
+- `feature` / `architecture-change`: bootstrap, plan, implement, review, test, handoff receipts required
+- `quick-win`: bootstrap, plan, implement receipts required (implement receipt always present — no plan→ship edge exists)
+- `hotfix`: bootstrap, plan, implement, review, test receipts required (hotfix MUST reach TESTED; plan is mandatory per §10.2 — no implement-only shortcuts)
+
+For each missing receipt output: `"⚠️ Missing gate receipt for: [phase]. Run that phase or provide evidence before shipping."`
+User may acknowledge and proceed. Missing receipts do NOT auto-fail the gate.
+
+### Confidence Trace Audit (/ship only)
+
+Scan Work Log `## Phase Summary` and the plan's compact block for a `Confidence:` entry. If the recorded confidence is `<80%` and no clarification/assumption is documented in `## Known Risk`, output: `"⚠️ Plan confidence was <80% with no recorded clarification. Verify before shipping."` This is advisory — it warns but does not hard-block, matching `engineering_guardrails.md` §4.1.
+
+## Ship Checklist (mandatory — skip = ship fail)
+
+- [ ] Evidence recorded in Work Log `## Evidence` section (non-empty; bootstrap placeholder `"Pending: bootstrap only"` is NOT sufficient — Ref: `engineering_guardrails.md §5.2b`)
+- [ ] `current_state.md` updated
+- [ ] Active Work Log archived to `.agentcortex/context/archive/`
+- [ ] Spec-Test trace verified (feature / architecture-change only — see §Spec-Test Traceability below)
+- [ ] Domain Doc updated or skip justified (feature / architecture-change only — see §Knowledge Consolidation below)
+- [ ] Observability Readiness verified (feature / architecture-change only — see §Observability Readiness below)
+
+## Quick-win / Hotfix Knowledge Nudge (advisory)
+
+**Scope**: `quick-win` and `hotfix` only. Skipped for `tiny-fix`, `feature`, `architecture-change`.
+
+**Domain inference**: Derive `<affected module>` and `<domain>` from (in order): (a) Work Log Task Description keywords, (b) top-level path of changed files in the diff (e.g., `src/auth/*` → domain `auth`). If neither yields a clear answer, ask the user: `"Which domain does this fix belong to? (list existing docs/architecture/*.log.md names, or 'new:<name>')"`. Do NOT guess silently.
+
+After evidence is recorded, output this prompt once per ship (not re-prompted on retry):
+
+> "Did this fix change how `<affected module>` works in a non-obvious way? If yes, consider appending one line to `docs/architecture/<domain>.log.md` — no spec required, just a timestamped note."
+
+If the user confirms yes:
+- If `docs/architecture/<domain>.log.md` exists: append a minimal L2 entry (date, branch, one-line decision/constraint).
+- If it does not exist: offer `"No domain doc for '<domain>' yet. Create docs/architecture/<domain>.log.md now? (yes/no)"` — create only on confirmation.
+
+If the user says no: skip silently. This is never a gate — it only surfaces the option.
+
+## Observability Readiness Check (feature / architecture-change only)
+
+**Scope**: This check applies ONLY to `feature` and `architecture-change` classifications. `tiny-fix`, `quick-win`, and `hotfix` are exempt.
+
+Before ship, verify the delivered code meets production observability requirements:
+
+1. **Error boundary defined**: all error-handling paths use a production-observable logger (per §5.2a). No debug-only logging as sole error path.
+2. **Log sink documented**: Work Log records where errors are reported (e.g., "Sentry via `Logger.error()`", "stdout → CloudWatch", or "Crashlytics via `FirebaseCrashlytics.recordError()`"). If the project has no production logging infrastructure yet, document that as a Known Risk.
+3. **Rollback telemetry**: rollback plan (per §12.5) includes how operators will know the rollback succeeded (e.g., error rate returns to baseline, health check passes).
+
+This is an advisory check — missing observability readiness produces a warning, not a hard fail. The warning MUST be recorded in the Work Log under `## Known Risk`.
+
+## Spec-Test Traceability Check (feature / architecture-change only)
+
+**Scope**: This check applies ONLY to `feature` and `architecture-change` classifications. `tiny-fix`, `quick-win`, and `hotfix` are exempt.
+
+Before ship, verify that every Acceptance Criterion in the referenced spec has at least one linked test or an explicitly justified exception:
+
+1. Read the spec's AC section. Each AC SHOULD have a stable identifier (e.g., `AC-1`, `AC-2`).
+2. Check test files for `spec_ref:` frontmatter or inline comments linking to the spec.
+3. Build coverage map: AC → test(s). If any AC has no linked test, output: `"⚠️ AC [id] has no linked test. Justify or add test before ship."`.
+4. An AC may be explicitly exempted with justification recorded in the Work Log (e.g., "AC-3: visual-only change, verified by screenshot evidence").
+
+This is an advisory check in this batch — missing trace produces a warning, not a hard fail. Future batches may escalate to hard gate.
+
+## Skill-Aware Ship Checks (Auto-Enforced)
+
+Before evaluating entry conditions, apply the Phase-Entry Skill-Loading Protocol (shared-contracts.md §Phase-Entry Skill Loading). Read `Recommended Skills` from the active Work Log before selecting which skill guidance to apply in this phase. Then enforce:
+
+**IF `verification-before-completion` is active (MANDATORY for non-tiny-fix):**
+Apply the Verification-Before-Completion 5-Gate Contract (shared-contracts.md §Verification Before Completion (5-Gate Sequence)). If ANY gate fails → `verdict: fail`. Do NOT proceed to Entry Conditions.
+Phase-specific: Evidence = specific commands, outputs, versions; Communication Gate = include constraints that remain.
+
+**Pre-merge / pre-PR closure (always applies before /ship):**
+1. Re-sync with mainline: `git fetch origin && git merge origin/<main-branch>` (use repo's default branch) — verify no conflicts or behavioral drift
+2. Re-run minimal required tests + critical regression tests after sync
+3. Verify documentation, migration scripts, configuration changes are all committed
+4. Select closure option and state it explicitly:
+   - **Merge now**: Verification complete, risks acceptable
+   - **Open PR**: Requires reviewer or cross-team sync
+   - **Keep branch**: Has remaining work; keep active
+   - **Archive/Close**: Requirement canceled or strategy changed
+Entering "Merge now" is PROHIBITED if evidence is insufficient.
+
+**Production observability check (always applies for feature / architecture-change):**
+- Audit every `catch` / error-handling block in changed files: Logger MUST be production-observable (`Logger.error()`, crash reporter, structured stdout) — NOT debug-only (`debugPrint`, `console.log`, `print`).
+- Document the error sink in Work Log `## Observability` (e.g., `Sentry via Logger.error()` / `Crashlytics` / `stdout → CloudWatch`). If no production logging infrastructure exists, log this as Known Risk.
+- Rollback plan MUST answer: how operators detect the rollback is needed AND that it succeeded (alert / dashboard / health check).
+- Full body: `.agents/skills/production-readiness/SKILL.md`.
+
+## Entry Conditions (HARD)
+
+1. Current state is `TESTED`. Exception: `quick-win` MAY ship from `IMPLEMENTING` when inline evidence is present (fast-path per `state_machine.md`). `hotfix` MUST reach `TESTED` first — it is NOT eligible for the implement fast-path.
+2. `feature` and `architecture-change` MUST have completed `/handoff`. `quick-win` and `hotfix` are exempt from `/handoff` (per engineering_guardrails.md §10.4).
+3. When `/handoff` is required, references MUST meet minimums (doc + code + work log).
+4. **Security Gate**: No unresolved CRITICAL/HIGH security findings in Work Log (per `.agent/rules/security_guardrails.md` §6). If found, `verdict: fail`, `missing: ["security: N unresolved CRITICAL/HIGH findings"]`.
+
+If ANY condition fails, MUST reject `/ship` and output missing list.
+
+## Output Format
+
+Apply the shared `Phase Output Compression` contract from `shared-contracts.md §Phase Output Compression → /ship`.
+
+**Chat response is the compact block below. Do NOT replay full implementation, review, or test narratives — they are in the Work Log. Do NOT paste the full commit message body when the title line is enough.**
+
+```
+Commit: <conventional-commits title>  (Ref: <SHA>)
+Changes: <1-line delta summary>
+Evidence: Ref: Work Log §Evidence
+SSoT: updated | skipped (reason)
+Risk: <1-line or "none">
+Archive: <path> | <pending>
+⚡ ACX
+```
+
+Compression rules:
+- One line per field. No decorative headers when the whole block is < 10 lines.
+- Evidence goes by reference (`Ref: Work Log §Evidence`), never re-pasted in chat.
+- Rollback strategy: 1 line. Full rollback plan lives in Work Log `## Known Risk`.
+- Known risks: the **unresolved** count and 1-line summary. Resolved risks do not appear in chat.
+- If the user asks for the full commit body, change summary, or test output, expand. Default is terse.
+
+## Phase Summary Update
+
+After ship gate passes and before archival, append one line to `## Phase Summary` in the Work Log:
+```
+- ship: [1-line summary — verdict, commit SHA, archive path]
+```
+
+## Review Snapshot Routing Check (AC-30)
+
+Before proceeding with ship, check `docs/reviews/` for any review snapshots that contain structured `routing_actions` blocks with `status: pending` targeting files in the current task's `primary_domain`. If found, MUST resolve before ship or record explicit deferral with justification in the Work Log.
+
+## State Update & Archival
+
+1. **Ship Guard (§11.1)**: Before writing, check if `current_state.md` has been modified since this task started. If modified by another session, warn user and request confirmation before merging. Use **additive merge**, never full overwrite.
+2. **SSoT Update & Ship History**:
+- Update `.agentcortex/context/current_state.md` Spec Index statuses (mutable snapshot) via `.agentcortex/tools/guard_context_write.py`.
+- Use the helper as documented in `.agentcortex/docs/guides/guarded-context-writes.md`. In Stage 1, missing guard receipts are a validation warning, not a hard runtime block.
+   - **Spec Index Cap**: Before updating Spec Index, count existing entries. If count ≥ `document_lifecycle.spec_index_max_entries` (default: 30 from `.agent/config.yaml`), move the oldest `shipped` entries to a `## Spec Index Archive` section at the bottom of `current_state.md`. Archived entries are not auto-read during bootstrap.
+   - MUST append the completion record to the bottom of the file under `## Ship History` via `.agentcortex/tools/guard_context_write.py` (append mode). See `.agentcortex/docs/guides/guarded-context-writes.md`. **Note**: The Work Log `SSoT Sequence` header field is a bootstrap-time snapshot and is NOT incremented at ship — do not attempt to update it.
+   - Use the format:
+
+     ```markdown
+     ### Ship-<branch_name>-<YYYY-MM-DD>
+     - Feature shipped: [summary]
+     - Tests: Pass
+     ```
+
+   - NEVER edit, reorder, or delete previous entries in the `## Ship History`.
+   - If Ship History exceeds 10 entries, archive older entries to `.agentcortex/context/archive/ship-history-YYYY.md` and keep only the latest 10 in `current_state.md`.
+   - **Relative-link depth hazard**: `current_state.md` lives at depth 2 (`.agentcortex/context/`); `archive/` is at depth 3. Any relative links whose destination starts with `../` or `../../` in content copied from `current_state.md` to `archive/` will resolve one level too shallow and produce broken links caught by CI. **Before committing archived content that originated in `current_state.md`, strip or convert those links to plain text or absolute URLs.** `validate.sh` M8 also flags these as WARN.
+3. Archive `.agentcortex/context/work/<worklog-key>.md` to `.agentcortex/context/archive/<worklog-key>-<YYYYMMDD>.md` (the **root** of `archive/`, if task complete). This is **final archival** of the whole log — distinct from `/handoff §6` compaction, which offloads stale detail of a *still-active* log into the `archive/work/` subdir. The `-<YYYYMMDD>` suffix is required: it prevents a reused branch (e.g. a downstream that does all work on `main`) from overwriting its own prior archive on the next ship. Record the resulting filename in the `INDEX.jsonl` `log` field below.
+    - Do NOT duplicate `/retro`-promoted Global Lessons during ship. `/retro` owns structured Global Lesson promotion.
+    - **Archive Index Update**: After archiving, append a structured record to `.agentcortex/context/archive/INDEX.jsonl`. The archive index is a hash-chained audit log — every append MUST add `prev_sha` (computed by the helper) so the chain stays intact. Use:
+      ```bash
+      python .agentcortex/tools/append_chain_entry.py append \
+        --path .agentcortex/context/archive/INDEX.jsonl \
+        --entry '{"log": "<archived-filename>", "branch": "<branch>", "classification": "<tier>", "modules": ["<file-or-module>"], "specs": ["<spec-ref>"], "patterns": ["<tag>"], "decisions": ["<1-line>"], "shipped": "<YYYY-MM-DD>"}'
+      ```
+      - The helper reads the previous entry, computes its sha256[:8], and prepends `prev_sha` to the new entry. The first (genesis) entry uses `prev_sha: "GENESIS"`.
+      - **Do NOT** include `prev_sha` in the `--entry` JSON yourself; the helper rejects entries that already contain it.
+      - **Do NOT** call `guard_context_write.py append` for `INDEX.jsonl` — that path lacks chain awareness and will silently break the chain on next `validate.sh` (caught by `check_audit_chain.py`). The helper is the only correct path.
+      - If `INDEX.jsonl` does not exist, the helper creates it. If a legacy `INDEX.md` exists, keep it as a compatibility mirror but prefer `INDEX.jsonl` for new entries.
+      - **Python-unavailable fallback**: If `python` is unavailable, **skip the INDEX.jsonl write entirely** — do NOT write a `prev_sha: "GENESIS"` entry, as that breaks the chain for every subsequent append and will cause `validate.sh check_audit_chain` to fail on the next Python-available run. Record the skip in Work Log Drift Log: `"INDEX.jsonl update skipped: python unavailable"`. Chain integrity remains intact (the entry is simply absent rather than broken).
+4. **Product Backlog Update**: If `docs/specs/_product-backlog.md` exists and this feature is listed:
+   - Update feature status: `In Progress` → `Shipped`
+   - Update `last_updated` in frontmatter
+   - If ALL features are now `Shipped` or `Deferred`/`Cancelled`, output: "🎉 Product backlog complete. All features shipped or resolved."
+   - If Pending features remain, output: "Backlog: [N] features remaining. Next session can run `/spec-intake` §8a to continue."
+   - Update `current_state.md` **Active Backlog** field to `docs/specs/_product-backlog.md` (if not already set). This is the only mechanism that persists backlog awareness across sessions via SSoT.
+5. **Raw Intake Cleanup**: If `docs/specs/_product-backlog.md` exists and ALL features from the current intake are `Shipped` or `Cancelled`, delete any remaining `docs/specs/_raw-intake*.md` files. These are temporary artifacts; the structured specs are now the SSoT. Log deletion in Work Log.
+6. Freeze Artifacts: Ensure all produced Specs/ADRs have YAML frontmatter `status: frozen`. If missing, add it before commit.
+   - **Skip non-freezable statuses**: Documents with `status: living` (e.g., `_product-backlog.md`) or `status: raw` (e.g., `_raw-intake.md`) MUST NOT be frozen. These are tracking/temporary artifacts, not spec deliverables.
+   - **Spec Freshness**: If implementation DIFFERS from any referenced spec's AC, MUST update the spec to match actual behavior before freezing. Append `[Updated: <date>]` to the corresponding Spec Index entry in `current_state.md`.
+   - **Shipped Frontmatter** (AC-27): After freezing, set `status: shipped` on all referenced specs that are being completed in this branch. This signals to future `/bootstrap` sessions to prefer Domain Doc L1 over these specs as design authority.
+
+7. **Knowledge Consolidation** (feature / architecture-change only — AC-13–17, AC-32):
+
+   **Capability-by-presence with snapshot accountability**: Read `Primary Domain Snapshot` from the active Work Log first. If the current spec lacks `primary_domain` but the snapshot records a non-`none` value, treat the snapshot as authoritative for ship gating and require an explicit justification for why the field was removed. If both the spec and snapshot are missing/`none`, skip this step entirely.
+
+   **Forward-only rollout** (AC-33): Knowledge consolidation applies only to specs created after the doc-lifecycle-governance feature is shipped. Existing shipped specs (those with `status: shipped` set before this feature) are NOT retroactively consolidated. Do not attempt to consolidate them.
+
+   **Domain Doc Gate** (AC-15): If the current spec or the `Primary Domain Snapshot` indicates `primary_domain` and Domain Doc L2 (`docs/architecture/<primary_domain>.log.md`) was NOT modified in this branch, MUST prompt:
+   `"Domain doc not updated. Spec or bootstrap snapshot still points to primary_domain '<domain>'. Summarize or justify skip against that recorded field."` Missing justification = ship gate fail. Generic skip text is invalid; the justification must explicitly explain why consolidation is still unnecessary despite the recorded `primary_domain`, including any reason the field was later removed from the spec. Acceptable examples: `"L1 already covers this incremental change; no new domain decision was introduced."` or `"The domain doc was updated separately in this session and consolidation is therefore already satisfied."`
+
+   **Advisory Lock Check** (AC-17): Before writing L2, check `.agentcortex/context/domain/<domain>.lock.json`. If a non-stale lock exists for another session, warn: `"⚠️ Domain doc lock held by [owner] since [updated_at]. Concurrent write risk. Proceed? (yes/no)"`. This is advisory — it warns but does not hard-block.
+
+   **Consolidation Steps**:
+   a. Read `## Domain Decisions` from the referenced spec. If absent, skip (no entries to consolidate).
+   b. Build the entry block:
+      ```markdown
+      ### [<primary_domain>][<YYYY-MM-DD>][<branch-name>]
+      source_spec: docs/specs/<feature>.md
+      source_sha: <HEAD SHA>
+
+      <copy each [DECISION] / [TRADEOFF] / [CONSTRAINT] entry verbatim>
+      ```
+   c. **Diff Preview** (AC-16, feature / architecture-change): Show the entry block as a diff preview to the user before writing. Require user confirmation before proceeding (consistent with existing `/ship` confirmation gate).
+   d. Append the entry block to `docs/architecture/<primary_domain>.log.md` (L2, append-only — NEVER modify or delete existing entries).
+   e. For each `secondary_domain` in the spec's `secondary_domains` list: append a cross-reference pointer only to that domain's L2 — no content duplication:
+      ```markdown
+      ### [<secondary_domain>][<YYYY-MM-DD>][<branch-name>]
+      cross-ref: See [<primary_domain>][<YYYY-MM-DD>][<branch-name>] in docs/architecture/<primary_domain>.log.md
+      ```
+   f. **Restructure Advisory** (AC-19): Count L2 entries in the `primary_domain` log. If any section has ≥ `domain_doc.restructure_threshold` entries (default: 5 from `.agent/config.yaml`), output advisory: `"Domain doc '<domain>' has N entries. Consider /govern-docs --restructure <domain>."`
+
+8. **SSoT Heartbeat Update** (AC-25): As the final step of State Update & Archival, increment the `Update Sequence` by 1 in `current_state.md` and set `Last Updated` to the current ISO timestamp. This runs after all other ship writes (SSoT, archive, backlog, freeze, knowledge consolidation) are complete. Use guard_context_write.py for this write.
+
+9. **Lock Release**: After archival completes, MUST attempt to release the Work Log lock (the branch is closed; a lingering lock only false-blocks the next session on this key until staleness):
+
+   ```bash
+   python .agentcortex/tools/recover_worklog_lock.py release \
+     --lock .agentcortex/context/work/<worklog-key>.lock.json \
+     --owner "<owner>" --session "<session>"
+   ```
+
+   Failure or refusal → WARN only (staleness self-heals); never a gate fail. Skip when Python is unavailable.
+
+## Post-Ship Lifecycle Suggestions (Advisory)
+
+> **Output format**: Single line appended to ship chat block. Emit ONLY triggered items. **Never blocks.**
+> **Template**: `Next: /retro · /<other-workflow> (<trigger reason>) — skip all?`
+
+Trigger conditions (check silently; emit only matches):
+- Always → `/retro`
+- Ship commit touches `docs/specs/` or `docs/architecture/` → `/sync-docs (docs changed)`
+- Ship commit touches `.agent/`, `AGENTS.md`, or `.agentcortex/` → `/govern-docs (governance changed)`
+
+Skip → no Drift Log entry required (ship is a terminal phase; retro will surface patterns separately).

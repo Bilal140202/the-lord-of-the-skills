@@ -1,0 +1,236 @@
+name: Publish to NPM
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'           # Main ax-cli: v1.0.0
+      - 'ax-grok@*.*.*'    # ax-grok: ax-grok@1.0.0
+      - 'ax-core@*.*.*'    # ax-core: ax-core@1.0.0
+      - 'ax-schemas@*.*.*' # ax-schemas: ax-schemas@1.0.0
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish'
+        required: true
+        type: choice
+        options:
+          - ax-cli
+          - ax-grok
+          - ax-core
+          - ax-schemas
+          - all
+      version:
+        description: 'Version to publish (leave empty to use package.json version)'
+        required: false
+        type: string
+
+jobs:
+  # CI: Test with pnpm
+  test:
+    name: Test Before Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm run build
+
+      - name: Run linter
+        run: pnpm run lint
+
+      - name: Run type check
+        run: pnpm run typecheck
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/
+            packages/*/dist/
+          retention-days: 1
+
+  # CD: Publish with npm
+  publish:
+    name: Publish to NPM
+    needs: test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm (for workspace resolution)
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+
+      - name: Determine package to publish
+        id: package
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "package=${{ github.event.inputs.package }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == v*.*.* ]]; then
+            # Main version tag (v4.3.1) publishes all packages
+            echo "package=all" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == ax-grok@* ]]; then
+            echo "package=ax-grok" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == ax-core@* ]]; then
+            echo "package=ax-core" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == ax-schemas@* ]]; then
+            echo "package=ax-schemas" >> $GITHUB_OUTPUT
+          fi
+
+      # Publish ax-schemas (using pnpm to resolve workspace:* correctly)
+      - name: Publish ax-schemas
+        if: steps.package.outputs.package == 'ax-schemas' || steps.package.outputs.package == 'all'
+        run: |
+          cd packages/schemas
+          VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
+            echo "⏭️ $PACKAGE_NAME@$VERSION already exists, skipping"
+          else
+            pnpm publish --provenance --access public --no-git-checks
+            echo "✅ Published $PACKAGE_NAME@$VERSION"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish ax-core (using pnpm to resolve workspace:* correctly)
+      - name: Publish ax-core
+        if: steps.package.outputs.package == 'ax-core' || steps.package.outputs.package == 'all'
+        run: |
+          cd packages/core
+          VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
+            echo "⏭️ $PACKAGE_NAME@$VERSION already exists, skipping"
+          else
+            pnpm publish --provenance --access public --no-git-checks
+            echo "✅ Published $PACKAGE_NAME@$VERSION"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish ax-grok (using pnpm to resolve workspace:* correctly)
+      - name: Publish ax-grok
+        if: steps.package.outputs.package == 'ax-grok' || steps.package.outputs.package == 'all'
+        run: |
+          cd packages/ax-grok
+          VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
+            echo "⏭️ $PACKAGE_NAME@$VERSION already exists, skipping"
+          else
+            pnpm publish --provenance --access public --no-git-checks
+            echo "✅ Published $PACKAGE_NAME@$VERSION"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish ax-cli (using pnpm to resolve workspace:* correctly)
+      - name: Publish ax-cli
+        if: steps.package.outputs.package == 'ax-cli' || steps.package.outputs.package == 'all'
+        run: |
+          cd packages/ax-cli
+          VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          if npm view $PACKAGE_NAME@$VERSION version 2>/dev/null; then
+            echo "⏭️ $PACKAGE_NAME@$VERSION already exists, skipping"
+          else
+            pnpm publish --provenance --access public --no-git-checks
+            echo "✅ Published $PACKAGE_NAME@$VERSION"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Check if release exists
+        id: check_release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          if gh release view ${{ github.ref_name }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && steps.check_release.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Release ${{ github.ref_name }}
+
+            ### Installation
+            ```bash
+            # For Grok/xAI users
+            npm install -g @defai.digital/ax-grok
+
+            # For local/offline models (Ollama, LMStudio, vLLM)
+            npm install -g @defai.digital/ax-cli
+            ```
+
+            ### NPM Packages
+            - [@defai.digital/ax-grok](https://www.npmjs.com/package/@defai.digital/ax-grok)
+            - [@defai.digital/ax-cli](https://www.npmjs.com/package/@defai.digital/ax-cli)
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  notify-failure:
+    name: Notify on Failure
+    needs: [test, publish]
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notify failure
+        run: |
+          echo "❌ Publish workflow failed!"
+          echo "Please check the logs and fix any issues before retrying."

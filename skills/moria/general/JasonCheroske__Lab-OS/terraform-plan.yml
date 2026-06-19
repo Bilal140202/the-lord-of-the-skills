@@ -1,0 +1,188 @@
+name: terraform-plan
+
+on:
+  pull_request:
+    paths:
+      - "**.tf"
+      - "**.tftest.hcl"
+      - "**.tfvars"
+      - "modules/_interface/contracts/**.yaml"
+      - "tests/checkov/**.yaml"
+      - ".github/workflows/terraform-plan.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # Interface contract check — runs before the Terraform matrix
+  # Implements the interface_contract_match required check from lab.yaml
+  # ──────────────────────────────────────────────────────────
+  contract-check:
+    name: "interface_contract_match"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate interface contracts
+        run: node scripts/validate-contracts.mjs --target .tmp/terraform-reference-lab
+
+  # ──────────────────────────────────────────────────────────
+  # Mock provider wiring tests — no cloud credentials needed
+  # Implements the terratest_passed required check from lab.yaml
+  # ──────────────────────────────────────────────────────────
+  wiring-test:
+    name: "wiring-test (${{ matrix.env }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - env: dev-aws
+            dir: tests/wiring/dev-aws
+          - env: dev-azure
+            dir: tests/wiring/dev-azure
+          - env: dev-gcp
+            dir: tests/wiring/dev-gcp
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform test (mock provider — no credentials required)
+        run: terraform test
+
+  # ──────────────────────────────────────────────────────────
+  # Checkov security scan — hard-fail with documented baseline
+  # Implements the checkov_passed required check from lab.yaml
+  # ──────────────────────────────────────────────────────────
+  checkov:
+    name: "checkov"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python (for Checkov)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Checkov — modules/
+        run: |
+          checkov \
+            -d .tmp/terraform-reference-lab/modules \
+            --framework terraform \
+            --config-file .tmp/terraform-reference-lab/tests/checkov/baseline.checkov.yaml \
+            --compact \
+            --quiet
+
+      - name: Checkov — environments/
+        run: |
+          checkov \
+            -d .tmp/terraform-reference-lab/environments \
+            --framework terraform \
+            --config-file .tmp/terraform-reference-lab/tests/checkov/baseline.checkov.yaml \
+            --compact \
+            --quiet
+
+  # ──────────────────────────────────────────────────────────
+  # Terraform plan — one job per environment root × cloud
+  # ──────────────────────────────────────────────────────────
+  plan:
+    name: "plan (${{ matrix.root }})"
+    needs: [contract-check, wiring-test, checkov]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # dev
+          - root: environments/dev/aws
+            cloud: aws
+          - root: environments/dev/azure
+            cloud: azure
+          - root: environments/dev/gcp
+            cloud: gcp
+          # prod
+          - root: environments/prod/aws
+            cloud: aws
+          - root: environments/prod/azure
+            cloud: azure
+          - root: environments/prod/gcp
+            cloud: gcp
+          # bootstrap
+          - root: environments/_bootstrap/aws
+            cloud: aws
+          - root: environments/_bootstrap/azure
+            cloud: azure
+          - root: environments/_bootstrap/gcp
+            cloud: gcp
+    defaults:
+      run:
+        working-directory: ${{ matrix.root }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Terraform fmt (check)
+        run: terraform fmt -check -recursive
+        working-directory: ${{ github.workspace }}
+
+      - name: Terraform init (no backend — validate only in CI)
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      # Full plan (with real credentials) is opt-in per cloud.
+      # Uncomment the relevant block below and add repository secrets.
+
+      # AWS:
+      # - name: Terraform plan (AWS)
+      #   if: matrix.cloud == 'aws'
+      #   run: terraform plan -no-color -input=false
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     AWS_DEFAULT_REGION: us-east-1
+
+      # Azure:
+      # - name: Terraform plan (Azure)
+      #   if: matrix.cloud == 'azure'
+      #   run: terraform plan -no-color -input=false
+      #   env:
+      #     ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      #     ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      #     ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      #     ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+      # GCP:
+      # - name: Terraform plan (GCP)
+      #   if: matrix.cloud == 'gcp'
+      #   run: terraform plan -no-color -input=false
+      #   env:
+      #     GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}

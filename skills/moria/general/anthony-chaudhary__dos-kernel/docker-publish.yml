@@ -1,0 +1,75 @@
+# The container channel (issue #55): build-verify the image on every change to
+# its inputs, publish to ghcr only on a v* tag — so the image version always
+# equals the tag, with no PyPI lag. Plain docker CLI throughout (no marketplace
+# actions to version-rot beyond checkout).
+name: Docker image
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "docker/**"
+      - ".dockerignore"
+      - ".github/workflows/docker-publish.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build the image
+        run: docker build -f docker/Dockerfile -t dos-kernel:ci .
+      - name: "Smoke: the CLI answers"
+        run: docker run --rm dos-kernel:ci dos --help
+      - name: "Smoke: the truth syscall reads a MOUNTED host repo"
+        # The headline use: a host-owned mount (different uid — the
+        # safe.directory line in the Dockerfile is what makes git accept it).
+        run: |
+          mkdir scratch && cd scratch
+          git init -q
+          git config user.email t@t
+          git config user.name t
+          echo x > f.txt
+          git add f.txt
+          git commit -qm "T1: seed the scratch repo"
+          docker run --rm -v "$PWD:/work" dos-kernel:ci dos verify --workspace /work T T1
+      - name: "Smoke: the default command starts the MCP server on stdio"
+        run: |
+          out="$(printf '' | timeout 30 docker run --rm -i dos-kernel:ci 2>&1 || true)"
+          echo "$out"
+          case "$out" in
+            *Traceback*) echo "server crashed on startup" >&2; exit 1 ;;
+          esac
+
+  push:
+    needs: build
+    # Repo guard, same reason as publish.yml: the workflow ships in the tree,
+    # but only this repo's GITHUB_TOKEN may write this repo's packages.
+    if: >-
+      github.repository == 'anthony-chaudhary/dos-kernel' &&
+      startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ghcr
+      url: https://github.com/anthony-chaudhary/dos-kernel/pkgs/container/dos-kernel
+    steps:
+      - uses: actions/checkout@v6
+      - name: Log in to ghcr
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push (version tag + latest)
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          img="ghcr.io/${{ github.repository }}"
+          docker build -f docker/Dockerfile -t "$img:$v" -t "$img:latest" .
+          docker push "$img:$v"
+          docker push "$img:latest"

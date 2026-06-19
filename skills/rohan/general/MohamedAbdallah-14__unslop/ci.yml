@@ -1,0 +1,63 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Node (hook tests)
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Install dev dependencies
+        run: pip install -e unslop[dev]
+
+      - name: Lint (ruff)
+        run: ruff check unslop/scripts benchmarks
+
+      - name: Type check (mypy, strict)
+        run: mypy --config-file unslop/pyproject.toml unslop/scripts
+
+      - name: Unit + integration tests
+        run: python -m pytest tests/ -v --tb=short --cov=unslop/scripts --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+
+      - name: Repo integrity verifier
+        run: python3 tests/verify_repo.py
+
+      - name: Benchmark (offline, strict, default intensity)
+        run: python3 benchmarks/run.py --strict
+
+      - name: Benchmark (all intensities, monotonicity gate)
+        run: python3 benchmarks/run.py --all-intensities --strict
+
+      - name: Regression check vs pinned baseline
+        if: matrix.python-version == '3.12'
+        run: python3 benchmarks/check_regression.py

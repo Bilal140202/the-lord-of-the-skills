@@ -1,0 +1,214 @@
+name: Windows Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Windows target to verify
+        required: true
+        default: x64
+        type: choice
+        options:
+          - x64
+          - arm64
+          - both
+
+concurrency:
+  group: windows-smoke-${{ github.ref }}-${{ github.event.inputs.target || 'x64' }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  smoke-x64:
+    name: Windows Smoke (x64)
+    if: github.event.inputs.target == 'x64' || github.event.inputs.target == 'both'
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: mozilla-actions/sccache-action@v0.0.7
+        continue-on-error: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-smoke-x64
+          cache-all-crates: "true"
+
+      - name: Build release binary
+        shell: pwsh
+        run: |
+          if (Get-Command sccache -ErrorAction SilentlyContinue) {
+            sccache --start-server *> $null
+            if ($LASTEXITCODE -eq 0) {
+              $env:RUSTC_WRAPPER = 'sccache'
+            }
+          }
+
+          & cargo build --locked --release --target x86_64-pc-windows-msvc
+
+      - name: Compile library and binary tests
+        shell: pwsh
+        run: |
+          & cargo test --locked --target x86_64-pc-windows-msvc --lib --bins --no-run
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Windows library/binary test compilation failed'
+          }
+
+      - name: Run targeted Windows validation tests
+        shell: pwsh
+        run: |
+          $tests = @(
+            'command_candidates_adds_extension_on_windows',
+            'command_exists_for_known_binary',
+            'command_exists_absolute_path',
+            'sibling_socket_path_roundtrip',
+            'cleanup_socket_pair_removes_main_and_debug_files',
+            'is_process_running_reports_exited_children_as_stopped',
+            'spawn_replacement_process_returns_without_waiting_for_child_exit',
+            'build_shell_command_uses_cmd_and_executes_command',
+            'pipe_name_is_stable_and_normalizes_case_and_separators',
+            'pipe_name_falls_back_when_stem_is_empty',
+            'stream_pair_round_trips_bytes',
+            'auto_provider_noninteractive_skips_untrusted_external_auth_instead_of_blocking'
+          )
+
+          foreach ($testName in $tests) {
+            & ./scripts/invoke_cargo_with_timeout.ps1 `
+              -Name "Windows targeted test: $testName" `
+              -TimeoutSeconds 300 `
+              -CargoArgs @('test', '--locked', '--target', 'x86_64-pc-windows-msvc', '--lib', $testName, '--', '--nocapture')
+          }
+
+      - name: Run Windows smoke tests
+        shell: pwsh
+        run: |
+          $tests = @(
+            'provider_behavior::test_socket_model_cycle_supported_models',
+            'provider_behavior::test_model_switch_resets_provider_session'
+          )
+
+          foreach ($testName in $tests) {
+            & ./scripts/invoke_cargo_with_timeout.ps1 `
+              -Name "Windows e2e smoke test: $testName" `
+              -TimeoutSeconds 420 `
+              -CargoArgs @('test', '--locked', '--target', 'x86_64-pc-windows-msvc', '--test', 'e2e', $testName, '--', '--exact', '--nocapture')
+          }
+
+      - name: Run Windows lifecycle e2e tests
+        shell: pwsh
+        env:
+          GCODE_E2E_ARTIFACT_DIR: ${{ runner.temp }}/gcode-windows-e2e-logs
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:GCODE_E2E_ARTIFACT_DIR | Out-Null
+          $tests = @(
+            'windows_lifecycle::windows_binary_server_accepts_clients_and_debug_cli',
+            'windows_lifecycle::windows_binary_server_rebinds_named_pipe_after_exit'
+          )
+          foreach ($testName in $tests) {
+            & ./scripts/invoke_cargo_with_timeout.ps1 `
+              -Name "Windows lifecycle e2e test: $testName" `
+              -TimeoutSeconds 420 `
+              -CargoArgs @('test', '--locked', '--target', 'x86_64-pc-windows-msvc', '--test', 'e2e', $testName, '--', '--exact', '--nocapture')
+          }
+
+      - name: Upload Windows e2e diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-e2e-diagnostics-x64
+          path: ${{ runner.temp }}/gcode-windows-e2e-logs
+          if-no-files-found: ignore
+
+      - name: Verify built binary launches
+        shell: pwsh
+        run: |
+          & "target/x86_64-pc-windows-msvc/release/gcode.exe" --version
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Built Windows binary failed to run --version'
+          }
+
+      - name: Verify installer using local artifact
+        shell: pwsh
+        run: |
+          $cargoVersion = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          if (-not $cargoVersion) {
+            throw 'Could not determine Cargo.toml version'
+          }
+
+          $version = 'v' + $cargoVersion.Matches[0].Groups[1].Value
+          & ./.github/scripts/verify_windows_install.ps1 `
+            -ArtifactExePath 'target/x86_64-pc-windows-msvc/release/gcode.exe' `
+            -Version $version
+
+  smoke-arm64:
+    name: Windows Smoke (ARM64)
+    if: github.event.inputs.target == 'arm64' || github.event.inputs.target == 'both'
+    runs-on: windows-11-arm
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_arm64
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc
+
+      - uses: mozilla-actions/sccache-action@v0.0.7
+        continue-on-error: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-smoke-arm64
+          cache-all-crates: "true"
+
+      - name: Build release binary
+        shell: pwsh
+        run: |
+          if (Get-Command sccache -ErrorAction SilentlyContinue) {
+            sccache --start-server *> $null
+            if ($LASTEXITCODE -eq 0) {
+              $env:RUSTC_WRAPPER = 'sccache'
+            }
+          }
+
+          & cargo build --locked --release --target aarch64-pc-windows-msvc --no-default-features --features pdf
+
+      - name: Verify built binary launches
+        shell: pwsh
+        run: |
+          & "target/aarch64-pc-windows-msvc/release/gcode.exe" --version
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Built Windows ARM64 binary failed to run --version'
+          }
+
+      - name: Verify installer using local artifact
+        shell: pwsh
+        run: |
+          $cargoVersion = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          if (-not $cargoVersion) {
+            throw 'Could not determine Cargo.toml version'
+          }
+
+          $version = 'v' + $cargoVersion.Matches[0].Groups[1].Value
+          & ./.github/scripts/verify_windows_install.ps1 `
+            -ArtifactExePath 'target/aarch64-pc-windows-msvc/release/gcode.exe' `
+            -Version $version

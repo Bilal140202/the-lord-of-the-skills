@@ -1,0 +1,111 @@
+<!-- bridge-tools v{{VERSION}} -->
+
+## Bridge Tool Overrides (claude-ide-bridge)
+
+> **These rules are active when the `claude-ide-bridge` MCP server is connected** (green in `/mcp`).  
+> If the bridge is not running, fall back to standard shell equivalents.
+
+### MANDATORY: Bridge MCP tools replace shell commands AND native Claude Code tools
+
+Do NOT use native Claude Code tools or shell commands for workspace operations. Call the MCP tool instead.
+
+#### File I/O — native Claude Code tools replaced by bridge
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| `Read` tool on workspace files | `getBufferContent` |
+| `Edit` tool on workspace files | `editText` (line range) or `searchAndReplace` (pattern) |
+| `Write` tool on workspace files | `editText` or `createFile` for new files |
+| `Glob` tool to find files | `findFiles` |
+| `Bash` for build/shell commands | `runInTerminal` |
+
+> **Exceptions:** `Read`/`Edit`/`Write` on files **outside** the workspace (`~/.claude/`, system paths, etc.) have no bridge equivalent — native tools are correct there.
+
+#### Diagnostics & linting
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| `tsc --noEmit`, `npm run typecheck` | `getDiagnostics` |
+| `eslint .`, `biome check`, `npm run lint` | `getDiagnostics` |
+| Assuming edits are error-free after saving | `getDiagnostics` after every file edit |
+
+#### Git
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| `git status` | `getGitStatus` |
+| `git diff` | `getGitDiff` |
+| `git log` | `getGitLog` |
+| `git add <file>` | `gitAdd` |
+| `git commit -m "..."` | `gitCommit` |
+| `git push` | `gitPush` |
+| `gh pr create` | `githubCreatePR` |
+
+#### Code search & navigation
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| `grep -r`, `rg` | `searchWorkspace` |
+| `cat <file>` to read content | `getBufferContent` |
+| Jump to where a symbol is defined | `goToDefinition` |
+| Find all uses of a symbol | `findReferences` |
+| Understand call chains | `getCallHierarchy` |
+| Find a class or function by name | `searchWorkspaceSymbols`, `getDocumentSymbols` |
+| Calling `getHover` in a loop for N symbols | `batchGetHover` (up to 10 in one call) |
+| Calling `goToDefinition` in a loop for N symbols | `batchGoToDefinition` (up to 10 in one call) |
+| Find links / referenced files in a document | `getDocumentLinks` |
+| Understand what a file imports (signatures) | `getImportedSignatures` |
+| Function signature + parameter info at call site | `signatureHelp` |
+| Supertypes / subtypes of a class or interface | `getTypeHierarchy` |
+| Composite: hover + definition + refs + type hierarchy | `explainSymbol` |
+| Inline type annotations and parameter names | `getInlayHints` |
+
+#### Impact analysis
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| Manual `findReferences` + `getDiagnostics` per symbol | `getChangeImpact` (blast radius: diagnostics + ref counts in one call) |
+
+#### Editor annotations
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| Guessing code lens counts (test runs, references) | `getCodeLens` |
+| Guessing semantic token types/modifiers | `getSemanticTokens` |
+
+#### Refactoring
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| Guessing if a rename is safe | `refactorAnalyze` (risk level + ref count + caller count) |
+| Manually reviewing every rename site | `refactorPreview` (exact edits before committing) |
+| Manual find-and-replace rename | `renameSymbol` |
+| Manually extracting a function | `refactorExtractFunction` |
+
+#### Code quality
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| `tsc --noUnusedLocals`, `ts-prune` | `detectUnusedCode` |
+| Manually reading coverage HTML | `getCodeCoverage` (parses lcov/clover, filters by min%) |
+| `npm audit`, `cargo audit` | `auditDependencies` (outdated packages) or `getSecurityAdvisories` (CVEs) |
+| `git log --follow` to find change-heavy files | `getGitHotspots` |
+| Manually writing test stubs | `generateTests` |
+| Manually writing PR description | `getPRTemplate` |
+
+#### Debugging
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| `node --inspect`, `node --inspect-brk` | `setDebugBreakpoints` → `startDebugging` |
+| Adding `console.log` to inspect values | `evaluateInDebugger` inside a debug session |
+
+#### File tree
+
+| ❌ Do NOT use | ✅ Call instead |
+|---|---|
+| `ls -R`, `find . -name "*.ts"` | `getFileTree`, `findFiles` |
+
+### Session start
+
+Call `getToolCapabilities` once at the start of each session to confirm which bridge tools are available and whether the VS Code extension is connected.

@@ -1,0 +1,56 @@
+name: Fuzzing
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: fuzzing-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz-validator:
+    name: Fuzz egc-guardian validator
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20.x'
+
+      - name: Build egc-guardian
+        working-directory: mcp/servers/egc-guardian
+        run: npm ci && npm run build
+
+      - name: Install jsfuzz
+        working-directory: fuzz
+        run: npm ci
+
+      - name: Run fuzzer (60-second time-box)
+        run: |
+          mkdir -p fuzz/artifacts fuzz/corpus
+          timeout 65 fuzz/node_modules/.bin/jsfuzz fuzz/fuzz-validator.js fuzz/corpus \
+            --exact-artifact-path fuzz/artifacts/crash \
+            || FUZZ_EXIT=$?
+          if [ "${FUZZ_EXIT:-0}" -ne 0 ] && [ "${FUZZ_EXIT:-0}" -ne 124 ]; then
+            echo "Fuzzer found a crash or error (exit ${FUZZ_EXIT})"
+            exit "${FUZZ_EXIT}"
+          fi
+
+      - name: Upload fuzzer artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts/
+          if-no-files-found: ignore
+          retention-days: 30

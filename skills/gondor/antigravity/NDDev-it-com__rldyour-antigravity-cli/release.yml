@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release from VERSION (numeric SemVer X.Y.Z). Creates the tag when dispatching manually."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.13"
+      - name: Resolve release version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            version="$INPUT_VERSION"
+          else
+            version="$REF_NAME"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "release version '$version' is not numeric SemVer X.Y.Z" >&2
+            exit 1
+          fi
+          file_version="$(tr -d '[:space:]' < VERSION)"
+          if [ "$version" != "$file_version" ]; then
+            echo "release version '$version' does not match VERSION '$file_version'" >&2
+            exit 1
+          fi
+          printf 'RELEASE_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+      - name: Validate release
+        run: scripts/validate_release.sh
+      - name: Create release tag (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/${RELEASE_VERSION}" >/dev/null; then
+            echo "Tag ${RELEASE_VERSION} already exists locally"
+          else
+            git tag "${RELEASE_VERSION}"
+            git push origin "refs/tags/${RELEASE_VERSION}"
+          fi
+      - name: Build source archive
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          git archive --format=zip --prefix=rldyour-antigravity-cli/ -o dist/rldyour-antigravity-cli-source.zip HEAD
+          sha256sum dist/rldyour-antigravity-cli-source.zip > dist/SHA256SUMS
+          printf '{"name":"rldyour-antigravity-cli","version":"%s","sbom":"source-only"}\n' "$(cat VERSION)" > dist/sbom.spdx.json
+      - name: Attest source archive
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: dist/rldyour-antigravity-cli-source.zip
+      - name: Attest SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: dist/sbom.spdx.json
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${RELEASE_VERSION}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/rldyour-antigravity-cli-source.zip dist/SHA256SUMS dist/sbom.spdx.json --clobber
+            gh release edit "$tag" --title "$tag" --notes-file CHANGELOG.md --draft=false --prerelease=false
+          else
+            gh release create "$tag" dist/rldyour-antigravity-cli-source.zip dist/SHA256SUMS dist/sbom.spdx.json \
+              --title "$tag" \
+              --notes-file CHANGELOG.md \
+              --verify-tag
+          fi

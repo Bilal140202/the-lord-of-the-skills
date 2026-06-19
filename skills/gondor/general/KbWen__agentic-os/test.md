@@ -1,0 +1,170 @@
+---
+description: Workflow for test
+---
+# /test
+
+Design and execute minimal necessary tests. AI drives the entire process autonomously — classify depth, generate skeletons, write tests, run adversarial cases, and persist evidence. Human review is optional, not a gate.
+
+## Step 0: Phase Verification
+
+**Phase Verification** (per bootstrap §2b): Read `Current Phase` from Work Log header. Verify transition to `test` is legal. If illegal, STOP. Otherwise update `Current Phase: test`. If a new commit was created since the last `Checkpoint SHA`, SHOULD refresh it.
+
+## Step 1: Auto-Classify Test Depth
+
+Read the task classification from the active Work Log (`Classification:` field). If no Work Log exists (e.g., tiny-fix fast-path from bootstrap §0), infer classification from the scope of changes (number of files, modules touched, whether logic changed).
+
+Apply the test depth matrix from `.agent/workflows/test-classify.md` to determine:
+- How many tests are needed (scope)
+- What evidence format to use (rigor)
+- Whether adversarial testing is required (Red Team)
+
+Do NOT ask the user which depth to use — infer it autonomously.
+
+## Step 2: Generate Test Skeleton
+
+Before writing any test code, generate a test blueprint per `.agent/workflows/test-skeleton.md`:
+- At least 1 test per Acceptance Criterion in the spec
+- At least 1 regression test per Risk identified in the plan
+- Name tests descriptively so failures are self-documenting
+
+### Spec-Test Traceability (feature / architecture-change only)
+
+When generating test skeletons for `feature` or `architecture-change` tasks:
+1. Each spec AC SHOULD have a stable identifier (e.g., `AC-1`, `AC-2`). If missing, assign them.
+2. Test files SHOULD include `spec_ref: docs/specs/<feature>.md` in frontmatter or a top-of-file comment.
+3. Individual test functions SHOULD reference the AC they verify (e.g., in the test name or docstring: `test_ac1_user_can_login`).
+4. Output an AC coverage map in the test skeleton showing which AC maps to which test(s).
+
+`tiny-fix`, `quick-win`, and `hotfix` are exempt from this traceability requirement.
+
+## Step 3: Skill-Aware Test Implementation (Auto-Enforced)
+
+Apply the Phase-Entry Skill-Loading Protocol (shared-contracts.md §Phase-Entry Skill Loading) for all skills listing `/test` in their phases. Read `Recommended Skills` from the active Work Log before selecting which skill guidance to apply in this phase. Then apply each skill's test-phase rules:
+
+**IF `test-driven-development` is active:**
+- Verify every piece of production code written during /implement has a corresponding test
+- If gaps found: write the missing tests NOW before proceeding
+- All tests MUST pass after completion — no "known failures" allowed
+
+**IF `auth-security` is active — add these mandatory test cases:**
+- [ ] Unauthenticated request → 401
+- [ ] Wrong role/permission → 403
+- [ ] Expired token → 401
+- [ ] Manipulated token (wrong signature) → 401
+- [ ] Rate limit triggers after N failures
+- [ ] Password stored as hash (NOT plaintext) — verify in DB/mock
+
+**IF `api-design` is active — add these mandatory test cases:**
+- [ ] Input validation rejects invalid data with structured error response
+- [ ] List endpoints return paginated results
+- [ ] Correct HTTP status codes per action (201/204/404/422)
+- [ ] Error responses don't leak internals (no stack traces, no SQL, no file paths)
+
+**IF `database-design` is active — add these mandatory test cases:**
+- [ ] Migration runs forward successfully
+- [ ] Migration rolls back cleanly (skip if project uses forward-only migrations per guardrails)
+- [ ] Foreign key constraints enforced (reject orphan records)
+- [ ] NOT NULL constraints enforced
+
+**IF `frontend-patterns` is active — add these mandatory test cases:**
+- [ ] Components render all 4 states (loading, error, empty, success)
+- [ ] Form submission disabled during request (no double-submit)
+
+**IF `systematic-debugging` is active (test failures encountered):**
+- PAUSE test writing. Execute 4-phase debug process:
+  1. Observe: Record exact failure message, input conditions, stack trace
+  2. Hypothesize: Propose 1-3 root causes for the failure
+  3. Verify: Isolate the cause by changing ONE variable at a time
+  4. Fix: Minimal fix + re-run all tests to confirm no regression
+- Resume test implementation only after root cause is resolved with evidence.
+
+Write test code to the project's test directory (e.g., `tests/`, `__tests__/`, or project convention). Follow naming conventions from `.agentcortex/docs/TESTING_PROTOCOL.md` if it exists; otherwise use reasonable defaults.
+
+**No test runner installed?**
+- **`feature` / `architecture-change` / `hotfix`**: fallback is NOT permitted without explicit user sign-off. Output: `"⚠️ No test runner available. This task tier requires automated tests. Confirm: proceed with manual-trace-only evidence? (yes/no — record in Work Log Drift Log if yes)"`. Gate receipt may only be written after the user confirms. Record the sign-off in `## Drift Log`: `"Manual-test fallback: user confirmed no test runner available on <ISO-date>"`. Then follow steps 1–6 of the fallback procedure below to produce manual-trace evidence. **Note (`hotfix`)**: the sign-off authorizes the manual-trace *attempt* only — `engineering_guardrails.md §12.2` still governs the ship gate and has no exceptions for hotfix; Gate 2 of the 5-Gate Contract is NOT waived for hotfix even with sign-off.
+- **`quick-win`**: if the environment is provably read-only or network-isolated AND no test framework is present, use the fallback below. "Cannot be added" requires a concrete reason (read-only fs, sandboxed env) — not convenience. Record in Work Log `## Drift Log`: `"No-test-runner fallback: quick-win — <reason> — <ISO-date>"`.
+- **`tiny-fix`**: `tiny-fix` has no Work Log — the Drift Log write required by the fallback procedure is not available. If no test runner is present, reclassify as `quick-win` and restart from bootstrap before proceeding (AGENTS.md Routing §2: escalation requires rollback to `CLASSIFIED`).
+
+  Fallback procedure (all tiers — sign-off already obtained above for feature/arch-change/hotfix):
+  1. State explicitly: "No test runner available — using manual verification."
+  2. For each AC, manually trace through the code path and record expected vs. actual behavior.
+  3. Record as evidence: `Manual trace: AC-N — input: <X>, expected: <Y>, code path: <file:line>`.
+  4. Record in Work Log `## Known Risk`: `"No automated tests — manual trace only"`.
+  5. Gate receipt:
+     - **`quick-win`**: write `Verdict: PASS` (Gate 2 satisfied by manual-trace + Drift Log record per Step 4b exception).
+     - **`feature` / `architecture-change` / `hotfix`**: do NOT write a PASS test-gate receipt — Gate 2 is unsatisfied (see Step 4b). Record manual-trace output as partial evidence in `## Evidence` and the gap in `## Known Risk`. STOP and surface to the user: "⚠️ Test gate unsatisfied — no automated tests. Provide a test runner or explicitly accept the manual-trace gap before /ship."
+  6. **`quick-win` only**: skip the "Run all tests" line below and proceed directly to **Step 4b**. (`feature` / `architecture-change` / `hotfix`: step 5 is terminal — do not proceed further.)
+
+Run all tests. Capture pass/fail output as evidence.
+
+## Step 4: Adversarial Test Cases (Auto-Triggered)
+
+After standard tests pass, check if adversarial testing is required based on classification:
+
+1. Read the auto-trigger matrix from `.agents/skills/red-team-adversarial/SKILL.md` §When to Use.
+2. For `architecture-change`, also activate Beast Mode (concurrency stress, resource exhaustion, fault injection).
+3. Generate adversarial test cases using the table format from the skill file.
+4. Where possible, implement adversarial cases as actual test code alongside standard tests.
+
+Skip adversarial testing entirely for `tiny-fix` and `quick-win` classifications.
+
+## Step 4b: Verification Before Completion (Auto-Enforced)
+
+IF `verification-before-completion` is active, before claiming tests are done:
+Apply the Verification-Before-Completion 5-Gate Contract (shared-contracts.md §Verification Before Completion (5-Gate Sequence)).
+Phase-specific criteria: Scope = confirm test coverage matches planned scope (no untested AC); Evidence = paste truncated test output (pass/fail counts, command used) per AGENTS.md Gate 3; Communication = state "Test phase complete. [N] tests pass, [M] AC covered."
+
+**Gate 2 exception — `quick-win` confirmed manual-trace fallback only**: If the classification is `quick-win`, AND the no-test-runner fallback was invoked in Step 3 AND a Drift Log record was written, Gate 2 ("ALL tests must pass") is satisfied by the recorded Drift Log entry + manual-trace evidence. Proceed to Gate 3 without requiring automated test output. (`tiny-fix` with no test runner must escalate to `quick-win` before reaching this step — see the `tiny-fix` bullet under *No test runner installed?* above.) **This exception does NOT apply to `feature`, `architecture-change`, or `hotfix`** — for those tiers the sign-off authorizes the manual-trace attempt, but Gate 2 remains unsatisfied; use the manual-trace output as partial evidence and flag in Known Risk before ship.
+
+## Step 5: Persist Evidence (Hard Gate)
+
+No evidence = no completion. This is non-negotiable.
+
+- Work Log MUST record: `Test Files: [list of test file paths]`
+- Work Log MUST contain actual test output (pass/fail), not narrative claims
+- If adversarial testing ran, record results under `## Red Team Findings`
+- State transition (classification-aware):
+  - `feature` / `architecture-change`: next is `/handoff` (MANDATORY — do NOT route to `/ship` directly; the ship gate Entry Condition requires a completed handoff receipt).
+  - `quick-win` / `hotfix`: next is `/ship` directly.
+  - Reverse edge only: if tests are still red after debugging, go back to `/implement` (record in Drift Log). After implement completes, **`/review` MUST run again** before returning to `/test` — a test-triggered implement loop resets the REVIEWED state, so the prior review receipt is stale. Do not skip re-review.
+
+**Gate Receipt**: After evidence is persisted, append to Work Log `## Gate Evidence`:
+```
+- Gate: test | Verdict: PASS | Classification: <tier> | Timestamp: <ISO>
+```
+
+## Output Compression Rule
+
+Apply the shared `Phase Output Compression` contract from `shared-contracts.md §Phase Output Compression → /test`.
+
+**Chat response is the compact block below. NO full test log pasted in chat — the log lives in the Work Log `## Evidence` section.**
+
+```
+Commands: <comma list>
+Result: <passed>/<total> passed, <failed> failed
+AC coverage: <AC-N covered | delta since /implement>
+Adversarial: <pass | findings recorded in Work Log | n/a>
+Unresolved: <1-line or "none">
+```
+
+- Do not reprint the full test skeleton or the AC list — they are in the Work Log.
+- Do not paste the full pytest/junit output in chat. Summarize counts; persist the truncated output (per AGENTS.md Gate 3) in the Work Log.
+- If a test fails, 1 line per failure: `<test_id>: <1-line cause>`. Truncated traceback (most diagnostic 10 lines) goes to Work Log.
+- If the user asks for the full log or traceback, expand. Default is terse.
+
+## Phase Summary Update
+
+After tests are complete and evidence is persisted, append one line to `## Phase Summary` in the Work Log:
+```
+- test: [1-line summary — tests passed/failed count, AC coverage, adversarial result]
+```
+
+## Heading-Scoped Read Note
+
+For token budgeting and future automation, `/test` entry reads only:
+- `Step 1: Auto-Classify Test Depth`
+- `Step 2: Generate Test Skeleton`
+- `Step 3: Skill-Aware Test Implementation`
+- `Step 4: Adversarial Test Cases`
+
+Read `Step 4b: Verification Before Completion` and `Step 5: Persist Evidence` only when preparing the test completion summary.

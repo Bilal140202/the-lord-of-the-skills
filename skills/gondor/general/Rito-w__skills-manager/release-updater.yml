@@ -1,0 +1,172 @@
+name: Release Updater
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-assets:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-14
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag ref
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual dispatch, skipping tag validation"
+          elif [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+            echo "Release Updater must run on a version tag, current ref: ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri bundles
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build --target ${{ matrix.target }}
+
+      - name: Stage release assets
+        shell: bash
+        run: |
+          node .github/scripts/stage-release-assets.js \
+            "src-tauri/target/${{ matrix.target }}/release/bundle" \
+            "${{ matrix.target }}" \
+            "release-assets/${{ matrix.target }}"
+
+      - name: Upload staged assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: release-assets/${{ matrix.target }}
+          if-no-files-found: error
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: build-assets
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag ref
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual dispatch, skipping tag validation"
+          elif [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+            echo "Release Updater must run on a version tag, current ref: ${GITHUB_REF}"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Download staged assets
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate latest.json
+        run: |
+          node .github/scripts/build-latest-json.js \
+            "${{ github.ref_name }}" \
+            "${{ github.repository }}" \
+            "artifacts" \
+            "latest.json"
+
+      - name: Ensure release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if ! gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "Skills Manager ${GITHUB_REF_NAME}" \
+              --notes-file ".github/release-notes.md" \
+              --draft
+          fi
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          # Upload files one by one with retry to avoid transient API errors
+          upload_file() {
+            local file="$1"
+            local tag="$2"
+            for i in 1 2 3; do
+              if gh release upload "$tag" "$file" --clobber 2>/dev/null; then
+                echo "Uploaded $(basename "$file")"
+                return 0
+              fi
+              echo "Retry $i/3 for $(basename "$file")..."
+              sleep $((i * 5))
+            done
+            echo "Failed to upload $(basename "$file") after 3 retries" >&2
+            return 1
+          }
+
+          # Upload all artifact files (use process substitution to avoid subshell)
+          while read -r file; do
+            upload_file "$file" "${GITHUB_REF_NAME}"
+          done < <(find artifacts -type f | sort)
+
+          # Upload latest.json
+          upload_file "latest.json" "${GITHUB_REF_NAME}"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release edit "${GITHUB_REF_NAME}" \
+            --title "Skills Manager ${GITHUB_REF_NAME}" \
+            --notes-file ".github/release-notes.md" \
+            --draft=false

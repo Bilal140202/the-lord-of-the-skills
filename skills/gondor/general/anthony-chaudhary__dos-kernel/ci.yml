@@ -1,0 +1,320 @@
+name: CI
+
+# The kernel suite must stay green (CLAUDE.md: "the full kernel suite must stay
+# green"), and the wheel must stay publishable. This workflow proves both on a
+# clean machine, across the supported Python versions and on both POSIX and
+# Windows (DOS is developed on Windows and consumed on Linux — both matter).
+#
+# It runs the *installed* package, not a PYTHONPATH=src shim: an editable install
+# then `pytest` + a `dos` CLI smoke, so what CI validates is what a user gets.
+#
+# WHAT FIRES WHEN (the resource contract):
+#   every push/PR        → leak-scan (4s) + lint (~1 min) — always, unconditionally
+#   code change          → full test matrix (3 interpreters + windows) + wheel build
+#   docs-only change     → reduced matrix (ubuntu + windows, primary Python); no build
+#   dispatch / schedule  → full matrix (no diff to classify against)
+#   v* tag               → nothing here — publish.yml owns tags, and ITS ci-green
+#                          gate refuses to upload a SHA this workflow never greened.
+#   every run            → ci-ok, the one-job fold of every needed result above —
+#                          the single branch-protection required check (the leg
+#                          set changes shape per-diff, so no per-leg check name
+#                          is stable enough to require).
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  # The weekly drift canary: with no push for a while, runner images, pip
+  # resolutions, and action defaults still move under us — one full-matrix run a
+  # week surfaces that drift while it is one week deep, not one release deep.
+  # (Odd minute by GitHub's own guidance — top-of-hour crons queue worst.)
+  schedule:
+    - cron: "23 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  # Per-event groups: a master push burst supersedes itself (the newest commit
+  # is the one whose verdict matters), but the weekly schedule can never cancel
+  # a push run or vice versa. Cancelling intermediate master runs means SOME
+  # commits carry no CI verdict — that is safe to allow ONLY because publish.yml
+  # independently refuses to upload any SHA without a green CI run on it (the
+  # ci-green gate there); the two policies are a pair, change them together.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Classify the diff so the expensive jobs fire only when they can say something
+  # new. The classifier is CONSERVATIVE: any path it does not positively recognize
+  # as prose — and any event/diff it cannot resolve (dispatch, schedule, force
+  # push, unknown base) — gets the FULL matrix. Docs-only changes still run the
+  # suite (tests READ the docs: test_docs_version_drift, test_agent_surface pin
+  # doc/workflow content) but on a reduced 2-leg matrix: one ubuntu + one windows
+  # leg on the primary Python. The extra interpreters exist to catch
+  # version-sensitive CODE, and the wheel build consumes no prose — README.md is
+  # deliberately NOT prose here (it ships as the wheel's long_description).
+  # A malformed matrix output fails the test job loudly (config error), never
+  # silently green.
+  changes:
+    name: classify the change
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+      matrix: ${{ steps.classify.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # the diff needs the base commit, not just HEAD
+      - id: classify
+        shell: bash
+        run: |
+          full='{"include":[{"os":"ubuntu-latest","python-version":"3.11"},{"os":"ubuntu-latest","python-version":"3.12"},{"os":"ubuntu-latest","python-version":"3.13"},{"os":"windows-latest","python-version":"3.13"}]}'
+          docs='{"include":[{"os":"ubuntu-latest","python-version":"3.13"},{"os":"windows-latest","python-version":"3.13"}]}'
+          emit() {
+            echo "docs_only=$1" >> "$GITHUB_OUTPUT"
+            [ "$1" = "true" ] && echo "matrix=$docs" >> "$GITHUB_OUTPUT" \
+                              || echo "matrix=$full" >> "$GITHUB_OUTPUT"
+            echo "classified docs_only=$1"
+          }
+          case "${{ github.event_name }}" in
+            pull_request) base="${{ github.event.pull_request.base.sha }}" ;;
+            push)         base="${{ github.event.before }}" ;;
+            *)            emit false; exit 0 ;;  # dispatch/schedule: always full
+          esac
+          # New branch / force push / rewritten history → no resolvable base → full.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            emit false; exit 0
+          fi
+          changed="$(git diff --name-only "$base" "${{ github.sha }}")"
+          if [ -z "$changed" ]; then emit false; exit 0; fi
+          echo "$changed"
+          docs_only=true
+          while IFS= read -r f; do
+            case "$f" in
+              README.md) docs_only=false; break ;;  # the wheel's long_description — build input
+              docs/*) ;;
+              .github/ISSUE_TEMPLATE/*|.github/pull_request_template.md) ;;
+              AGENTS.md|CLAUDE.md|CONTRIBUTING.md|SECURITY.md) ;;
+              *) docs_only=false; break ;;          # unknown → assume code (fail toward coverage)
+            esac
+          done <<< "$changed"
+          emit "$docs_only"
+
+  # The pre-publish leak gate, run on EVERY push/PR — the durable fix for the
+  # recurring failure where the seed-time leak scan went stale and new commits
+  # reintroduced private dev paths / the dev hostname into public-bound files
+  # (docs/281 etc.). `scripts/leak_scan.py` is the single source of truth for the
+  # forbidden-pattern set; the seed gate calls the same module. Pure stdlib, no
+  # install. A hit fails the build — a leak is a refusal, not a warning (this is the
+  # CI floor under the dos.toml [reasons.PUBLISH_LEAK] refusal).
+  #
+  # The scanner is deliberately EXCLUDED from the public seed (its pattern list
+  # names the very strings it forbids), so this same workflow also runs in the
+  # seeded public repo where the file is absent. There the job is a green no-op:
+  # the gate already ran in the private repo's CI and again at seed time.
+  leak-scan:
+    name: pre-publish leak scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Scan the shippable tree for private paths / hostnames
+        run: |
+          if [ -f scripts/leak_scan.py ]; then
+            python scripts/leak_scan.py
+          else
+            echo "leak scanner not shipped in this tree (public seed) — gate ran in the private repo and at seed time; skipping"
+          fi
+
+  lint:
+    name: lint & type
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install (editable, with dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,mcp]"
+      # ruff is BLOCKING: the narrow rule set (pyflakes + import/statement shape;
+      # see [tool.ruff] in pyproject) catches dead code / broken imports and is
+      # green today. A new unused import or undefined name fails the build.
+      - name: ruff (blocking)
+        run: ruff check src/dos src/dos_mcp
+      # actionlint is BLOCKING (#6): parse-clean YAML (pinned by
+      # tests/test_workflow_yaml_parses.py) is necessary, not sufficient — an
+      # expression typo inside ${{ }}, a needs: ref to a missing job, or a
+      # schema-invalid key parses as YAML but breaks at GitHub's checker, first
+      # surfacing at tag/gate time for publish.yml & dos-gate.yml (the most
+      # expensive discovery stage). actionlint catches that class deterministically
+      # in seconds. Pinned to an EXACT release (the repo's action-pin convention) —
+      # downloaded as the released binary so there is no third-party action in the
+      # trust path. Layering: this is CI tooling over vendor-shaped (GitHub)
+      # workflow YAML, never a src/dos/ module (the vendor-agnostic litmus).
+      - name: actionlint (blocking)
+        env:
+          ACTIONLINT_VERSION: "1.7.7"
+        run: |
+          curl -sSLf \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/actionlint.tar.gz
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint -color
+      # mypy is ADVISORY for now (continue-on-error): ~30 findings remain across
+      # the package, several blocked behind in-flight files. This surfaces them on
+      # every PR without blocking; it RATCHETS to blocking once paid down (then
+      # drop continue-on-error + add disallow_untyped_defs to [tool.mypy]).
+      - name: mypy (advisory)
+        continue-on-error: true
+        run: mypy
+
+  test:
+    name: test (py${{ matrix.python-version }} · ${{ matrix.os }})
+    needs: changes
+    runs-on: ${{ matrix.os }}
+    # The suite is ~3.5 min on ubuntu, ~7 on windows, installs included; 30 is a
+    # generous ceiling that still stops a hung network-dependent test (the uv
+    # install levels) from burning the 6-hour default on four legs at once.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # The leg set comes from the `changes` classifier above: the full
+      # 3-interpreter × ubuntu grid + one windows leg for a code change; one
+      # ubuntu + one windows leg on the primary Python for a docs-only change
+      # (the windows leg stays even for prose — the AV6 scar was a checkout
+      # smudge on non-code files tripping the suite on windows only).
+      matrix: ${{ fromJson(needs.changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # uv on PATH so the two uv install levels in tests/test_install_levels.py
+      # (uvx ephemeral + uv tool install — the installs docs/INSTALL.md leads
+      # with) actually RUN here instead of skipping on their `uv not installed`
+      # guard. The tests isolate all uv state into tmp_path via
+      # UV_CACHE_DIR/UV_TOOL_DIR/UV_TOOL_BIN_DIR and install from the local
+      # checkout (testing the tree under test, never the registry copy), so no
+      # cache wiring is needed.
+      # Pinned to the exact tag: astral-sh/setup-uv publishes no moving major
+      # refs (there is no `v8` tag or branch — a bare @v8 does not resolve).
+      - uses: astral-sh/setup-uv@v8.2.0
+
+      - name: Install (editable, with dev + mcp extras)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,mcp]"
+
+      - name: Run the kernel suite
+        run: python -m pytest -q
+
+      - name: CLI smoke — doctor + the truth syscall on a real git repo
+        shell: bash
+        run: |
+          dos doctor --workspace .
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          git init -q
+          git config user.email ci@example.com
+          git config user.name CI
+          git config commit.gpgsign false
+          dos init .
+          printf 'def login(): pass\n' > login.py
+          git add -A
+          git commit -q -m "AUTH1: ship the login endpoint"
+          # SHIPPED => exit 0
+          dos verify --workspace . AUTH AUTH1
+          # NOT_SHIPPED => exit 1; assert the verdict-as-exit-code contract holds
+          if dos verify --workspace . AUTH AUTH2; then
+            echo "::error::expected NOT_SHIPPED (exit 1) for an unshipped phase"
+            exit 1
+          fi
+          echo "CLI smoke passed: SHIPPED=0, NOT_SHIPPED=1"
+
+  build:
+    name: build & check wheel
+    needs: changes
+    # Prose feeds nothing in the wheel (README.md, the one prose file that does,
+    # is classified build-relevant above), so a docs-only push skips the Go
+    # cross-compile + binary-format guard entirely.
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      # Match the publish workflow: build the per-platform wheels (each embedding the
+      # native dos-hook binary, docs/286) + the pure-source sdist, so a broken
+      # build_wheels.py / Go build is caught on every push, not first at a tag.
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache-dependency-path: go/go.sum
+      - name: Build per-platform wheels (+ sdist) and validate metadata
+        run: |
+          python -m pip install --upgrade pip build twine wheel
+          python scripts/build_wheels.py
+          python -m twine check dist/*
+      # The byte-format guard (docs/286): each wheel must hold exactly its OWN arch's
+      # binary (the build/ staging-leak regression). Opt-in via DOS_TEST_BUILD_WHEELS
+      # because it runs `python -m build` in the repo root — deterministic HERE (a
+      # clean, single-builder checkout), flaky on a dev's hot tree, so it is skipped in
+      # the default suite and run explicitly on this clean CI checkout.
+      - name: Wheel binary-format guard (clean-checkout, deterministic)
+        env:
+          DOS_TEST_BUILD_WHEELS: "1"
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pytest tests/test_build_wheels_binary_format.py -q
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+          # A CI-built dist exists to be inspected this week, not archived: the
+          # bytes that actually publish are built fresh by publish.yml (which
+          # keeps ITS artifact on the default 90-day forensic window).
+          retention-days: 7
+
+  # The single stable verdict — the ONE context branch protection requires. The
+  # docs-aware classifier above changes which legs even exist per-diff (and a
+  # docs-only run skips `build` entirely), so any per-leg required check would
+  # either go stale or hang forever as "expected". This job folds every needed
+  # result into one constant name: skipped-by-design counts as green;
+  # failure/cancellation of ANYTHING needed is red. `if: always()` so a red leg
+  # cannot skip the fold (a skipped required check would read as merge-blocking
+  # "expected", but the failure mode to refuse is it silently passing).
+  ci-ok:
+    name: ci-ok
+    needs: [changes, leak-scan, lint, test, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Refuse on any failed or cancelled needed job
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "::error::a needed job failed or was cancelled — results: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - name: All needed jobs green
+        run: |
+          echo "ci-ok — needed results: ${{ join(needs.*.result, ', ') }}"

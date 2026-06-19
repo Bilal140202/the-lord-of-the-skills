@@ -1,0 +1,196 @@
+name: personal-pii-scrub
+# Auto-managed by ~/.local/bin/gh-harden-repos.sh (Layer 8). Do not hand-edit.
+#
+# Blocks PRs / pushes that leak vault paths or personal-name tokens into
+# public-repo source. Word-boundary regex per ~/.claude/CLAUDE.md global
+# personal-data scrub rule. Public repos only (private repos skip this).
+#
+# Reimplemented from BuilderIO/agent-native scripts/guard-* CI guard
+# pattern (cherry-pick A, codified 2026-05-19). The session-level
+# PreToolUse hooks in ~/.claude/hooks/ catch this at write-time during
+# Claude Code sessions; this workflow catches it for ANY commit path
+# (gh CLI, direct git, contractor co-author, future agent).
+#
+# Patterns kept in lockstep with CLAUDE.md "Personal-data scrub" section.
+# Adding/removing patterns: edit ~/.claude/CLAUDE.md AND this template
+# (in ⚙️ Meta/scripts/gh-harden-repos.sh) in the same commit, then let
+# the daily run propagate.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 12 * * 1'   # Mondays 12:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scrub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - name: Personal-name + vault-path scrub (source files)
+        run: |
+          set -e
+          # Word-boundary patterns (auto-injected from a single source; this
+          # array and the archive-step array below are filled from the same
+          # list, so they cannot drift). NOT case-insensitive: 'wOnder'
+          # contains 'Onde' but \bOnde\b skips it (CLAUDE.md false-positive trap).
+          PATTERNS=(
+            '\bAdelaida\b'
+            '\bDiaz-Roa\b'
+            '\bSergio\b'
+            '\bSneider\b'
+            '\bAlfonso\b'
+            '\bPanorama\b'
+            '\bDiana\b'
+            '\bPaola\b'
+            '\bBeverly\b'
+            '\bNatalia\b'
+            '\bSilvia\b'
+            '\bAccenture\b'
+            '\bCentre415\b'
+            '\bvinitos\b'
+            '/Users/adelaidadiaz-roa/'
+            'AdelaidaNotes'
+            'adelaida@'
+            'tech@onde'
+            'After the Shock'
+          )
+          fail=0
+          # Scan source files. Exclude markdown docs (README, CHANGELOG,
+          # docs/), vendored deps, lock files, and the workflows themselves
+          # (this file MENTIONS the patterns by definition).
+          for p in "${PATTERNS[@]}"; do
+            matches=$(git grep -nE "$p"               -- ':!README*' ':!CHANGELOG*' ':!docs/' ':!*.md'               ':!LICENSE*' ':!COPYING*' ':!NOTICE*'               ':!AUTHORS*' ':!MAINTAINERS*'               ':!*pyproject.toml' ':!*setup.py' ':!*setup.cfg'               ':!*package.json' ':!*Cargo.toml' ':!*manifest.json'               ':!.claude-plugin/'               ':!.env.example' ':!*.env.example'               ':!tests/integration/test_smoke.py'               ':!vendor/' ':!node_modules/' ':!*.lock'               ':!package-lock.json' ':!pnpm-lock.yaml'               ':!.github/workflows/personal-pii-scrub.yml' 2>/dev/null || true)
+            if [ -n "$matches" ]; then
+              echo "::error::personal-data pattern leaked into source: $p"
+              echo "$matches"
+              fail=1
+            fi
+          done
+          if [ $fail -eq 1 ]; then
+            echo "::error::Personal-data scrub failed (source files). See CLAUDE.md 'Personal-data scrub' section + repo-evaluation.md cherry-pick A."
+            exit 1
+          fi
+          echo "Source-file scrub clean."
+      - name: Personal-name + vault-path scrub (bundled .mcpb / .zip archives)
+        # .mcpb is just .zip with a different extension; both unzip the
+        # same way. Closes bug class PERSONAL-DATA-IN-BUNDLED-ARCHIVE-
+        # UNCAUGHT (concretely: substack-mcp v0.1.0 .mcpb leaked
+        # .claude/settings.local.json with vault paths; v0.2.0 was rebuilt
+        # clean, but until this step landed the workflow couldn't catch
+        # the next regression).
+        run: |
+          set -e
+          ARCHIVES=$(git ls-files '*.mcpb' '*.zip' 2>/dev/null || true)
+          if [ -z "$ARCHIVES" ]; then
+            echo "No tracked .mcpb / .zip archives. Skipping archive scan."
+            exit 0
+          fi
+          # Same single-source pattern list as the source-files step above
+          # (both arrays are injected from one placeholder, so they cannot
+          # drift).
+          PATTERNS=(
+            '\bAdelaida\b'
+            '\bDiaz-Roa\b'
+            '\bSergio\b'
+            '\bSneider\b'
+            '\bAlfonso\b'
+            '\bPanorama\b'
+            '\bDiana\b'
+            '\bPaola\b'
+            '\bBeverly\b'
+            '\bNatalia\b'
+            '\bSilvia\b'
+            '\bAccenture\b'
+            '\bCentre415\b'
+            '\bvinitos\b'
+            '/Users/adelaidadiaz-roa/'
+            'AdelaidaNotes'
+            'adelaida@'
+            'tech@onde'
+            'After the Shock'
+          )
+          fail=0
+          while IFS= read -r archive; do
+            [ -z "$archive" ] && continue
+            echo "Scanning archive: $archive"
+            tmp=$(mktemp -d)
+            if ! unzip -q -o "$archive" -d "$tmp" 2>/dev/null; then
+              echo "::error::failed to unzip $archive — treating as scrub failure"
+              fail=1
+              rm -rf "$tmp"
+              continue
+            fi
+            # Same exclusions as the source-file step (LICENSE/COPYING/
+            # NOTICE legitimately attribute the author; README/CHANGELOG/
+            # *.md are docs; vendored deps + lock files don't count).
+            # -a forces grep to treat binary-detected files as text so
+            # extracted scripts with non-UTF8 bytes still get scanned.
+            for p in "${PATTERNS[@]}"; do
+              matches=$(grep -rnaE                 --exclude='README*' --exclude='CHANGELOG*' --exclude='*.md'                 --exclude='LICENSE*' --exclude='COPYING*' --exclude='NOTICE*'                 --exclude='AUTHORS*' --exclude='MAINTAINERS*'                 --exclude='pyproject.toml' --exclude='setup.py'                 --exclude='setup.cfg' --exclude='package.json'                 --exclude='Cargo.toml' --exclude='manifest.json'                 --exclude='.env.example'                 --exclude='test_smoke.py'                 --exclude='*.lock' --exclude='package-lock.json'                 --exclude='pnpm-lock.yaml'                 --exclude-dir='vendor' --exclude-dir='node_modules'                 --exclude-dir='docs' --exclude-dir='.claude-plugin'                 "$p" "$tmp" 2>/dev/null || true)
+              if [ -n "$matches" ]; then
+                echo "::error::personal-data pattern leaked into $archive: $p"
+                echo "$matches" | sed "s|^$tmp/|$archive::|"
+                fail=1
+              fi
+            done
+            rm -rf "$tmp"
+          done <<< "$ARCHIVES"
+          if [ $fail -eq 1 ]; then
+            echo "::error::Archive scrub failed. .mcpb / .zip bundle contained personal-data patterns. See CLAUDE.md 'Personal-data scrub' section."
+            exit 1
+          fi
+          echo "Archive scrub clean."
+      - name: Personal-name + vault-path scrub (markdown prose)
+        # PII-GATE-MARKDOWN-BLIND-SPOT fix (2026-06-06). The source-file step
+        # above excludes *.md + docs/, so private third-party names + vault
+        # paths leaked into published markdown were NEVER scanned. This step
+        # scans *.md for a NARROWER token set (private third-party names +
+        # vault paths only). It deliberately does NOT scan for the author's
+        # own name (legitimate attribution in README/LICENSE/CHANGELOG) or
+        # published feature/brand tokens (Onde/Colombia/High-Rise). Conventional
+        # attribution files (README/LICENSE/CONTRIBUTING/AUTHORS/...) are
+        # excluded; CHANGELOG + docs/ ARE scanned — that's where leaks hid.
+        # MD_PATTERNS is injected from the SAME pii_markdown_scan_patterns the
+        # dry-run uses (single source; the regression test asserts lockstep).
+        run: |
+          set -e
+          MD_PATTERNS=(
+            '\bSergio\b'
+            '\bSneider\b'
+            '\bAlfonso\b'
+            '\bPanorama\b'
+            '\bDiana\b'
+            '\bPaola\b'
+            '\bBeverly\b'
+            '\bNatalia\b'
+            '\bSilvia\b'
+            '\bAccenture\b'
+            '\bCentre415\b'
+            '\bvinitos\b'
+            '/Users/adelaidadiaz-roa/'
+            'AdelaidaNotes'
+            'adelaida@'
+            'tech@onde'
+          )
+          fail=0
+          for p in "${MD_PATTERNS[@]}"; do
+            matches=$(git grep -nE "$p"               -- '*.md'               ':!README*' ':!LICENSE*' ':!COPYING*' ':!NOTICE*'               ':!AUTHORS*' ':!MAINTAINERS*' ':!CONTRIBUTING*'               ':!CONTRIBUTORS*' ':!CITATION*'               ':!vendor/' ':!node_modules/'               ':!.github/workflows/personal-pii-scrub.yml' 2>/dev/null || true)
+            if [ -n "$matches" ]; then
+              echo "::error::private-data pattern leaked into markdown prose: $p"
+              echo "$matches"
+              fail=1
+            fi
+          done
+          if [ $fail -eq 1 ]; then
+            echo "::error::Markdown-prose scrub failed. A private third-party name or vault path leaked into published .md. Author attribution (README/LICENSE/CHANGELOG) + published-feature tokens are exempt — this is a real third-party leak. See CLAUDE.md 'Personal-data scrub' + auto-managed-gate-self-dos.md."
+            exit 1
+          fi
+          echo "Markdown-prose scrub clean."

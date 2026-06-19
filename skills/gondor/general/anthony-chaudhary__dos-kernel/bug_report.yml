@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in the DOS kernel, CLI, or MCP server behaves wrong.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. DOS is a **trust kernel** — the most useful bug reports
+        show a *verdict that disagrees with ground truth* (a `verify` that says
+        SHIPPED when nothing landed, an `arbitrate` that admits a real collision,
+        etc.). Concrete repro beats prose.
+  - type: input
+    id: version
+    attributes:
+      label: DOS version
+      description: "Output of `dos doctor --workspace .` first line (e.g. `DOS v0.4.0`)."
+      placeholder: DOS v0.4.0
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      options:
+        - CLI (`dos ...`)
+        - Python API (`import dos`)
+        - MCP server (`dos-mcp`)
+        - Packaging / install
+        - Docs / examples
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Ideally the exact commands. A throwaway git repo + the `dos` calls is perfect.
+      placeholder: |
+        1. git init … && git commit -m "AUTH1: …"
+        2. dos verify --workspace . AUTH AUTH1
+        3. observed: NOT_SHIPPED  /  expected: SHIPPED
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual verdict
+      description: What did DOS report, and what does ground truth (git/files) actually say?
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS / Python
+      placeholder: "Windows 11 / Python 3.13   (or: Ubuntu 24.04 / 3.11)"
+    validations:
+      required: true

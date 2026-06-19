@@ -1,0 +1,22 @@
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+      - name: Run unit tests
+        run: npm run test:unit
+
+  # NOTE: E2E tests are disabled in CI because Electron apps require a graphical environment.
+  # Run E2E tests locally with: npm run test:e2e

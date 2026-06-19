@@ -1,0 +1,157 @@
+name: AutoBuild
+
+on:
+  push:
+    branches: [dev]         # dev 分支 push 时触发
+
+  workflow_dispatch:        # 手动触发
+
+permissions:
+  contents: write  # 允许创建/更新 release、上传文件
+
+concurrency:
+  group: autobuild-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # 第一步：删除旧 release，创建新的 release
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev branch
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Delete old autobuild release (if exists)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 尝试删除旧的 release
+          gh release delete autobuild --yes --repo "${{ github.repository }}" 2>/dev/null || echo "No existing release to delete"
+          # 尝试删除旧的 tag
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/autobuild" 2>/dev/null || echo "No existing tag to delete"
+          echo "✅ Cleaned up old release and tag"
+
+      - name: Create new autobuild release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: autobuild
+          name: 'Antigravity Agent Nightly (${{ github.event.head_commit.timestamp }})'
+          body: |
+            Nightly build from dev branch.
+
+            🕐 Last updated: ${{ github.event.head_commit.timestamp }}
+            📦 Commit: ${{ github.sha }}
+
+            ---
+            ## 📥 下载安装
+
+            ⚠️ **注意**：这是自动构建的测试版本，可能不稳定。建议普通用户使用 [正式发布版本](https://github.com/MonchiLin/antigravity-agent/releases/latest)。
+
+            ### VS Code 插件
+            - [VSIX安装包 (Nightly)](${{ github.server_url }}/${{ github.repository }}/releases/download/autobuild/antigravity-agent-nightly.vsix)
+            
+            ### Windows
+            - [安装版(推荐)](${{ github.server_url }}/${{ github.repository }}/releases/download/autobuild/Antigravity.Agent_x64-setup.exe) | [便携版](${{ github.server_url }}/${{ github.repository }}/releases/download/autobuild/Antigravity-Agent-x86_64-Portable.zip)
+
+            ### macOS
+            - [Apple Silicon](${{ github.server_url }}/${{ github.repository }}/releases/download/autobuild/Antigravity.Agent_aarch64.dmg) | [Intel芯片](${{ github.server_url }}/${{ github.repository }}/releases/download/autobuild/Antigravity.Agent_x86_64.dmg)
+            
+            ### Linux
+            - [Flatpak](${{ github.server_url }}/${{ github.repository }}/releases/download/autobuild/antigravity-agent_amd64.flatpak) | [Deb安装包](${{ github.server_url }}/${{ github.repository }}/releases/download/autobuild/antigravity-agent_amd64.deb)
+            ---
+
+            🐛 如果发现问题或者需求请求，请[提交 Issue](https://github.com/MonchiLin/antigravity-agent/issues/new)
+          prerelease: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 第二步：并行构建
+  build:
+    needs: prepare-release
+    uses: ./.github/workflows/tauri-build.yml
+    with:
+      tag: autobuild
+      ref: dev
+      cache_key_suffix: autobuild
+    secrets: inherit
+
+  # 第三步：构建 VS Code 插件
+  build-extension:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install Root Dependencies
+        run: npm ci --ignore-scripts --no-audit --prefer-offline
+
+      - name: Get Version
+        id: version
+        working-directory: ./vscode-extension
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📍 Using extension version $VERSION"
+
+      - name: Bump to Nightly Version
+        working-directory: ./vscode-extension
+        run: |
+          # Create version like 1.5.3-nightly.202312271230
+          TIMESTAMP=$(date +%Y%m%d%H%M)
+          # Use npm version to update package.json without git tag
+          npm version prerelease --preid="nightly.$TIMESTAMP" --no-git-tag-version
+          
+          # Read new version back
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "Current Nightly Version: $NEW_VERSION"
+
+      - name: Install dependencies
+        working-directory: ./vscode-extension
+        run: npm ci
+
+      - name: Type Check Extension
+        working-directory: ./vscode-extension
+        run: npm run check
+
+      - name: Build and Package Extension (Nightly)
+        working-directory: ./vscode-extension
+        # Use dynamic filename based on package.json version
+        run: npx @vscode/vsce package --out ./antigravity-agent-nightly.vsix
+
+      - name: Upload Extension to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload autobuild vscode-extension/antigravity-agent-nightly.vsix --clobber --repo "${{ github.repository }}"
+
+      - name: Publish to Open VSX
+        # Always run, version collision handled by timestamp
+        working-directory: ./vscode-extension
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "⚠️ OVSX_PAT secret not found, skipping Open VSX publish"
+            exit 0
+          fi
+          
+          # Publish the file we just built
+          npx ovsx publish ./antigravity-agent-nightly.vsix --pat "$OVSX_PAT"
+
+

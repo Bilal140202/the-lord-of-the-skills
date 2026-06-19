@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "npm"
+    directory: "/mcp/servers/egc-guardian"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"

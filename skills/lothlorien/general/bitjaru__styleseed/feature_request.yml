@@ -1,0 +1,32 @@
+name: 💡 Feature / rule / skin request
+description: Suggest a new design rule, component, motion keyword, skin, or skill
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to see?
+      description: A new design rule, component, motion move, brand skin, or /ss-* skill.
+      placeholder: A `toggle-fold` motion keyword that ...
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is it useful?
+      description: What problem does it solve, or what does it make easier for AI-built UI?
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Design rule
+        - Component / pattern
+        - Motion (seed / keyword move)
+        - Brand skin
+        - Skill (/ss-*)
+        - Other
+    validations:
+      required: true

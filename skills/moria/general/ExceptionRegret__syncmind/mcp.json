@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "syncmind": {
+      "type": "stdio",
+      "command": "syncmind-mcp",
+      "args": [],
+      "env": {
+        "SYNCMIND_URL": "http://localhost:3000"
+      }
+    }
+  }
+}

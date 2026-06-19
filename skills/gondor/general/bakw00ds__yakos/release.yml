@@ -1,0 +1,458 @@
+name: Release
+
+# Triggered on git tag push matching v* (e.g., v0.37.0, v1.0.0).
+# Builds the Go binary for all 5 supported platforms, computes SHA256
+# checksums, and creates a GitHub Release with all binaries attached.
+#
+# Signing: secret-gated — the workflow signs when the required secrets are
+# configured and skips signing (build still succeeds unsigned) when they
+# are absent. See the "sign-macos" and "sign-windows" jobs below.
+#
+#   macOS secrets (all required for signing + notarization):
+#     APPLE_CERT_BASE64, APPLE_CERT_PASSWORD, APPLE_DEVELOPER_ID,
+#     APPLE_TEAM_ID, APPLE_API_KEY_BASE64, APPLE_API_KEY_ID,
+#     APPLE_API_KEY_ISSUER_ID
+#
+#   Windows secrets (both required for Authenticode signing):
+#     WINDOWS_CERT_BASE64, WINDOWS_CERT_PASSWORD
+#
+#   Linux: not typically signed; SHA256 checksums are provided instead.
+#
+# Actions pinned (update via: gh api repos/<owner>/<repo>/git/refs/tags/<tag>):
+#   actions/checkout            v6  (sha: df4cb1c069e1874edd31b4311f1884172cec0e10)
+#   actions/setup-go            v6  (sha: 4a3601121dd01d1626a1e23e37211e3254c1c06c)
+#   actions/upload-artifact     v7  (sha: 043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+#   actions/download-artifact   v8  (sha: 3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c)
+#   softprops/action-gh-release v3  (sha: b4309332981a82ec1c5618f44dd2e27cc8bfbfda)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# Narrow default permissions: only the release job needs write.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            suffix: ''
+          - goos: darwin
+            goarch: amd64
+            suffix: ''
+          - goos: linux
+            goarch: arm64
+            suffix: ''
+          - goos: linux
+            goarch: amd64
+            suffix: ''
+          - goos: windows
+            goarch: amd64
+            suffix: '.exe'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6
+        with:
+          go-version-file: 'cli-go/go.mod'
+          cache-dependency-path: 'cli-go/go.sum'
+
+      # Derive version from the git tag (refs/tags/v0.37.0 → 0.37.0) or
+      # fall back to the VERSION file so workflow_dispatch also produces
+      # a sensible binary name.
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="$(cat VERSION)"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Stage embedded lib
+        # Copy repo-root lib/ into cli-go/internal/framework/embedded/ so the
+        # //go:embed directive picks up the real framework files.  Without this
+        # step the binary would carry only placeholder .keep files and binary-
+        # only installs would produce 0 symlinks.
+        run: make embed-lib
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          ASSET="yakos-v${{ steps.version.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
+          mkdir -p dist
+          cd cli-go && go build \
+            -trimpath \
+            -ldflags="-s -w -X github.com/bakw00ds/yakos/internal/version.Version=${{ steps.version.outputs.version }}" \
+            -o "../dist/${ASSET}" \
+            ./cmd/yakos
+          echo "ASSET=${ASSET}" >> "$GITHUB_ENV"
+
+      - name: Compute SHA256
+        run: |
+          cd dist
+          sha256sum "${ASSET}" > "${ASSET}.sha256"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/${{ env.ASSET }}
+            dist/${{ env.ASSET }}.sha256
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # sign-macos: Apple Developer signing + notarization (secret-gated)
+  #
+  # Runs on macos-latest so codesign and xcrun notarytool are available.
+  # When APPLE_CERT_BASE64 is not configured, the job prints an info
+  # message and exits 0 so downstream jobs are unblocked.
+  # ---------------------------------------------------------------------------
+  sign-macos:
+    name: Sign macOS binaries
+    needs: build
+    runs-on: macos-latest
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
+
+    steps:
+      - name: Download macOS binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          pattern: binary-darwin-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Sign and notarize (secret-gated)
+        id: sign
+        env:
+          APPLE_CERT_BASE64: ${{ secrets.APPLE_CERT_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_KEY_ISSUER_ID: ${{ secrets.APPLE_API_KEY_ISSUER_ID }}
+        run: |
+          if [ -z "${APPLE_CERT_BASE64:-}" ]; then
+            echo "skipping macOS code-signing: APPLE_CERT_BASE64 not set"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 1. Decode + import cert into a temporary keychain
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          CERT_FILE="$RUNNER_TEMP/cert.p12"
+          printf '%s' "$APPLE_CERT_BASE64" | base64 --decode > "$CERT_FILE"
+          security import "$CERT_FILE" -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" \
+            "$(security list-keychains -d user | head -1 | tr -d '"')"
+
+          # 2. Sign each darwin binary
+          for binary in dist/yakos-*-darwin-*; do
+            [ -f "$binary" ] || continue
+            [[ "$binary" == *.sha256 ]] && continue
+            echo "Signing $binary"
+            codesign --sign "$APPLE_DEVELOPER_ID" \
+              --options runtime \
+              --timestamp \
+              --force \
+              "$binary"
+          done
+
+          # 3. Decode App Store Connect API key for notarytool
+          APIKEY_FILE="$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$APIKEY_FILE"
+          chmod 600 "$APIKEY_FILE"
+
+          # 4. Notarize + staple each binary
+          for binary in dist/yakos-*-darwin-*; do
+            [ -f "$binary" ] || continue
+            [[ "$binary" == *.sha256 ]] && continue
+            echo "Notarizing $binary"
+            xcrun notarytool submit "$binary" \
+              --key "$APIKEY_FILE" \
+              --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_KEY_ISSUER_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --wait
+            xcrun stapler staple "$binary" || true
+          done
+
+          # Clean up sensitive material from disk
+          rm -f "$CERT_FILE" "$APIKEY_FILE"
+          security delete-keychain "$KEYCHAIN_PATH" || true
+
+          # 5. Recompute SHA256 sidecars AFTER signing so checksums.txt
+          #    reflects the final (signed+notarized) bytes, not the raw build.
+          cd dist
+          for binary in yakos-*-darwin-*; do
+            [ -f "$binary" ] || continue
+            [[ "$binary" == *.sha256 ]] && continue
+            echo "Recomputing checksum for signed $binary"
+            sha256sum "$binary" > "${binary}.sha256"
+          done
+          cd ..
+
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "macOS signing complete"
+
+      - name: Re-upload signed macOS binaries
+        if: steps.sign.outputs.signed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: binary-darwin-arm64
+          path: dist/yakos-*-darwin-arm64*
+          overwrite: true
+          retention-days: 1
+
+      - name: Re-upload signed macOS binaries (amd64)
+        if: steps.sign.outputs.signed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: binary-darwin-amd64
+          path: dist/yakos-*-darwin-amd64*
+          overwrite: true
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # sign-windows: Authenticode signing via signtool (secret-gated)
+  #
+  # Runs on windows-latest so signtool.exe is available via the Windows SDK.
+  # When WINDOWS_CERT_BASE64 is not configured, the job prints an info
+  # message and exits 0 so downstream jobs are unblocked.
+  # ---------------------------------------------------------------------------
+  sign-windows:
+    name: Sign Windows binary
+    needs: build
+    runs-on: windows-latest
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
+
+    steps:
+      - name: Download Windows binary
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          pattern: binary-windows-amd64
+          path: dist/
+          merge-multiple: true
+
+      - name: Sign with Authenticode (secret-gated)
+        id: sign
+        shell: bash
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if [ -z "${WINDOWS_CERT_BASE64:-}" ]; then
+            echo "skipping Windows code-signing: WINDOWS_CERT_BASE64 not set"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CERT_FILE="$(mktemp --suffix=.pfx)"
+          printf '%s' "$WINDOWS_CERT_BASE64" | base64 --decode > "$CERT_FILE"
+
+          # Locate signtool; Windows SDK installs it under Program Files
+          SIGNTOOL="$(find '/c/Program Files (x86)/Windows Kits' \
+            -name signtool.exe 2>/dev/null | sort -r | head -1 || true)"
+          if [ -z "$SIGNTOOL" ]; then
+            SIGNTOOL="$(find '/c/Program Files/Windows Kits' \
+              -name signtool.exe 2>/dev/null | sort -r | head -1 || true)"
+          fi
+          if [ -z "$SIGNTOOL" ]; then
+            echo "ERROR: signtool.exe not found; cannot sign Windows binary"
+            rm -f "$CERT_FILE"
+            exit 1
+          fi
+
+          for binary in dist/yakos-*-windows-*.exe; do
+            [ -f "$binary" ] || continue
+            echo "Signing $binary"
+            "$SIGNTOOL" sign \
+              /f "$CERT_FILE" \
+              /p "$WINDOWS_CERT_PASSWORD" \
+              /tr http://timestamp.digicert.com \
+              /td sha256 \
+              /fd sha256 \
+              "$binary"
+          done
+
+          rm -f "$CERT_FILE"
+
+          # Recompute SHA256 sidecars AFTER signing so checksums.txt reflects
+          # the final (signed) bytes, not the raw build output.
+          cd dist
+          for binary in yakos-*-windows-*.exe; do
+            [ -f "$binary" ] || continue
+            echo "Recomputing checksum for signed $binary"
+            sha256sum "$binary" > "${binary}.sha256"
+          done
+          cd ..
+
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          echo "Windows signing complete"
+
+      - name: Re-upload signed Windows binary
+        if: steps.sign.outputs.signed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
+        with:
+          name: binary-windows-amd64
+          path: dist/yakos-*-windows-amd64*
+          overwrite: true
+          retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    needs: [build, sign-macos, sign-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # required for creating the GitHub Release + uploading assets
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          fetch-depth: 0  # needed for git log since last tag
+
+      - name: Download all binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
+        with:
+          pattern: binary-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Build checksums.txt
+        run: |
+          cd dist
+          # Collect all individual .sha256 sidecar files into one canonical
+          # checksums.txt, then remove the sidecars.
+          cat *.sha256 | sort > checksums.txt
+          rm -f *.sha256
+          echo "--- checksums.txt ---"
+          cat checksums.txt
+
+      - name: Resolve version + tag
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="$(cat VERSION)"
+            TAG="v${VERSION}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          # Use CHANGELOG.md section for this version if it exists;
+          # otherwise fall back to git log since the previous tag.
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+
+          NOTES_FILE="$(mktemp)"
+
+          # Attempt to extract the matching section from CHANGELOG.md.
+          # A section starts with ## [VERSION] and ends at the next ## line.
+          if grep -q "## \[${VERSION}\]" CHANGELOG.md 2>/dev/null; then
+            awk "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" \
+              CHANGELOG.md > "${NOTES_FILE}"
+          fi
+
+          # If CHANGELOG extraction produced nothing, use git log.
+          if [ ! -s "${NOTES_FILE}" ]; then
+            PREV_TAG="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo '')"
+            if [ -n "${PREV_TAG}" ]; then
+              git log --oneline "${PREV_TAG}..${TAG}" >> "${NOTES_FILE}"
+            else
+              git log --oneline >> "${NOTES_FILE}"
+            fi
+          fi
+
+          # Prepend install instructions to the notes.
+          {
+            printf '## Install\n\n'
+            printf '```sh\n'
+            printf 'curl -fsSL https://raw.githubusercontent.com/bakw00ds/yakos/main/scripts/install.sh | sh\n'
+            printf '```\n\n'
+            printf 'Or install a specific version:\n\n'
+            printf '```sh\n'
+            printf 'curl -fsSL https://raw.githubusercontent.com/bakw00ds/yakos/main/scripts/install.sh | sh -s -- --version %s\n' "${VERSION}"
+            printf '```\n\n'
+            printf 'See [docs/go-shadow-mode.md](docs/go-shadow-mode.md) for coexistence details.\n\n'
+            printf '%s\n\n' '---'
+            cat "${NOTES_FILE}"
+          } > release-notes.md
+
+          echo "notes_file=release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Emit signing summary
+        env:
+          MACOS_SIGNED: ${{ needs.sign-macos.outputs.signed }}
+          WINDOWS_SIGNED: ${{ needs.sign-windows.outputs.signed }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          echo "## Signing summary for ${TAG}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Platform | Signed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          # Read signing status from upstream job outputs rather than
+          # evaluating secrets inline in shell (secrets must not appear in
+          # run: steps where their value is expanded by the template engine).
+          if [ "${MACOS_SIGNED}" = "true" ]; then
+            echo "| macOS (arm64 + amd64) | signed + notarized |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| macOS (arm64 + amd64) | unsigned (APPLE_CERT_BASE64 not set) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${WINDOWS_SIGNED}" = "true" ]; then
+            echo "| Windows (amd64) | signed (Authenticode) |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Windows (amd64) | unsigned (WINDOWS_CERT_BASE64 not set) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "| Linux (arm64 + amd64) | unsigned; verify via checksums.txt |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda  # v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "yakos ${{ steps.version.outputs.tag }} (Go)"
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          files: |
+            dist/yakos-*
+            dist/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

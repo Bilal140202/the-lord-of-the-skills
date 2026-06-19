@@ -1,0 +1,21 @@
+---
+description: Pre-delivery review checklist — run before committing or delivering code
+globs: ["**/*"]
+alwaysApply: false
+---
+
+# Review Gate
+
+Before delivering ANY code, run through ALL 5 gates in `.ai-suite/workflows/review-gate.md`:
+
+1. Security gate (10 questions) — BLOCKING if any item fails
+2. Quality gate (10 questions)
+3. Testing gate (10 questions)
+4. Performance gate (5 questions)
+5. Documentation gate (5 questions)
+
+If any gate item fails:
+- Flag it to the user explicitly
+- Explain the risk
+- Propose a fix
+- NEVER silently skip a failed item

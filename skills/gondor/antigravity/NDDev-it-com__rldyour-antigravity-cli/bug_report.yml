@@ -1,0 +1,19 @@
+name: Bug report
+description: Report a reproducible Gemini adapter defect.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Include commands, logs, and file paths.
+    validations:
+      required: true
+

@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run package
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Package Extension
+        run: npx -y @vscode/vsce package --out antigravity-ssh-proxy-${{ steps.version.outputs.VERSION }}.vsix
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: Antigravity SSH Proxy ${{ github.ref_name }}
+          draft: false
+          files: antigravity-ssh-proxy-${{ steps.version.outputs.VERSION }}.vsix
+          generate_release_notes: true

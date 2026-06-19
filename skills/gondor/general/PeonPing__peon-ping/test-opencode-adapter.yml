@@ -1,0 +1,36 @@
+name: OpenCode Adapter Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'adapters/opencode/**'
+      - 'tests/opencode-peon-ping-internals.test.ts'
+      - '.github/workflows/test-opencode-adapter.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/opencode/**'
+      - 'tests/opencode-peon-ping-internals.test.ts'
+      - '.github/workflows/test-opencode-adapter.yml'
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: adapters/opencode
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: adapters/opencode/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Vitest
+        run: npx vitest run

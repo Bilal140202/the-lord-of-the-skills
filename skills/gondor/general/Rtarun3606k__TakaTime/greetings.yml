@@ -1,0 +1,48 @@
+name: TakaTime Greetings
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const isPR = !!context.payload.pull_request;
+
+            let message;
+
+            if (isPR) {
+              message = "👋 Thanks for contributing to TakaTime!\n\n" +
+              "Before review:\n" +
+              "- Ensure API compatibility is maintained\n" +
+              "- Avoid breaking editor integrations\n" +
+              "- Update docs if behavior changes\n\n" +
+              "Maintainers will review soon";
+            } else {
+              message = "👋 Thanks for reporting an issue in TakaTime!\n\n" +
+              "Please include:\n" +
+              "- Server setup (Docker / local / cloud)\n" +
+              "- Editor + plugin used (VSCode, Neovim, etc.)\n" +
+              "- Steps to reproduce\n" +
+              "- Logs or error output\n\n" +
+              "Important:\n" +
+              "Check your debug logs at:\n" +
+              "~/.takatime/debug.log\n\n" +
+              "Sharing relevant log snippets helps us debug much faster";
+            }
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: message
+            });

@@ -1,0 +1,367 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Get version from package.json
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+  build-windows:
+    needs: get-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            os: windows-latest
+          - arch: arm64
+            os: windows-11-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Windows watcher prebuild for ${{ matrix.arch }}
+        run: npm install --no-save --package-lock=false --os=win32 --cpu=${{ matrix.arch }} @parcel/watcher-win32-${{ matrix.arch }}@$(node -p "require('./node_modules/@parcel/watcher/package.json').optionalDependencies['@parcel/watcher-win32-${{ matrix.arch }}']")
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: Package Windows ${{ matrix.arch }}
+        run: npx electron-builder --win --${{ matrix.arch }} -p never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke test packaged app
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          APP="release/win-unpacked/Adnify.exe"
+          if [ ! -f "$APP" ]; then echo "App binary not found"; exit 1; fi
+          # Start app, wait for main process to initialize, then check it's still running
+          "$APP" &
+          APP_PID=$!
+          sleep 8
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "✓ App started successfully (PID: $APP_PID)"
+            kill $APP_PID 2>/dev/null || true
+          else
+            echo "✗ App crashed during startup"
+            exit 1
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-${{ matrix.arch }}
+          path: |
+            release/*.exe
+            release/*.yml
+            release/*.yaml
+            release/*.blockmap
+          if-no-files-found: ignore
+
+
+  build-macos:
+    needs: get-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            os: macos-15-intel
+          - arch: arm64
+            os: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install setuptools (for node-gyp)
+        run: pip install setuptools
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install macOS watcher prebuild for ${{ matrix.arch }}
+        run: npm install --no-save --package-lock=false --os=darwin --cpu=${{ matrix.arch }} @parcel/watcher-darwin-${{ matrix.arch }}@$(node -p "require('./node_modules/@parcel/watcher/package.json').optionalDependencies['@parcel/watcher-darwin-${{ matrix.arch }}']")
+
+      - name: Disable Spotlight indexing (prevents hdiutil resource busy)
+        run: |
+          sudo mdutil -a -i off
+          sudo mdutil -a -d
+          # Kill any mds processes that might hold file locks
+          sudo killall -9 mds mds_stores mdworker mdworker_shared 2>/dev/null || true
+          sleep 3
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: Package macOS ${{ matrix.arch }}
+        run: npx electron-builder --mac --${{ matrix.arch }} -p never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke test packaged app
+        shell: bash
+        run: |
+          APP_PATH="$(find release -maxdepth 3 -type d -name 'Adnify.app' | head -n 1)"
+          if [ -z "$APP_PATH" ]; then echo "App bundle not found"; exit 1; fi
+          APP_PATH="$(cd "$(dirname "$APP_PATH")" && pwd)/$(basename "$APP_PATH")"
+          "$APP_PATH/Contents/MacOS/Adnify" &
+          APP_PID=$!
+          sleep 8
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "✓ App started successfully (PID: $APP_PID)"
+            kill $APP_PID 2>/dev/null || true
+          else
+            echo "✗ App crashed during startup"
+            exit 1
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.yml
+            release/*.yaml
+            release/*.blockmap
+          if-no-files-found: ignore
+
+  build-linux:
+    needs: get-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            os: ubuntu-latest
+          - arch: arm64
+            os: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install setuptools (for node-gyp)
+        run: pip install setuptools
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Linux watcher prebuild for ${{ matrix.arch }}
+        run: npm install --no-save --package-lock=false --os=linux --cpu=${{ matrix.arch }} @parcel/watcher-linux-${{ matrix.arch }}-glibc@$(node -p "require('./node_modules/@parcel/watcher/package.json').optionalDependencies['@parcel/watcher-linux-${{ matrix.arch }}-glibc']")
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
+
+      - name: Package Linux ${{ matrix.arch }}
+        run: npx electron-builder --linux --${{ matrix.arch }} -p never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            release/*.AppImage
+            release/*.yml
+            release/*.yaml
+          if-no-files-found: ignore
+
+
+  release:
+    needs: [get-version, build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release-files
+          # 复制对外发布的安装包
+          find artifacts -type f \( -name "Adnify-Setup-*.exe" -o -name "*.dmg" -o -name "*-mac.zip" -o -name "*.AppImage" \) -exec cp {} release-files/ \;
+          # 复制 blockmap 文件
+          find artifacts -type f -name "*.blockmap" -exec cp {} release-files/ \;
+          
+          # 处理 yml 文件 - 按架构重命名避免覆盖
+          # Windows x64
+          if [ -f "artifacts/windows-x64/latest.yml" ]; then
+            cp artifacts/windows-x64/latest.yml release-files/latest.yml
+          fi
+          # Windows arm64
+          if [ -f "artifacts/windows-arm64/latest.yml" ]; then
+            cp artifacts/windows-arm64/latest.yml release-files/latest-arm64.yml
+          fi
+          # macOS x64
+          if [ -f "artifacts/macos-x64/latest-mac.yml" ]; then
+            cp artifacts/macos-x64/latest-mac.yml release-files/latest-mac.yml
+          fi
+          # macOS arm64
+          if [ -f "artifacts/macos-arm64/latest-mac.yml" ]; then
+            cp artifacts/macos-arm64/latest-mac.yml release-files/latest-arm64-mac.yml
+          fi
+          # Linux x64
+          if [ -f "artifacts/linux-x64/latest-linux.yml" ]; then
+            cp artifacts/linux-x64/latest-linux.yml release-files/latest-linux.yml
+          fi
+          # Linux arm64
+          if [ -f "artifacts/linux-arm64/latest-linux.yml" ]; then
+            cp artifacts/linux-arm64/latest-linux.yml release-files/latest-linux-arm64.yml
+          fi
+          
+          ls -la release-files/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.get-version.outputs.version }}
+          name: Adnify v${{ needs.get-version.outputs.version }}
+          body: |
+            ## Adnify v${{ needs.get-version.outputs.version }}
+            
+            ### 下载 / Downloads
+            
+            | 平台 | 架构 | 文件 |
+            |------|------|------|
+            | Windows 安装版 | x64 | `Adnify-Setup-${{ needs.get-version.outputs.version }}-x64.exe` |
+            | Windows 安装版 | arm64 | `Adnify-Setup-${{ needs.get-version.outputs.version }}-arm64.exe` |
+            | macOS | Intel (x64) | `Adnify-${{ needs.get-version.outputs.version }}-x64-mac.dmg` |
+            | macOS | Apple Silicon (arm64) | `Adnify-${{ needs.get-version.outputs.version }}-arm64-mac.dmg` |
+            | Linux | x64 | `Adnify-${{ needs.get-version.outputs.version }}-x86_64-linux.AppImage` |
+            | Linux | arm64 | `Adnify-${{ needs.get-version.outputs.version }}-arm64-linux.AppImage` |
+            
+            ### 安装说明
+            - **Windows**: 下载对应架构的 Setup.exe 运行安装
+            - **macOS**: 下载对应架构的 .dmg 拖入 Applications。如提示"已损坏"，请在终端执行：`xattr -cr /Applications/Adnify.app`
+            - **Linux**: 下载对应架构的 .AppImage，`chmod +x` 后运行
+            
+            > 💡 不确定架构？Windows 大多数电脑选 x64，M1/M2/M3 Mac 选 arm64，Intel Mac 选 x64
+            
+            ---
+            📦 [Gitee 镜像](https://gitee.com/adnaan/adnify/releases/tag/v${{ needs.get-version.outputs.version }})
+          files: release-files/*
+          fail_on_unmatched_files: false
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  sync-to-gitee:
+    needs: [get-version, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Sync code to Gitee
+        run: |
+          git remote add gitee https://${{ secrets.GITEE_USERNAME }}:${{ secrets.GITEE_TOKEN }}@gitee.com/adnaan/adnify.git
+          git push gitee --all --force
+          git push gitee --tags --force
+        continue-on-error: true
+
+      - name: Create Gitee Release
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          VERSION: ${{ needs.get-version.outputs.version }}
+        run: |
+          TAG="v$VERSION"
+          GITHUB_RELEASE_URL="https://github.com/ad-naan/adnify/releases/tag/$TAG"
+          
+          BODY="## Adnify v$VERSION\n\n### 下载 / Downloads\n\n请前往 GitHub Release 下载：\n\n👉 **[$GITHUB_RELEASE_URL]($GITHUB_RELEASE_URL)**\n\n| 平台 | 架构 | 文件 |\n|------|------|------|\n| Windows 安装版 | x64 | [Adnify-Setup-$VERSION-x64.exe]($GITHUB_RELEASE_URL) |\n| Windows 安装版 | arm64 | [Adnify-Setup-$VERSION-arm64.exe]($GITHUB_RELEASE_URL) |\n| macOS | Intel (x64) | [Adnify-$VERSION-x64-mac.dmg]($GITHUB_RELEASE_URL) |\n| macOS | Apple Silicon | [Adnify-$VERSION-arm64-mac.dmg]($GITHUB_RELEASE_URL) |\n| Linux | x64 | [Adnify-$VERSION-x86_64-linux.AppImage]($GITHUB_RELEASE_URL) |\n| Linux | arm64 | [Adnify-$VERSION-arm64-linux.AppImage]($GITHUB_RELEASE_URL) |"
+          
+          RESPONSE=$(curl -s -X POST \
+            "https://gitee.com/api/v5/repos/adnaan/adnify/releases" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"access_token\": \"$GITEE_TOKEN\",
+              \"tag_name\": \"$TAG\",
+              \"target_commitish\": \"master\",
+              \"name\": \"Adnify v$VERSION\",
+              \"body\": \"$BODY\",
+              \"prerelease\": false
+            }")
+          
+          echo "Create release response: $RESPONSE"
+          
+          RELEASE_ID=$(echo $RESPONSE | jq -r '.id // empty')
+          
+          if [ -n "$RELEASE_ID" ]; then
+            echo "✅ Gitee Release created successfully, ID: $RELEASE_ID"
+          else
+            echo "Release may already exist or creation failed"
+          fi

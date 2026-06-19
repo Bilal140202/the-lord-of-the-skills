@@ -1,0 +1,70 @@
+name: Publish Extension
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options: [patch, minor, major]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.OOLAB_PAT }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install bridge deps
+        run: npm ci
+      - name: Build bridge
+        run: npm run build
+      - name: Bump extension version
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: vscode-extension
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version ${{ inputs.bump }} --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Commit and tag extension version bump
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          HUSKY: "0"
+        run: |
+          git add vscode-extension/package.json
+          git commit -m "chore: bump extension to ${{ env.VERSION }}"
+          git tag "ext-v${{ env.VERSION }}"
+          git push origin main
+          git push origin "ext-v${{ env.VERSION }}"
+      - name: Set VERSION from package.json (tag trigger)
+        if: github.event_name == 'push'
+        working-directory: vscode-extension
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Install extension deps
+        working-directory: vscode-extension
+        run: npm ci
+      - name: Build extension
+        working-directory: vscode-extension
+        run: npm run build
+      - name: Package extension
+        working-directory: vscode-extension
+        run: npm run package
+      - name: Publish to VS Code Marketplace
+        working-directory: vscode-extension
+        run: npx @vscode/vsce publish --pat "${{ secrets.VSCE_PAT }}" --no-dependencies
+      - name: Publish to Open VSX
+        working-directory: vscode-extension
+        run: npx ovsx publish --pat "${{ secrets.OVSX_PAT }}"
+        continue-on-error: true

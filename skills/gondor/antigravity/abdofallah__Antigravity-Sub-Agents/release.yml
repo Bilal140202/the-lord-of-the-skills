@@ -1,0 +1,95 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.1.0)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Extract from tag or package.json
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            else
+              VERSION=$(node -p "require('./package.json').version")
+              echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Package VSIX
+        run: |
+          npm install -g @vscode/vsce
+          vsce package --no-dependencies -o antigravity-subagents-${{ steps.version.outputs.version }}.vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: antigravity-subagents-${{ steps.version.outputs.version }}
+          path: '*.vsix'
+          retention-days: 90
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: '*.vsix'
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-beta') || contains(steps.version.outputs.version, '-alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: antigravity-subagents-${{ needs.build.outputs.version }}
+
+      - name: Validate VSIX
+        run: |
+          npm install -g @vscode/vsce
+          for f in *.vsix; do
+            echo "Validating $f..."
+            unzip -l "$f" | head -30
+            SIZE=$(stat --printf="%s" "$f")
+            echo "Package size: $((SIZE / 1024)) KB"
+            echo "✅ VSIX package is valid"
+          done

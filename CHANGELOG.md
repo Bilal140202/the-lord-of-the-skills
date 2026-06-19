@@ -107,3 +107,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🛠 Added
 - `scripts/restructure_repo.py` — Idempotent restructure script (safe to re-run)
 - `scripts/fix_mangled_names.py` — One-shot fix for canonical__ filename mangling bug
+
+---
+
+## [1.2.0] — 2026-06-19 — *The Antigravity Frontier*
+
+### 🚀 Added — Antigravity Framework Support
+- **New 14th framework**: Google Antigravity IDE skills
+- Built dedicated `crawler_antigravity.py` — focused crawler for Antigravity-specific repos
+- Discovered **689** antigravity-related GitHub repositories via 30 targeted search queries
+- Cloned **307** of them and extracted **11,697** antigravity-tagged files
+- **820 files** explicitly tagged as `antigravity` framework (the rest tagged by their original format: claude-code, cursor, etc. but sourced from AG collections)
+- Files merged into the existing kingdom tree under `skills/<kingdom>/antigravity/<repo>/`
+
+### 📊 Growth Statistics
+| Metric | v1.1.0 | v1.2.0 | Δ |
+|:---|---:|---:|---:|
+| Total artifacts | 10,888 | 18,142 | **+7,254** (+66%) |
+| Source repositories | 102 | 307+ | **+205** |
+| Canonical ⭐ clusters | 84 | 357 | **+273** |
+| Frameworks | 13 | 14 | **+1** (Antigravity) |
+| Kingdom file counts: |
+| ⚔ Gondor | 5,631 | 10,141 | +4,510 |
+| ✦ Rivendell | 1,521 | 1,776 | +255 |
+| ⚙ Isengard | 968 | 1,630 | +662 |
+| ✎ The Shire | 712 | 1,272 | +560 |
+| ⛏ Moria | 703 | 914 | +211 |
+| 🐴 Rohan | 450 | 718 | +268 |
+| 🌳 Fangorn | 322 | 708 | +386 |
+| ✿ Lothlórien | 305 | 496 | +191 |
+| 👁 Mordor | 272 | 406 | +134 |
+| 🕸 Mirkwood | 4 | 81 | +77 |
+
+### 🛠 Added
+- `scripts/crawler_antigravity.py` — Focused crawler with 30 antigravity-specific search queries
+- Antigravity-specific seed list including:
+  - `sickn33/antigravity-awesome-skills`
+  - `google/antigravity`
+  - Plus 687 more discovered via GitHub Search API + BFS
+
+### 🕷 Crawler Details
+- **30 search queries** targeting: antigravity skill, agent, rules, mcp, IDE, sdk, python, typescript, subagents, system prompt, tutorial, etc.
+- **GitHub Code Search** for files containing "antigravity" (where rate limits allowed)
+- **BFS expansion** from antigravity-awesome-skills READMEs
+- Files classified into all 10 kingdoms via the same LOTR keyword-vote classifier
+
+### 📁 New Structure
+```
+skills/
+├── gondor/antigravity/         ← NEW: Antigravity-tagged coding skills
+├── rivendell/antigravity/      ← NEW: Antigravity research skills
+├── isengard/antigravity/       ← NEW: Antigravity agent-orchestration skills
+├── moria/antigravity/          ← NEW: Antigravity devops skills
+├── ... (all 10 kingdoms now have antigravity/ subdirs)
+```

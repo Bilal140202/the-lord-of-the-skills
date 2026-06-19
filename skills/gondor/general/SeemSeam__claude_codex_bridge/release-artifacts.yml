@@ -1,0 +1,128 @@
+name: Release Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and upload"
+        required: true
+        default: "v7.6.12"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-artifacts-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} release artifact
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-22.04
+            script: scripts/build_linux_release.py
+            artifact: ccb-linux-x86_64.tar.gz
+          - platform: macos
+            os: macos-latest
+            script: scripts/build_macos_release.py
+            artifact: ccb-macos-universal.tar.gz
+
+    steps:
+      - name: Checkout release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install macOS Rust targets
+        if: matrix.platform == 'macos'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Build release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-release
+          python "${{ matrix.script }}" --output-dir dist-release --git-ref HEAD
+          test -f "dist-release/${{ matrix.artifact }}"
+          tar -tzf "dist-release/${{ matrix.artifact }}" | grep -F BUILD_INFO.json
+          tar -tzf "dist-release/${{ matrix.artifact }}" | grep -F assets/weixin.jpg
+
+      - name: Verify Rust helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_dir="$(mktemp -d)"
+          tar -xzf "dist-release/${{ matrix.artifact }}" -C "$verify_dir"
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            helper="$verify_dir/ccb-macos-universal/bin/ccb-agent-sidebar"
+            rs_helper="$verify_dir/ccb-macos-universal/bin/ccb-rs-helper"
+            file "$helper" | tee "$verify_dir/sidebar-file.txt"
+            file "$rs_helper" | tee "$verify_dir/rs-helper-file.txt"
+            grep -F 'universal binary' "$verify_dir/sidebar-file.txt"
+            grep -F 'universal binary' "$verify_dir/rs-helper-file.txt"
+          else
+            helper="$verify_dir/ccb-linux-x86_64/bin/ccb-agent-sidebar"
+            rs_helper="$verify_dir/ccb-linux-x86_64/bin/ccb-rs-helper"
+          fi
+          set +e
+          "$helper" --help >/tmp/ccb-sidebar-help.out 2>/tmp/ccb-sidebar-help.err
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then
+            cat /tmp/ccb-sidebar-help.out
+            cat /tmp/ccb-sidebar-help.err >&2
+            exit "$rc"
+          fi
+          "$rs_helper" --capabilities | grep -F 'native.output.observe'
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist-release/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  publish:
+    name: Upload release assets
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+          merge-multiple: true
+
+      - name: Verify and publish assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd dist-release
+          test -f ccb-linux-x86_64.tar.gz
+          test -f ccb-macos-universal.tar.gz
+          sha256sum ccb-*.tar.gz | sort -k2 > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG_NAME" ccb-linux-x86_64.tar.gz ccb-macos-universal.tar.gz SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber

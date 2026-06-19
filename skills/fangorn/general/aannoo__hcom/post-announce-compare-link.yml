@@ -1,0 +1,69 @@
+name: "Post-announce: enrich release notes"
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  enrich-notes:
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Add compare link, update + PyPI install sections
+        run: |
+          TAG="$(printf '%s' '${{ inputs.plan }}' | jq -r '.announcement_tag')"
+          REPO="$(printf '%s' '${{ inputs.plan }}' | jq -r '.releases[0].hosting.github | "\(.owner)/\(.repo)"')"
+
+          # Get the previous release tag (skip the current one)
+          PREV_TAG=$(gh release list --repo "$REPO" --limit 10 --json tagName \
+            | jq -r '.[].tagName' \
+            | grep -v "^${TAG}$" \
+            | head -1)
+
+          if [ -n "$PREV_TAG" ]; then
+            COMPARE_URL="https://github.com/${REPO}/compare/${PREV_TAG}...${TAG}"
+          else
+            COMPARE_URL=""
+            echo "No previous release found, skipping compare link"
+          fi
+
+          CURRENT_BODY=$(gh release view "$TAG" --repo "$REPO" --json body -q '.body')
+
+          # Inject, in a single pass:
+          #   - "**Full Changelog**" before the first "## Install " header (if a prev tag exists)
+          #   - "### Update an existing install" right after the "## Install " header
+          #   - "### Install via PyPI" right before the "## Download " header
+          NEW_BODY=$(echo "$CURRENT_BODY" | awk -v url="$COMPARE_URL" '
+            /^## Install / && !compare_done {
+              if (url != "") { print "**Full Changelog**: " url; print "" }
+              compare_done = 1
+            }
+            /^## Download / && !pypi_done {
+              print "### Install via PyPI"
+              print ""
+              print "```sh"
+              print "uv tool install hcom  # or: pip install hcom"
+              print "```"
+              print ""
+              pypi_done = 1
+            }
+            { print }
+            /^## Install / && !update_done {
+              print ""
+              print "### Update an existing install"
+              print ""
+              print "```sh"
+              print "hcom update"
+              print "```"
+              print ""
+              print "Auto-detects your install method (brew, uv tool, pip, or curl installer) and runs the right upgrade command."
+              update_done = 1
+            }
+          ')
+
+          gh release edit "$TAG" --repo "$REPO" --notes "$NEW_BODY"
+          echo "Enriched release notes for $TAG"

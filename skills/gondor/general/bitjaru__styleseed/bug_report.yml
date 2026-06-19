@@ -1,0 +1,49 @@
+name: 🐛 Bug report
+description: Something in the engine, components, skins, or skills isn't working
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! Please fill out the sections below.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+      placeholder: When I run /ss-page, the generated file ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Copy engine into a Vite + React 18 project
+        2. Run ...
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area?
+      options:
+        - Components / patterns
+        - Skins / theme.css
+        - Motion (seeds / keyword moves)
+        - Skills (/ss-*)
+        - Design rules / docs
+        - Setup / install
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: React 18, Tailwind v4, Vite 6, Claude Code / Cursor, OS
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Logs, screenshots, the prompt you used, etc.

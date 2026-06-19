@@ -1,0 +1,199 @@
+name: Sync to skyvern-cloud
+# Syncs merged OSS PRs (e.g. external contributions) to the cloud repo.
+# Skips sync PRs that originated from cloud to prevent infinite loops.
+on:
+  pull_request_target:
+    types: [closed]
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to sync. Input JUST the number, no #'
+        required: true
+        type: string
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Only run when:
+    # 1. PR was merged (not just closed) OR manual dispatch
+    # 2. PR is NOT a sync PR from cloud (prevents infinite sync loops)
+    if: >
+      (github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch') && !contains(join(github.event.pull_request.labels.*.name, ','), 'sync') && !startsWith(github.event.pull_request.head.ref, 'repo-sync/')
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Determine Git credentials
+        id: git-creds
+        run: |
+          case "${{ github.event.pull_request.user.login }}" in
+            wintonzheng)
+              echo "GH_PAT=${{ secrets.SKYVERN_CLOUD_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=shu@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=Shuchang Zheng" >> $GITHUB_OUTPUT
+              ;;
+            LawyZheng)
+              echo "GH_PAT=${{ secrets.LAWY_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=lawy@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=Lawy Zheng" >> $GITHUB_OUTPUT
+              ;;
+            suchintan)
+              echo "GH_PAT=${{ secrets.SUCHINTAN_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=suchintansingh@gmail.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=Suchintan Singh" >> $GITHUB_OUTPUT
+              ;;
+            pedrohsdb)
+              echo "GH_PAT=${{ secrets.PEDROHSDB_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=pedro@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=pedrohsdb" >> $GITHUB_OUTPUT
+              ;;
+            marcmuon)
+              echo "GH_PAT=${{ secrets.MARC_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=marc@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=marcmuon" >> $GITHUB_OUTPUT
+              ;;
+            celalzamanoglu)
+              echo "GH_PAT=${{ secrets.CELAL_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=celal@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=celalzamanoglu" >> $GITHUB_OUTPUT
+              ;;
+            AronPerez)
+              echo "GH_PAT=${{ secrets.AARON_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=aaron@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=AronPerez" >> $GITHUB_OUTPUT
+              ;;
+            andrewneilson)
+              echo "GH_PAT=${{ secrets.ANDREW_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=andrew@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=andrewneilson" >> $GITHUB_OUTPUT
+              ;;
+            cindehaa)
+              echo "GH_PAT=${{ secrets.CINDY_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=cindy@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=cindehaa" >> $GITHUB_OUTPUT
+              ;;
+            trevor-cheung)
+              echo "GH_PAT=${{ secrets.TREVOR_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=trevor@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=trevor-cheung" >> $GITHUB_OUTPUT
+              ;;
+            cursoragent)
+              echo "GH_PAT=${{ secrets.SKYVERN_CLOUD_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=199161495+cursoragent@users.noreply.github.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=cursoragent" >> $GITHUB_OUTPUT
+              ;;
+            claude\[bot\])
+              echo "GH_PAT=${{ secrets.SKYVERN_CLOUD_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=209825114+claude[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=claude[bot]" >> $GITHUB_OUTPUT
+              ;;
+            copilot-swe-agent\[bot\])
+              echo "GH_PAT=${{ secrets.SKYVERN_CLOUD_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=198982749+copilot-swe-agent[bot]@users.noreply.github.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=copilot-swe-agent[bot]" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "GH_PAT=${{ secrets.SKYVERN_CLOUD_GH_PAT }}" >> $GITHUB_OUTPUT
+              echo "GIT_EMAIL=shu@skyvern.com" >> $GITHUB_OUTPUT
+              echo "GIT_USERNAME=Shuchang Zheng" >> $GITHUB_OUTPUT
+              ;;
+          esac
+      - name: Fetch PR details
+        id: pr_details
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            PR_NUMBER=${{ inputs.pr_number }}
+          else
+            PR_NUMBER=${{ github.event.pull_request.number }}
+          fi
+          PR_INFO=$(gh pr view $PR_NUMBER --json number,headRefName,body,title,url,author)
+          BRANCH_NAME=$(echo "$PR_INFO" | jq -r .headRefName)
+          PR_BODY=$(echo "$PR_INFO" | jq -r .body)
+          PR_TITLE=$(echo "$PR_INFO" | jq -r .title)
+          PR_URL=$(echo "$PR_INFO" | jq -r .url)
+          PR_AUTHOR=$(echo "$PR_INFO" | jq -r .author.login)
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          PR_BODY_ESCAPED=$(echo "$PR_BODY" | jq -aRs .)
+          echo "PR_BODY=$PR_BODY_ESCAPED" >> $GITHUB_OUTPUT
+          echo "PR_TITLE=$PR_TITLE" >> $GITHUB_OUTPUT
+          echo "PR_URL=$PR_URL" >> $GITHUB_OUTPUT
+          echo "PR_AUTHOR=$PR_AUTHOR" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check for migration changes
+        id: check-migrations
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            PR_NUMBER=${{ inputs.pr_number }}
+          else
+            PR_NUMBER=${{ github.event.pull_request.number }}
+          fi
+          CHANGED_FILES=$(gh pr diff $PR_NUMBER --name-only || true)
+          HAS_MIGRATIONS=false
+          for file in $CHANGED_FILES; do
+            if [[ "$file" == alembic/versions/* ]]; then
+              HAS_MIGRATIONS=true
+              break
+            fi
+          done
+          echo "has_migrations=$HAS_MIGRATIONS" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run GitHub File Sync
+        id: file-sync
+        uses: Skyvern-AI/repo-file-sync-action@590c4ddbe1d7b5c4ca1e4b4edc85c7f919b6c26a # main
+        with:
+          GH_PAT: ${{ steps.git-creds.outputs.GH_PAT }}
+          GIT_EMAIL: ${{ steps.git-creds.outputs.GIT_EMAIL }}
+          GIT_USERNAME: ${{ steps.git-creds.outputs.GIT_USERNAME }}
+          PR_LABELS: |
+            sync
+            ${{ steps.pr_details.outputs.PR_AUTHOR }}
+          BRANCH_NAME: repo-sync/${{ steps.pr_details.outputs.BRANCH_NAME }}
+          PR_BODY: "PR: ${{ steps.pr_details.outputs.PR_URL }}\nAuthor: @${{ steps.pr_details.outputs.PR_AUTHOR }}\n\n${{ steps.pr_details.outputs.PR_BODY }}"
+          PR_TITLE: ${{ steps.pr_details.outputs.PR_TITLE }}
+      # Flag migration changes that need manual attention in the cloud repo
+      - name: Comment migration warning on cloud sync PR
+        if: >
+          steps.check-migrations.outputs.has_migrations == 'true' && steps.file-sync.outputs.pull_request_urls
+
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        env:
+          PR_URLS_RAW: ${{ steps.file-sync.outputs.pull_request_urls }}
+          SOURCE_PR_URL: ${{ steps.pr_details.outputs.PR_URL }}
+        with:
+          github-token: ${{ steps.git-creds.outputs.GH_PAT }}
+          script: |
+            const urlsRaw = process.env.PR_URLS_RAW;
+            const sourcePrUrl = process.env.SOURCE_PR_URL;
+            let urls;
+            try {
+              urls = JSON.parse(urlsRaw);
+            } catch {
+              urls = [urlsRaw].filter(Boolean);
+            }
+
+            for (const url of urls) {
+              const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+              if (match) {
+                const [, owner, repo, prNumber] = match;
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: parseInt(prNumber),
+                  body: [
+                    '⚠️ **Migration Alert**',
+                    '',
+                    'The source OSS PR included database migration changes in `alembic/versions/` that are **NOT automatically synced**.',
+                    '',
+                    'Please check if corresponding migrations need to be created in the cloud repo.',
+                    '',
+                    `Source PR: ${sourcePrUrl}`
+                  ].join('\n')
+                });
+              }
+            }

@@ -1,0 +1,66 @@
+name: Workspace Template CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  python-installer-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Test init_vibe_project.py
+      run: |
+        python init_vibe_project.py test-app
+        test -d test-app/.agent
+        test -d test-app/commands
+        test -d test-app/agents
+        test -d test-app/docs
+        test -f test-app/mcp_servers.json
+
+  npx-installer-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Test npx wrapper (Claude Flag)
+      run: |
+        node bin/cli.js test-claude-app --claude
+        test -d test-claude-app/.claude
+        test -f test-claude-app/CLAUDE.md
+        if [ -d "test-claude-app/.cursor" ]; then exit 1; fi
+        if [ -d "test-claude-app/.gemini" ]; then exit 1; fi
+
+    - name: Test npx wrapper (Cursor Flag)
+      run: |
+        node bin/cli.js test-cursor-app --cursor
+        test -d test-cursor-app/.cursor
+        test -d test-cursor-app/.cursor/rules
+        if [ -d "test-cursor-app/.claude" ]; then exit 1; fi
+
+  docker-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Validate docker-compose config
+      run: docker compose config --quiet
+
+    - name: Build main Dockerfile
+      run: docker build -t ag-ci-test .
+
+    - name: Build sandbox Dockerfile
+      run: docker build -f Dockerfile.sandbox -t ag-sandbox-ci-test .

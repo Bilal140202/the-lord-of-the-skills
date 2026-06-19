@@ -1,0 +1,250 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Type check
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Guard against optional-chaining on prompt variables
+        run: |
+          if grep -nP 'cfg\.prompt\?\..*replace\(' src/automation.ts || grep -nP '^\s+\?\.replace\(' src/automation.ts; then
+            echo "ERROR: optional-chain .replace() on prompt variable — use (cfg.prompt ?? '').replace()" >&2
+            exit 1
+          fi
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test -- --reporter=dot --reporter=github-actions
+        timeout-minutes: 5
+      - name: Coverage (enforce 75% lines / 70% branches / 75% functions)
+        run: npm run test:coverage -- --reporter=dot --reporter=github-actions
+        timeout-minutes: 8
+
+  schema-audit:
+    name: Tool schema breaking-change gate
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: npm run build
+      - name: Audit tool schemas against snapshot
+        run: node scripts/audit-schema-changes.mjs
+
+  lsp-audit:
+    name: LSP tool registry audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Audit LSP tool lists
+        run: node scripts/audit-lsp-tools.mjs
+      - name: Audit shape safety (proxy<T> usage)
+        run: node scripts/audit-shape-safety.mjs
+      - name: Verify docs/tool-reference.md is up to date
+        run: node scripts/gen-tool-reference.mjs --check
+
+  plugin-validate:
+    name: Validate plugin manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check plugin.json exists
+        run: test -f claude-ide-bridge-plugin/.claude-plugin/plugin.json
+
+      - name: Validate plugin.json schema
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('claude-ide-bridge-plugin/.claude-plugin/plugin.json', 'utf8'));
+            const required = ['name', 'version', 'description', 'author', 'license'];
+            for (const f of required) {
+              if (!p[f]) throw new Error('plugin.json missing required field: ' + f);
+            }
+            const semver = /^\d+\.\d+\.\d+$/;
+            if (!semver.test(p.version)) throw new Error('plugin.json version is not semver: ' + p.version);
+            console.log('plugin.json valid:', p.name, p.version);
+          "
+
+      - name: Check plugin icon exists
+        run: test -f claude-ide-bridge-plugin/icon.png
+
+      - name: Check MCP config exists and is valid
+        run: |
+          node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('claude-ide-bridge-plugin/.mcp.json', 'utf8'));
+            if (!m.mcpServers) throw new Error('.mcp.json missing mcpServers');
+            const servers = Object.keys(m.mcpServers);
+            if (!servers.length) throw new Error('.mcp.json has no servers defined');
+            console.log('.mcp.json valid — servers:', servers.join(', '));
+          "
+
+      - name: Validate skill SKILL.md frontmatter
+        run: |
+          node -e "
+            const fs = require('fs'), path = require('path');
+            const skillsDir = 'claude-ide-bridge-plugin/skills';
+            const dirs = fs.readdirSync(skillsDir);
+            for (const d of dirs) {
+              const f = path.join(skillsDir, d, 'SKILL.md');
+              if (!fs.existsSync(f)) throw new Error('Missing SKILL.md in ' + d);
+              const c = fs.readFileSync(f, 'utf8');
+              if (!c.startsWith('---')) throw new Error('SKILL.md missing frontmatter: ' + d);
+              if (!c.includes('name:')) throw new Error('SKILL.md missing name: ' + d);
+              if (!c.includes('description:')) throw new Error('SKILL.md missing description: ' + d);
+              console.log('  ok:', d);
+            }
+            console.log('All', dirs.length, 'skills valid');
+          "
+
+      - name: Validate agent frontmatter
+        run: |
+          node -e "
+            const fs = require('fs'), path = require('path');
+            const agentsDir = 'claude-ide-bridge-plugin/agents';
+            const files = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
+            for (const f of files) {
+              const c = fs.readFileSync(path.join(agentsDir, f), 'utf8');
+              if (!c.startsWith('---')) throw new Error('Agent missing frontmatter: ' + f);
+              if (!c.includes('name:')) throw new Error('Agent missing name: ' + f);
+              if (!c.includes('description:')) throw new Error('Agent missing description: ' + f);
+              console.log('  ok:', f);
+            }
+            console.log('All', files.length, 'agents valid');
+          "
+
+  smoke:
+    name: Smoke tests (live bridge)
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: npm run build
+      - name: Run smoke test suite
+        run: BRIDGE="$(pwd)/scripts/smoke/bridge" bash scripts/smoke/run-all.sh
+        timeout-minutes: 3
+
+  benchmark:
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: npm run build
+      - name: Start bridge
+        run: |
+          mkdir -p /tmp/bench-workspace
+          node dist/index.js --workspace /tmp/bench-workspace > /tmp/bridge.log 2>&1 &
+          echo $! > /tmp/bridge.pid
+          # Wait up to 10s for the lock file to appear
+          for i in $(seq 1 20); do
+            LOCK_FILE=$(ls "$HOME/.claude/ide/"*.lock 2>/dev/null | head -1)
+            [ -n "$LOCK_FILE" ] && break
+            sleep 0.5
+          done
+          if [ -z "$LOCK_FILE" ]; then
+            echo "Bridge did not write lock file" && cat /tmp/bridge.log && exit 1
+          fi
+          # Extract port from lock filename and wait for /health to respond
+          BRIDGE_PORT=$(basename "$LOCK_FILE" .lock)
+          for i in $(seq 1 20); do
+            curl -sf "http://127.0.0.1:${BRIDGE_PORT}/ping" && break
+            sleep 0.5
+          done
+          curl -sf "http://127.0.0.1:${BRIDGE_PORT}/ping" || (echo "Bridge /health did not respond" && cat /tmp/bridge.log && exit 1)
+      - name: Run benchmark
+        # main: strict 100ms threshold; PRs: loose 500ms threshold catches only extreme regressions
+        run: |
+          node scripts/benchmark.mjs --iterations 100 --json \
+            ${{ github.ref == 'refs/heads/main' && '--threshold 100' || '--threshold 500' }} \
+            | tee /tmp/benchmark-results.json
+      - name: Stop bridge
+        if: always()
+        run: kill "$(cat /tmp/bridge.pid)" 2>/dev/null || true
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: /tmp/benchmark-results.json
+          retention-days: 30
+
+  extension:
+    runs-on: ubuntu-latest
+    needs: ci
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+

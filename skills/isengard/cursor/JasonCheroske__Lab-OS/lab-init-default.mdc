@@ -1,0 +1,18 @@
+---
+description: Prefer lab-init skill for bootstrap/setup intents
+alwaysApply: true
+---
+
+# Default Setup Skill
+
+When the user asks to bootstrap, initialize, or set up this lab (including `/lab-init`), prefer the `lab-init` project skill first.
+For non-Cursor setup, use the `lab-os` CLI: `npx lab-os@latest init --target <path>`.
+
+Trigger phrases include:
+- `/lab-init`
+- `bootstrap this lab`
+- `initialize this project`
+- `set up this repo`
+- `first-time setup`
+
+If the user explicitly requests a different workflow, follow the user override.

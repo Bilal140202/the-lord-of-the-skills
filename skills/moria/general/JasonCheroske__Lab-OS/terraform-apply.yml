@@ -1,0 +1,117 @@
+name: terraform-apply
+
+# Wire GitHub Environments + required reviewers before using on a real org.
+# Each cloud requires its own set of secrets (see commented-out env blocks below).
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**.tf"
+      - "**.tfvars"
+      - ".github/workflows/terraform-apply.yml"
+  workflow_dispatch:
+    inputs:
+      cloud:
+        description: "Cloud to apply (aws | azure | gcp | all)"
+        required: true
+        default: "aws"
+      environment:
+        description: "Environment to apply (dev | prod)"
+        required: true
+        default: "dev"
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: "apply (${{ matrix.root }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - root: environments/dev/aws
+            cloud: aws
+            env_name: dev
+          - root: environments/dev/azure
+            cloud: azure
+            env_name: dev
+          - root: environments/dev/gcp
+            cloud: gcp
+            env_name: dev
+          - root: environments/prod/aws
+            cloud: aws
+            env_name: prod
+          - root: environments/prod/azure
+            cloud: azure
+            env_name: prod
+          - root: environments/prod/gcp
+            cloud: gcp
+            env_name: prod
+    defaults:
+      run:
+        working-directory: ${{ matrix.root }}
+
+    # environment: terraform-${{ matrix.env_name }}-${{ matrix.cloud }}  # Uncomment for approval gates
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Terraform init (AWS)
+        if: matrix.cloud == 'aws'
+        run: terraform init -input=false
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Terraform init (Azure)
+        if: matrix.cloud == 'azure'
+        run: terraform init -input=false
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+      - name: Terraform init (GCP)
+        if: matrix.cloud == 'gcp'
+        run: terraform init -input=false
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Terraform plan and apply (AWS)
+        if: matrix.cloud == 'aws'
+        run: |
+          terraform plan -no-color -input=false -out=tfplan
+          terraform apply -no-color -input=false -auto-approve tfplan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+
+      - name: Terraform plan and apply (Azure)
+        if: matrix.cloud == 'azure'
+        run: |
+          terraform plan -no-color -input=false -out=tfplan
+          terraform apply -no-color -input=false -auto-approve tfplan
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+
+      - name: Terraform plan and apply (GCP)
+        if: matrix.cloud == 'gcp'
+        run: |
+          terraform plan -no-color -input=false -out=tfplan
+          terraform apply -no-color -input=false -auto-approve tfplan
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}

@@ -1,0 +1,317 @@
+name: lint
+
+# Two kinds of check live here:
+#
+#   1. Pure-lint jobs (below): bash syntax, shellcheck (shell static analysis),
+#      PowerShell parse, UTF-8 BOM on .ps1, no em dashes in .ps1, JSON validity,
+#      private-context tokens, phase-doc references, and the no-remote-pipe-install
+#      guard.
+#
+#   2. The unit/type gate: the `ci` job, which runs `bash scripts/ci.sh`. That
+#      script is the SINGLE source of truth for the unit/type gate - it runs
+#      (a) py_compile over every tracked *.py under Python 3.9 (the PEP 604
+#      `X | None` crash class) and (b) the 8 named tests in tests/integration/.
+#      The local pre-push gate (~/.local/bin/ci-test) runs the SAME
+#      `bash scripts/ci.sh`, so CI and the laptop gate cannot drift.
+#
+# Runs on every push and PR. No untrusted user input is used in any run: command.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  shell:
+    name: bash syntax (.sh)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: bash -n every .sh
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r f; do
+            if ! bash -n "$f" 2>err; then
+              echo "::error file=$f::bash -n failed"
+              cat err | sed "s|^|  |"
+              fail=1
+            fi
+          done < <(find . -name '*.sh' -not -path './.git/*' -not -path './node_modules/*')
+          exit $fail
+
+  shellcheck:
+    name: shellcheck (.sh, -S warning)
+    runs-on: ubuntu-latest
+    # `bash -n` (the `shell` job) is syntax-only. shellcheck adds the portability /
+    # quoting / correctness layer over every tracked *.sh: BSD-only flags, unquoted
+    # expansions (SC2086), unset vars, exit codes masked by a pipe. A real GNU-vs-BSD
+    # `stat -c` / `stat -f` mtime bug once passed macOS-local + `bash -n` and only
+    # failed on the ubuntu runner; this job catches that class. scripts/shellcheck.sh
+    # is the SINGLE
+    # source of truth - scripts/ci.sh runs the SAME script locally so the laptop
+    # pre-push gate and CI cannot drift. The severity gate starts at error + warning
+    # (info/style excluded) to match the real ship/hold boundary, not the strictest
+    # possible signal. No untrusted user input is referenced in any run: command.
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: ensure shellcheck present
+        run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+      - name: run the canonical shellcheck gate
+        run: bash scripts/shellcheck.sh
+
+  meta-resolution:
+    name: no naive Meta glob (resolve via _meta_resolver)
+    runs-on: ubuntu-latest
+    # The vault Meta folder must be resolved through scripts/_meta_resolver.py,
+    # never a sort-order `for c in "$VAULT"/*Meta` glob - plain "Meta" (machine
+    # memory) sorts before the emoji "⚙️ Meta" (human memory), so the naive glob
+    # silently writes human session/traffic data into the machine folder
+    # (ai-brain-starter#176). This guard fails a PR that reintroduces it.
+    # No untrusted user input is referenced in any run: command.
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: run the meta-resolution guard
+        run: bash scripts/check-meta-resolution.sh
+
+  powershell:
+    name: PowerShell parse (.ps1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: pwsh ParseFile every .ps1
+        shell: pwsh
+        run: |
+          $fail = 0
+          Get-ChildItem -Recurse -Filter '*.ps1' | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName, [ref]$tokens, [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              foreach ($e in $errors) {
+                Write-Host "::error file=$($_.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"
+              }
+              $fail = 1
+            }
+          }
+          if ($fail) { exit 1 }
+
+  bom:
+    name: UTF-8 BOM on .ps1 (Windows PS 5.1 fix)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: every .ps1 must start with EF BB BF
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r f; do
+            head=$(head -c 3 "$f" | od -An -tx1 | tr -d ' \n')
+            if [ "$head" != "efbbbf" ]; then
+              echo "::error file=$f::missing UTF-8 BOM (Windows PowerShell 5.1 will crash on non-ASCII bytes). Fix: prepend the bytes EF BB BF to the file."
+              fail=1
+            fi
+          done < <(find . -name '*.ps1' -not -path './.git/*')
+          exit $fail
+
+  no-em-dash-ps1:
+    name: no em dashes in .ps1 (Windows PS 5.1 hazard)
+    runs-on: ubuntu-latest
+    # Em dashes in bash are stylistic. Em dashes in .ps1 are technical: they were the
+    # exact byte that crashed the Windows PowerShell 5.1 parser before the BOM fix.
+    # Even with BOM, keeping .ps1 ASCII-clean is defense-in-depth against the next
+    # time someone saves a file without BOM.
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: scan .ps1
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r f; do
+            if grep -n $'\xe2\x80\x94' "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::contains em dash. Replace with ASCII hyphen or comma. Em dashes break Windows PowerShell 5.1 parsing if the BOM is ever lost."
+              grep -n $'\xe2\x80\x94' "$f" | head -5 | sed "s|^|  |"
+              fail=1
+            fi
+          done < <(find . -name '*.ps1' -not -path './.git/*')
+          exit $fail
+
+  json:
+    name: JSON validity (hooks.json, *.mcp.json)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: validate
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r f; do
+            if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" 2>err; then
+              echo "::error file=$f::invalid JSON"
+              cat err | sed "s|^|  |"
+              fail=1
+            fi
+          done < <(find . \( -name 'hooks.json' -o -name '*.mcp.json' \) -not -path './.git/*')
+          exit $fail
+
+  privacy:
+    name: private-context tokens (PR-scoped)
+    runs-on: ubuntu-latest
+    # Mirrors the maintainer's write-time hookify guard so that PRs from
+    # contributors (who do not run that hookify locally) cannot land tokens
+    # the repo treats as private context. Scoped to files CHANGED in the PR,
+    # not the full tree, because pre-existing committed content has already
+    # passed hookify on every prior write. Pushes to main skip this job
+    # (the maintainer's local hookify catches direct pushes; only external
+    # contributions need CI gating).
+    #
+    # Pattern matches the hookify rule at hookify.no-personal-in-starter.local.md.
+    # Each token uses a single-char character class on its first letter so this
+    # workflow's own source does not match that hookify rule when written.
+    #
+    # Security note: github.base_ref is bound to an env var per the SAFE pattern
+    # in https://github.blog/security/vulnerability-research/how-to-catch-github-actions-workflow-injections-before-attackers-do/
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          fetch-depth: 0
+      - name: fetch base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF" --depth=50
+      - name: scan added lines only
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -e
+          P='\b[A]delaida\b|\b[O]nde\b|\b[D]iaz.Roa\b|\b[B]ogot[aá]\b|\b[S]ergio Perez\b|\b[N]atalia\b|\b[P]aola\b|\b[A]ccenture\b|\b[H]igh.Rise Series\b|\b[S]hark Tank\b'
+          BASE="origin/$BASE_REF"
+          fail=0
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            [ ! -f "$f" ] && continue
+            case "$f" in
+              */.venv/*|*/node_modules/*|*/__pycache__/*) continue ;;
+            esac
+            case "$f" in
+              *.md|*.sh|*.ps1|*.py|*.json|*.yml|*.yaml|*.txt|.env.example) ;;
+              *) continue ;;
+            esac
+            # Scan ONLY lines this PR adds (diff lines starting with `+`,
+            # excluding the `+++ b/path` file header). Pre-existing committed
+            # content is intentionally ignored: CI gates net-new private-context
+            # additions, not legacy text in files this PR happens to touch.
+            added_lines=$(git diff "$BASE"..HEAD -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+            if [ -z "$added_lines" ]; then
+              continue
+            fi
+            if matches=$(echo "$added_lines" | grep -nE "$P" 2>/dev/null); then
+              echo "::error file=$f::private-context token added in this PR"
+              echo "$matches" | head -3 | sed 's|^|  |'
+              fail=1
+            fi
+          done < <(git diff --name-only "$BASE"..HEAD)
+          if [ "$fail" = "1" ]; then
+            echo "::error::Private-context scan failed. Use placeholders or fictional names instead."
+            exit 1
+          fi
+          echo "Private-context scan passed (added lines only)."
+
+  references:
+    name: phase docs reference real repo files
+    runs-on: ubuntu-latest
+    # Phase docs distinguish between two kinds of `scripts/foo.sh` references:
+    #
+    #   1. Backticked relative paths like `scripts/foo.sh` -> should exist in the repo.
+    #      Used for "copy this from `scripts/foo.sh` in this repo" instructions.
+    #   2. Vault-write paths like `[VAULT_PATH]/<gear> Meta/scripts/foo.sh` -> a file
+    #      Claude WRITES to the user's vault, not something that exists in the repo.
+    #
+    # We only enforce category 1: backticked, repo-relative, no [VAULT_PATH] prefix,
+    # no `<VAULT>` prefix, no leading slash, no `~/`.
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: scan repo-relative backticked references
+        run: |
+          set -e
+          fail=0
+          # Match: `scripts/foo.sh` (backtick + scripts/ + path + ext + backtick)
+          while IFS=: read -r file linenum content; do
+            # Extract every backticked scripts/... reference on this line
+            echo "$content" | grep -oE '`scripts/[A-Za-z0-9_./-]+\.(sh|ps1|py|plist)`' | while IFS= read -r match; do
+              ref=$(echo "$match" | tr -d '`')
+              if [ ! -f "$ref" ]; then
+                echo "::error file=$file,line=$linenum::backticked reference $match points to missing file $ref"
+                fail=1
+                echo "1" > /tmp/lint-ref-fail
+              fi
+            done
+          done < <(grep -rn -E '`scripts/[A-Za-z0-9_./-]+\.(sh|ps1|py|plist)`' phases/ 2>/dev/null || true)
+          [ -f /tmp/lint-ref-fail ] && exit 1 || exit 0
+
+  no-remote-pipe-install:
+    name: install docs never pipe remote code into a shell
+    runs-on: ubuntu-latest
+    # Catches the bug class from the May 2026 install-UX incident: the README
+    # told the installing assistant to run `bash <(curl -fsSL .../bootstrap.sh)`.
+    # Piping un-reviewed remote code into a shell trips the Claude Code auto-mode
+    # classifier on every install; a cautious model then surfaces the block to
+    # the user as a wall of warnings, and one model fabricated a prompt-injection
+    # alert on top of it. The canonical install is now: clone the public repo,
+    # then run the local script. This job fails if any install-facing file
+    # reintroduces a remote-pipe-to-shell pattern. No untrusted user input is
+    # referenced in any run: command.
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: scan install surfaces
+        run: |
+          set -e
+          fail=0
+          pattern='bash <\(curl|(curl|wget)[^|]*\| *(bash|sh)|\| *iex'
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            if matches=$(grep -nE "$pattern" "$f" 2>/dev/null); then
+              echo "::error file=$f::install docs must not pipe remote code into a shell; use 'git clone' then run the local script"
+              echo "$matches" | head -5 | sed 's|^|  |'
+              fail=1
+            fi
+          done < <(find README.md bootstrap.sh bootstrap.ps1 phases -type f \( -name '*.md' -o -name '*.sh' -o -name '*.ps1' \))
+          exit $fail
+
+  ci:
+    name: ci gate (py_compile + integration tests)
+    runs-on: ubuntu-latest
+    # The repo's unit/type gate, consolidated into ONE command - scripts/ci.sh -
+    # so this workflow and the local pre-push gate (~/.local/bin/ci-test, which
+    # resolves this repo to mode=canon) run the EXACT same thing and cannot drift.
+    #
+    # scripts/ci.sh runs:
+    #   (a) py_compile every tracked *.py. The setup-python step below pins
+    #       Python 3.9 so `python3` is 3.9, catching the PEP 604 `X | None`
+    #       annotation class that crashes 3.9 at module load (many users invoke
+    #       hooks via macOS's system /usr/bin/python3, which is 3.9).
+    #   (b) the 8 named integration tests under tests/integration/, in order.
+    #
+    # The setup mirrors what the old per-test jobs did: setup-python 3.9 for the
+    # py_compile check, a git identity (the tests create temp repos and commit),
+    # and ruff so test_session_coordination_guards exercises the F821 block path
+    # (it fails open and stays green when ruff is absent).
+    # No untrusted user input is referenced in any run: command.
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.9"
+      - name: configure git identity (integration tests create temp repos)
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "ci"
+      - name: install ruff (exercise the F821 block path in session-coordination-guards)
+        run: pipx install ruff || python3 -m pip install --user ruff || true
+      - name: run the canonical CI gate
+        run: bash scripts/ci.sh

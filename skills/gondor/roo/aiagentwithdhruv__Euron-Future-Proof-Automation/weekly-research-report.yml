@@ -1,0 +1,98 @@
+name: Weekly Research Report
+
+# Runs every Monday at 3:00 AM UTC (8:30 AM IST)
+# Also supports manual trigger with overrides
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip delivery, preview only)'
+        required: false
+        type: boolean
+        default: false
+      no_llm:
+        description: 'Force rule-based classification (no LLM)'
+        required: false
+        type: boolean
+        default: false
+      channels:
+        description: 'Delivery channels (comma-separated: telegram,slack,email)'
+        required: false
+        default: 'telegram'
+      top:
+        description: 'Top N findings in report'
+        required: false
+        default: '5'
+
+permissions:
+  contents: write
+
+jobs:
+  research-cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd Autonomous_Research_Agent
+          pip install -r requirements.txt
+
+      - name: Run research cycle
+        working-directory: Autonomous_Research_Agent
+        run: |
+          ARGS="--competitors config/competitors.yaml --top ${{ github.event.inputs.top || '5' }} --channels ${{ github.event.inputs.channels || 'telegram' }}"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ "${{ github.event.inputs.no_llm }}" = "true" ]; then
+            ARGS="$ARGS --no-llm"
+          fi
+          python tools/run_research.py $ARGS
+        env:
+          EURI_API_KEY: ${{ secrets.EURI_API_KEY }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          COST_CAP_USD: '1.00'
+
+      - name: Commit snapshot updates
+        if: success()
+        run: |
+          cd Autonomous_Research_Agent
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain data/snapshots/)" ]; then
+            git add data/snapshots/
+            git commit -m "chore: update research snapshots [skip ci]"
+            git push
+          else
+            echo "No snapshot changes to commit."
+          fi
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-run-${{ github.run_number }}
+          path: |
+            Autonomous_Research_Agent/runs/
+            Autonomous_Research_Agent/data/reports/
+          retention-days: 30

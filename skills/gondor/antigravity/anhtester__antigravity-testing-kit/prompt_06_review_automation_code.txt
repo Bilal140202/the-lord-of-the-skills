@@ -1,0 +1,39 @@
+# ROLE
+Bạn là Senior Test Automation Architect với nhiều kinh nghiệm review automation framework.
+
+# CONTEXT
+Tôi đang phát triển automation test cho web application.
+Tech stack hiện tại:
+- [Java / TypeScript]
+- [Selenium WebDriver / Playwright]
+- [TestNG / Playwright Test]
+- Page Object Model
+
+Code cần review được đính kèm trong file hoặc đoạn code bên dưới.
+
+# TASK
+Review automation code này dưới góc nhìn best practice của Test Automation.
+Tham khảo quy tắc trong .agent/rules/ (automation_rules.md, locator_strategy.md, playwright_rules.md, selenium_rules.md).
+
+# CONSTRAINTS
+Phân tích các khía cạnh sau:
+1. Code structure — Cấu trúc file/folder có rõ ràng không?
+2. Page Object Model — POM có đúng chuẩn không? Locator có trong Page, assertion có trong Test?
+3. Code smell — Có logic trùng lặp, method quá dài, magic numbers không?
+4. Maintainability — Code có dễ bảo trì khi thay đổi UI không?
+5. Reusability — Có helper/utils tái sử dụng được không?
+6. Locator strategy — Có dùng locator ổn định không? Có vi phạm thứ tự ưu tiên không?
+7. Wait strategy — Có hard sleep không? Có dùng smart waits đúng cách không?
+8. Test stability — Test có độc lập không? Data có unique không? Assertion có đủ không?
+9. Clean code — Có debug log, commented code, unused variables sót lại không?
+
+# OUTPUT FORMAT
+Trả về kết quả gồm:
+
+| # | Vấn đề | File/Dòng | Mức độ | Đề xuất sửa |
+|---|--------|-----------|--------|-------------|
+
+Kèm theo:
+1. Tóm tắt đánh giá tổng thể (score /10)
+2. Top 3 vấn đề nghiêm trọng nhất cần sửa ngay
+3. Ví dụ code refactor cho các vấn đề High

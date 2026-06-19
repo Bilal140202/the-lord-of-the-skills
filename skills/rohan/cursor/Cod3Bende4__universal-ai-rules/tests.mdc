@@ -1,0 +1,16 @@
+---
+description: Testing standards and autonomous loops
+globs: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*", "**/__tests__/**/*", "**/*.test.js", "**/*.spec.js", "**/*.test.py", "**/test_*.py"]
+alwaysApply: false
+---
+
+# Testing Rules
+
+Read and follow ALL rules in `.ai-suite/phases/08-testing.md`.
+
+Key non-negotiable rules:
+- **Autonomous Test-Fix Loop**: If a test fails, autonomously read the error, propose a fix, and re-run up to 3 times before asking for human intervention.
+- Maintain the AAA pattern (Arrange, Act, Assert) strictly.
+- Never share mutable state between tests to prevent flaky tests.
+- Always include **Negative Testing** (tests specifically designed to fail on invalid input).
+- Tests must use meaningful, realistic mock data, not just "test1", "foo".

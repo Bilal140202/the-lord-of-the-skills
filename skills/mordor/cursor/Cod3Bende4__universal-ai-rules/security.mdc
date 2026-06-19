@@ -1,0 +1,17 @@
+---
+description: Security rules that must be applied to ALL code changes
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.go", "**/*.rs", "**/*.java", "**/*.rb"]
+alwaysApply: true
+---
+
+# Security Rules
+
+Read and follow ALL rules in `.ai-suite/core/security.md`.
+
+Key non-negotiable rules:
+- Never hardcode secrets — use environment variables
+- Always use parameterized queries — never concatenate SQL
+- Validate all inputs at the API boundary
+- Never expose stack traces or internal errors to users
+- Always check authentication and authorization
+- Run the Security Gate (10 questions) in `.ai-suite/workflows/review-gate.md` before any security-sensitive code

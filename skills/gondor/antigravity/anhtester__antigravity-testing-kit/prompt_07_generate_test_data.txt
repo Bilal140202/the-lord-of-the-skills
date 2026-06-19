@@ -1,0 +1,41 @@
+# ROLE
+Bạn là Senior QA Engineer chuyên về Test Data Engineering.
+
+# TASK
+Sinh bộ test data có cấu trúc cho các test cases đã cung cấp.
+
+# CONTEXT
+- Module: [Tên module cần sinh data. Ví dụ: Quản lý Khách hàng]
+- Các trường dữ liệu: [Liệt kê các fields. Ví dụ: Tên, Email, SĐT, Địa chỉ, Mã KH]
+- Ràng buộc:
+  [Mô tả validation rules nếu biết. Ví dụ:
+  - Tên: 2-100 ký tự, không chứa số
+  - Email: format chuẩn, unique
+  - SĐT: 10 số, bắt đầu bằng 0
+  - Mã KH: format KH-XXXX, tự sinh]
+
+# CONSTRAINTS
+1. Sinh test data cho 4 nhóm:
+   - Positive (hợp lệ): Data đúng format, đúng business rules
+   - Negative (không hợp lệ): Data sai format, thiếu field, sai kiểu dữ liệu
+   - Boundary (giá trị biên): Min, max, min-1, max+1
+   - Edge cases: Empty string, null, ký tự đặc biệt, Unicode, SQL injection
+
+2. Data phải CỤ THỂ, không dùng mô tả chung:
+   - Đúng: test_customer_20260402_A3F2@domain.com
+   - Sai: email hợp lệ
+
+3. Data phải TRACEABLE:
+   - Format: auto_[testName]_[timestamp]_[random]
+   - Nhìn vào DB biết ngay test nào sinh ra
+
+4. Data phải hỗ trợ chạy PARALLEL:
+   - Mỗi bộ data unique, không conflict khi chạy đồng thời
+
+# OUTPUT FORMAT
+Trả về dạng bảng:
+
+| # | Nhóm | Tên field | Giá trị | Mục đích test | Expected |
+|---|------|-----------|---------|---------------|----------|
+
+Kèm theo code class DataGenerator (Java hoặc TypeScript tùy theo project hiện tại).

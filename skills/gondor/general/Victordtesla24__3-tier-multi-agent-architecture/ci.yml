@@ -1,0 +1,102 @@
+name: Antigravity Architecture CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install uv and project dependencies
+        run: |
+          pip install uv
+          uv sync --all-extras
+
+      - name: Secret redaction gate (tracked files)
+        run: |
+          .venv/bin/python - <<'PY'
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          pattern = re.compile(r"(AIza[0-9A-Za-z_-]{20,}|sk-[A-Za-z0-9_-]{16,})")
+          allow_files = {".env.template"}
+          violations = []
+
+          for rel in tracked:
+              if rel in allow_files:
+                  continue
+              p = Path(rel)
+              if not p.exists() or p.is_dir():
+                  continue
+              text = p.read_text(encoding="utf-8", errors="ignore")
+              if pattern.search(text):
+                  violations.append(rel)
+
+          if violations:
+              print("Secret pattern violations detected:")
+              for item in violations:
+                  print(f" - {item}")
+              sys.exit(1)
+          print("Secret redaction gate passed.")
+          PY
+
+      - name: Validate Configuration Merger Atomic Safety
+        run: |
+          PYTHONPATH=src .venv/bin/python src/engine/config_manager.py .agent/tmp/mock_gemini.md
+
+      - name: Enforce No Duplicate Managed Content
+        run: |
+          PYTHONPATH=src .venv/bin/python scripts/enforce_no_duplicates.py
+
+      - name: Audit test collection (minimum count gate)
+        env:
+          GOOGLE_API_KEY: dummy
+          OPENAI_API_KEY: dummy
+          MINIMAX_API_KEY: dummy
+          DEEPSEEK_API_KEY: dummy
+          MINIMAX_BASE_URL: https://api.minimax.chat/v1
+          DEEPSEEK_BASE_URL: https://api.deepseek.com/v1
+        run: |
+          cd tests
+          PYTHONPATH=$GITHUB_WORKSPACE/src ../.venv/bin/python -m pytest \
+            test_architecture.py test_crewai_integration.py test_contracts.py test_cli_runtime.py test_e2e.py \
+            --collect-only -q -p no:cacheprovider > /tmp/collect.txt || true
+          COUNT=$(grep -c "::" /tmp/collect.txt || true)
+          if [ "$COUNT" -lt 10 ]; then
+            echo "Error: Expected at least 10 tests, collected $COUNT."
+            cat /tmp/collect.txt
+            exit 1
+          fi
+          echo "Test audit passed: $COUNT tests collected."
+
+      - name: Run unit and integration tests
+        env:
+          GOOGLE_API_KEY: dummy
+          OPENAI_API_KEY: dummy
+          MINIMAX_API_KEY: dummy
+          DEEPSEEK_API_KEY: dummy
+          MINIMAX_BASE_URL: https://api.minimax.chat/v1
+          DEEPSEEK_BASE_URL: https://api.deepseek.com/v1
+        run: |
+          cd tests
+          PYTHONPATH=$GITHUB_WORKSPACE/src ../.venv/bin/python -m pytest \
+            test_architecture.py test_crewai_integration.py test_contracts.py test_cli_runtime.py test_e2e.py \
+            -v -p no:cacheprovider
+
+      - name: Build Docker Image
+        run: |
+          docker build -t antigravity-engine:latest .

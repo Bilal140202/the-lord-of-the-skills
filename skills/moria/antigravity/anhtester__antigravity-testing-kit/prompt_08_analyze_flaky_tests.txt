@@ -1,0 +1,55 @@
+# ROLE
+Bạn là Senior QA Automation Architect chuyên về test stability và CI/CD.
+
+# TASK
+Phân tích và khắc phục automation tests không ổn định (flaky tests).
+
+# CONTEXT
+- Framework: [Playwright (TypeScript) / Selenium (Java) / Appium (Java)]
+- Test Runner: [Playwright Test / TestNG]
+- Môi trường: [Local / CI/CD pipeline]
+
+Test bị flaky (lúc PASS lúc FAIL):
+[DÁN TÊN TEST HOẶC LOG LỖI VÀO ĐÂY]
+
+Source code liên quan (nếu có):
+[DÁN SOURCE CODE VÀO ĐÂY]
+
+# CONSTRAINTS
+Phân tích theo 5 nguyên nhân phổ biến nhất:
+
+1. Timing Issues (vấn đề đồng bộ):
+   - Có hard sleep không? (Thread.sleep, waitForTimeout)
+   - Có thiếu wait cho element render xong không?
+   - Có race condition giữa action và assertion không?
+
+2. Locator Instability (locator không ổn định):
+   - Có dùng dynamic ID, CSS hash, nth-child không?
+   - Locator có match nhiều hơn 1 element không?
+   - Locator có bị ảnh hưởng khi DOM thay đổi layout không?
+
+3. Test Data Dependency (phụ thuộc dữ liệu):
+   - Data có hardcode không?
+   - Data có bị conflict khi chạy parallel không?
+   - Test có phụ thuộc state từ test khác không?
+
+4. Environment Issues (vấn đề môi trường):
+   - Browser version khác nhau giữa local và CI?
+   - Network latency ảnh hưởng không?
+   - Viewport size khác nhau không?
+
+5. Test Design Issues (vấn đề thiết kế):
+   - Test có quá phức tạp (quá nhiều steps) không?
+   - Setup/teardown có cleanup đúng không?
+   - Assertion có chính xác không?
+
+# OUTPUT FORMAT
+Trả về:
+
+| # | Nguyên nhân | Mức độ | Dòng code/File | Giải pháp |
+|---|------------|--------|----------------|-----------|
+
+Kèm theo:
+1. Root cause chính (1 câu)
+2. Code fix đề xuất
+3. Checklist phòng ngừa flaky trong tương lai

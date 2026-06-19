@@ -1,0 +1,58 @@
+name: Dependency security audit
+
+# Why this exists: issue #91 — vulnerable runtime deps (concurrently→shell-quote,
+# next 16.2.4) were merged because nobody ran `npm audit` before shipping the
+# remote-access feature. This gate runs that check automatically on every PR and
+# push, so audit regressions in any of the three npm packages fail CI instead of
+# reaching main. Lockfiles are gitignored here, so we `npm install` (not `npm ci`)
+# to resolve a fresh tree exactly like a new contributor would.
+
+on:
+  pull_request:
+    paths:
+      - "package.json"
+      - "frontend/package.json"
+      - "website/package.json"
+      - ".github/workflows/security-audit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "package.json"
+      - "frontend/package.json"
+      - "website/package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - "."          # root CLI package
+          - "frontend"   # dashboard (exposed in remote mode)
+          - "website"    # public marketing site (GitHub Pages)
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      - name: Resolve dependency tree (no lockfile committed)
+        working-directory: ${{ matrix.package }}
+        run: npm install --package-lock-only
+
+      # Runtime deps are the real exposed surface — fail the build on any
+      # high/critical there. Dev-only advisories are reported but non-blocking.
+      - name: Audit runtime dependencies (blocking)
+        working-directory: ${{ matrix.package }}
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit full tree incl. devDependencies (advisory only)
+        working-directory: ${{ matrix.package }}
+        run: npm audit --audit-level=high || true

@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Compile scripts
+        run: |
+          python3 -m py_compile \
+            plugins/codex-fable5/skills/codex-fable5/scripts/codex_fable_state.py \
+            plugins/codex-fable5/skills/codex-fable5/scripts/codex_findings.py \
+            plugins/codex-fable5/skills/codex-fable5/scripts/codex_goals.py \
+            plugins/codex-fable5/skills/codex-fable5/scripts/fable_coverage.py \
+            plugins/codex-fable5/skills/codex-fable5/scripts/make_litellm_config.py \
+            tests/*.py
+          sh -n plugins/codex-fable5/bin/codex-fable5
+          sh -n plugins/codex-fable5/bin/codex-findings
+          sh -n plugins/codex-fable5/bin/codex-goals
+
+      - name: Fetch pinned FABLE-5 source
+        run: |
+          set -euo pipefail
+          mkdir -p build/fable5
+          # The pin lives in the coverage matrix's preamble. Hardcode the
+          # commit SHA from the matrix's source note for explicit traceability.
+          PIN="dc626fed52b06d687cdc812d51090c95ed03d575"
+          curl -fsSL \
+            "https://raw.githubusercontent.com/elder-plinius/CL4R1T4S/${PIN}/ANTHROPIC/CLAUDE-FABLE-5.md" \
+            -o build/fable5/CLAUDE-FABLE-5.md
+          # Sanity check: file must contain a Fable 5 marker.
+          grep -q "Fable 5" build/fable5/CLAUDE-FABLE-5.md \
+            || { echo "::error::Pinned FABLE-5 source did not contain 'Fable 5' marker"; exit 1; }
+          echo "Fetched pinned FABLE-5 source at ${PIN}: $(wc -l < build/fable5/CLAUDE-FABLE-5.md) lines"
+
+      - name: Validate coverage matrix
+        run: python3 plugins/codex-fable5/skills/codex-fable5/scripts/fable_coverage.py --source build/fable5/CLAUDE-FABLE-5.md

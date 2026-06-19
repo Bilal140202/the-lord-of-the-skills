@@ -1,0 +1,47 @@
+name: Release Sidebar Helper
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  linux-x86_64:
+    name: Linux x86_64 sidebar helper
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test sidebar crate
+        run: cargo test --manifest-path tools/ccb-agent-sidebar/Cargo.toml
+
+      - name: Build release sidebar helper
+        run: bin/build-ccb-agent-sidebar
+
+      - name: Stage artifact
+        run: bin/package-ccb-agent-sidebar-release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccb-agent-sidebar-linux-x86_64
+          path: |
+            dist/ccb-agent-sidebar-linux-x86_64.tar.gz
+            dist/ccb-agent-sidebar-linux-x86_64.tar.gz.sha256
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/ccb-agent-sidebar-linux-x86_64.tar.gz
+            dist/ccb-agent-sidebar-linux-x86_64.tar.gz.sha256

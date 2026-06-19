@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Clauge Website
+    url: https://clauge.in
+    about: Product overview, changelog, and downloads.
+  - name: Email Support
+    url: mailto:support@clauge.in
+    about: For private, security, or licensing questions (please use a bug report for everything else so the community can search it).
+  - name: X / Twitter
+    url: https://x.com/clauge_in
+    about: Release notes and informal updates.

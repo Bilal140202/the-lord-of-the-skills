@@ -1,0 +1,16 @@
+---
+description: API design, validation, and backend routing standards
+globs: ["**/api/**/*", "**/routes/**/*", "**/controllers/**/*", "**/*Controller.*", "**/*Router.*", "**/handlers/**/*"]
+alwaysApply: false
+---
+
+# API Rules
+
+Read and follow ALL rules in `.ai-suite/phases/05-api-design.md` and `.ai-suite/phases/07-backend.md`.
+
+Key non-negotiable rules:
+- **Negative Testing Focus**: New API endpoints must include negative tests to verify error handling.
+- Enforce strict input validation at the API boundary before any processing.
+- Never expose internal system details, stack traces, or raw database structures in API responses.
+- Follow strict REST naming conventions (resource-based URLs, plural nouns).
+- Include comprehensive docstrings/JSDoc and OpenAPI (Swagger) representations where applicable.

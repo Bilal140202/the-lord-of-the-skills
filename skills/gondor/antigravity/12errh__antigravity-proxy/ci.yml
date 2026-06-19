@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }} / Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false   # show all platform failures, not just the first
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['20', '22', '24']
+
+    defaults:
+      run:
+        working-directory: proxy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: proxy/package-lock.json
+
+      - name: Install dependencies
+        if: runner.os != 'Windows'
+        run: npm ci
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: npm ci --ignore-scripts
+        continue-on-error: false
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build (compiled output)
+        run: npm run build
+
+      - name: Generate TLS certificates
+        run: node scripts/gen-certs.mjs
+
+      - name: Verify certs exist
+        shell: bash
+        run: |
+          test -f certs/cert.pem || (echo "cert.pem missing" && exit 1)
+          test -f certs/key.pem  || (echo "key.pem missing"  && exit 1)
+          echo "Certs generated successfully"

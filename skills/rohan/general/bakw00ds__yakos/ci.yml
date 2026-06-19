@@ -1,0 +1,194 @@
+name: CI
+
+# YakOS framework CI. Runs on every PR + every push to main.
+# Jobs are cheap and fail fast: shellcheck, validate, fixture suite.
+# Heavier integration tests (init/install/doctor/uninstall flow) run
+# on a single Linux runner — adding macOS doubles cost without proving
+# much given v0.1's bash 3.2 floor is the binding constraint.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install shellcheck
+        run: sudo apt-get update -y && sudo apt-get install -y shellcheck
+      - name: Lint shell scripts
+        run: |
+          # Lint hand-authored scripts under cli/, lib/hooks/, lib/skills/,
+          # tests/, and the top-level scripts/ installers.
+          # scripts/hooks/ is excluded: those are generated/deployed copies of
+          # lib/hooks/ (the source of truth); linting generated artifacts would
+          # produce spurious failures on every refresh cycle.
+          # Use SC1091 disable for sourced files we don't have on the
+          # ubuntu runner's path.
+          set -e
+          # shellcheck source=/dev/null
+          find cli lib/hooks lib/skills tests scripts -type f -name '*.sh' \
+            -not -name '*.framework-hash' \
+            -not -path 'scripts/hooks/*' \
+            -print0 \
+            | xargs -0 shellcheck -S warning -e SC1091 -x
+
+  validate:
+    name: yakos validate (framework)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install jq + python3
+        run: sudo apt-get update -y && sudo apt-get install -y jq python3
+      - name: Run yakos validate
+        run: |
+          ./cli/yakos validate
+          # Fail if any error-level findings (warnings are OK in v0.2.x)
+          ./cli/yakos validate 2>&1 | grep -E '^Summary:' | grep -E '0 error\(s\)'
+
+  fixture-suite:
+    name: pre-push gate fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Run version-gate fixture runner
+        run: |
+          ./tests/run-version-gate-fixtures.sh
+
+  runtime-fixtures:
+    name: runtime adapter fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install jq + python3
+        run: sudo apt-get update -y && sudo apt-get install -y jq python3
+      - name: Run runtime fixture suite
+        run: |
+          ./tests/run-runtime-fixtures.sh
+
+  hook-fixtures:
+    name: hook fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+      - name: Run hook fixture suite
+        run: |
+          ./tests/run-hook-fixtures.sh
+
+  e2e:
+    name: end-to-end smoke (every subcommand)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install jq + python3
+        run: sudo apt-get update -y && sudo apt-get install -y jq python3
+      - name: Run e2e
+        env:
+          ORIG_HOME: ${{ github.workspace }}
+        run: |
+          ./tests/run-e2e.sh
+
+  multi-dev-e2e:
+    name: multi-dev coord e2e (concurrent processes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install jq + python3
+        run: sudo apt-get update -y && sudo apt-get install -y jq python3
+      - name: Run multi-dev e2e (Plan 1)
+        run: |
+          ./tests/run-multi-dev-e2e.sh
+
+  supervisor-e2e:
+    name: supervisor live-shadow agent e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install jq + python3
+        run: sudo apt-get update -y && sudo apt-get install -y jq python3
+      - name: Run supervisor e2e (Plan v0.33)
+        run: |
+          ./tests/run-supervisor-e2e.sh
+
+  install-flow:
+    name: install / init / doctor / uninstall (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+      - name: Install jq + python3
+        run: sudo apt-get update -y && sudo apt-get install -y jq python3
+      - name: yakos install (against the runner's $HOME)
+        run: |
+          ./cli/yakos install
+      - name: yakos doctor
+        run: |
+          ./cli/yakos doctor
+      - name: bootstrap a throwaway project
+        run: |
+          set -e
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          git init -q -b main
+          git config user.email ci@yakos.test
+          git config user.name "yakos-ci"
+          echo "0.1.0.0" > VERSION
+          echo "# probe" > README.md
+          git add . && git commit -qm initial
+          cd "$GITHUB_WORKSPACE"
+          ./cli/yakos init smoketest --project "$tmp" --with-gate
+          ./cli/yakos doctor "$tmp"
+          ./cli/yakos validate "$tmp"
+          # Confirm pre-push gate landed
+          test -x "$tmp/.git/hooks/pre-push"
+          test -f "$tmp/.git/hooks/pre-push.framework-hash"
+      - name: yakos auth status (per-runtime probe)
+        run: |
+          out="$(./cli/yakos auth status 2>&1)"
+          echo "$out"
+          # Should always print all known runtimes (even if uninstalled)
+          echo "$out" | grep -qE '^  claude'
+          echo "$out" | grep -qE '^  codex'
+          echo "$out" | grep -qE '^  gemini'
+      - name: yakos start --runtime codex --dry-run (always works without codex installed)
+        run: |
+          set -e
+          # Dry-run does not require the codex binary.
+          out="$(./cli/yakos start smoketest --runtime codex --dry-run 2>&1)"
+          echo "$out"
+          echo "$out" | grep -qE '^  runtime:[[:space:]]+codex'
+          echo "$out" | grep -qE 'codex --add-dir'
+          echo "$out" | grep -qE 'dangerously-bypass-approvals-and-sandbox'
+      - name: yakos start --dry-run (verify launcher composes valid cmd)
+        run: |
+          set -e
+          # --dry-run prints the command without exec'ing claude.
+          out="$(./cli/yakos start smoketest --dry-run 2>&1)"
+          echo "$out"
+          # Banner sanity
+          echo "$out" | grep -qE '^  project:[[:space:]]+smoketest$'
+          echo "$out" | grep -qE '^  permission:[[:space:]]+bypassPermissions$'
+          echo "$out" | grep -qE '^  agents:[[:space:]]+[0-9]+ registered'
+          # Composed command sanity — must include the four key flags
+          echo "$out" | grep -qE '\-\-add-dir'
+          echo "$out" | grep -qE '\-\-permission-mode bypassPermissions'
+          echo "$out" | grep -qE '\-\-agents'
+          # --safe path swaps permission mode
+          out_safe="$(./cli/yakos start smoketest --dry-run --safe 2>&1)"
+          echo "$out_safe" | grep -qE '^  permission:[[:space:]]+default$'
+          # --print-agents emits valid JSON
+          ./cli/yakos start smoketest --print-agents | jq -e 'type == "object" and (length > 0)'
+          # Doctor projection includes addressable agent list
+          # $tmp is not available cross-step; read path from the control dir.
+          proj_path="$(head -1 "$HOME/agent-control/smoketest/.project-path")"
+          ./cli/yakos doctor "$proj_path" --probe-runtime 2>&1 \
+            | grep -qE 'would inject [0-9]+ agent\(s\)'
+      - name: yakos uninstall
+        run: |
+          ./cli/yakos uninstall

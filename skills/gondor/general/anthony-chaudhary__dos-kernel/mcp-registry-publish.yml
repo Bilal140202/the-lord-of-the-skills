@@ -1,0 +1,112 @@
+name: Publish to MCP Registry
+
+# Publishes the repo-root `server.json` to the official MCP Registry
+# (registry.modelcontextprotocol.io) via **GitHub Actions OIDC** — no stored
+# token, no interactive device-flow login. The OIDC identity grants the
+# `io.github.anthony-chaudhary/*` namespace, which is exactly what server.json
+# names. Aggregators (PulseMCP, Glama, …) ingest from the official registry, so
+# this one publish fans out to the downstream directories.
+#
+# Standalone manual re-dispatch path. As of #138 the registry refresh ALSO runs
+# automatically as the `publish-mcp-registry` job at the tail of publish.yml,
+# right after a successful PyPI publish (same OIDC login, same fail-closed
+# preflight), so the registry no longer drifts behind PyPI on a normal release.
+# This workflow remains for the manual case: re-publishing after a registry-side
+# hiccup, or refreshing a version that was released before the chaining landed.
+#
+# WHY manual here (workflow_dispatch): the registry validates the PyPI package
+# named in server.json by fetching the README of the EXACT pinned version and
+# looking for the `mcp-name: io.github.anthony-chaudhary/dos-kernel` marker —
+# so a publish is only valid AFTER that version is live on PyPI (the publish.yml
+# pipeline + its human-approved `pypi` environment gate). The chained job in
+# publish.yml satisfies that ordering by construction (it `needs: publish-pypi`);
+# a manual dispatch satisfies it by you running it once the version is live.
+#
+# Keeping server.json fresh: its two `version` fields must match the released
+# package version — `scripts/release_bump.py` does NOT yet know about
+# server.json, so bump it by hand (or teach the bumper) when cutting a release
+# you intend to publish to the registry. The preflight below refuses loudly on
+# a version that pyproject disagrees with or that PyPI does not serve yet.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write # the OIDC token mint — REQUIRED for `mcp-publisher login github-oidc`
+
+jobs:
+  publish:
+    name: validate, preflight & publish
+    # Same repo guard as publish.yml: the OIDC namespace is bound to this repo's
+    # owner, so a run from any fork could only fail noisily at login. Skip it.
+    if: github.repository == 'anthony-chaudhary/dos-kernel'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher --version
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Preflight — pinned version is real, released, and marker-bearing
+        run: |
+          set -euo pipefail
+          v_server="$(jq -r '.version' server.json)"
+          v_pkg="$(jq -r '.packages[0].version' server.json)"
+          v_py="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          echo "server.json: $v_server / package pin: $v_pkg / pyproject: $v_py"
+          if [ "$v_server" != "$v_pkg" ] || [ "$v_server" != "$v_py" ]; then
+            echo "::error::version skew — server.json ($v_server/$v_pkg) vs pyproject ($v_py). Bump server.json to the released version first."
+            exit 1
+          fi
+          # The registry's own validator will fetch this same PyPI JSON; do the
+          # read-back FIRST so a too-early dispatch fails with a clear message
+          # instead of a registry-side validation error.
+          if ! curl -fsS "https://pypi.org/pypi/dos-kernel/$v_pkg/json" -o pypi.json; then
+            echo "::error::dos-kernel==$v_pkg is not on PyPI yet — approve/finish the publish.yml run for v$v_pkg, then re-dispatch this workflow."
+            exit 1
+          fi
+          if ! jq -r '.info.description' pypi.json | grep -qF 'mcp-name: io.github.anthony-chaudhary/dos-kernel'; then
+            echo "::error::the PyPI README of dos-kernel==$v_pkg lacks the 'mcp-name:' ownership marker — the registry will refuse. Re-cut a release whose README carries it."
+            exit 1
+          fi
+          echo "preflight green: dos-kernel==$v_pkg is live on PyPI and carries the ownership marker."
+
+      - name: Login (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish (idempotent — a duplicate version is already-published, not a failure)
+        run: |
+          set -uo pipefail
+          # The registry rejects a re-publish of an existing version with a 400
+          # "cannot publish duplicate version". When re-dispatched for a version
+          # already live, that is success — the read-back is the real verdict.
+          out="$(./mcp-publisher publish 2>&1)"; rc=$?
+          echo "$out"
+          if [ $rc -ne 0 ]; then
+            if echo "$out" | grep -qiE "duplicate version|already exists"; then
+              echo "::notice::version already on the registry — already-published; the read-back confirms."
+            else
+              echo "::error::registry publish failed for a non-duplicate reason."
+              exit $rc
+            fi
+          fi
+
+      - name: Read back the published server from the registry (the verdict)
+        run: |
+          set -euo pipefail
+          v="$(jq -r '.version' server.json)"
+          # Don't believe the publish step — read the record back out of the
+          # registry it claims to be in. The registry serving this version is
+          # what makes the run green, whether this dispatch published it or not.
+          curl -fsS "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.anthony-chaudhary%2Fdos-kernel/versions/$v" -o readback.json
+          jq -e --arg v "$v" '.server.version == $v' readback.json >/dev/null
+          echo "registry read-back: io.github.anthony-chaudhary/dos-kernel@$v is live." >> "$GITHUB_STEP_SUMMARY"
+          jq . readback.json

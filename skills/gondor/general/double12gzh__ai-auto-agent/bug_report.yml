@@ -1,0 +1,118 @@
+name: '🐛 Bug Report / 问题报告'
+description: 'Report a bug in AI Auto Agent / 报告一个 Bug'
+title: '[Bug]: '
+labels: ['bug', 'triage']
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Thank you for reporting a bug! Please fill out the following information as completely as possible to help us quickly locate the issue.
+              感谢你提交 Bug 报告！请尽可能完整地填写以下信息，以便我们快速定位问题。
+
+    - type: dropdown
+      id: issue-type
+      attributes:
+          label: 问题类型 / Issue Type
+          description: 请选择最接近的问题类型 / Please select the type that best describes the issue
+          options:
+              - '自动重试逻辑 (Auto Retry / Infinite Loop)'
+              - '模型轮换策略 (Model Rotation / Quota Exhausted)'
+              - 'DOM 监控机制 (DOM Observer / Script Injection)'
+              - 'UI / Dashboard 面板'
+              - '配置不生效 (Configuration Issue)'
+              - '自动接受修改 (Auto Accept Edits/Terminal)'
+              - '其他 (Other)'
+      validations:
+          required: true
+
+    - type: input
+      id: extension-version
+      attributes:
+          label: 扩展版本 / Extension Version
+          description: 'AI Auto Agent 扩展版本号（在扩展面板或 Dashboard 中可以看到） / AI Auto Agent extension version (can be found in the extension panel or Dashboard)'
+          placeholder: 'e.g. 1.0.0'
+      validations:
+          required: true
+
+    - type: input
+      id: vscode-version
+      attributes:
+          label: IDE 版本 / IDE Version
+          description: 'Cursor / Windsurf / VS Code 版本号（Help → About） / Version of Cursor / Windsurf / VS Code (Help → About)'
+          placeholder: 'e.g. Cursor 0.50.0'
+      validations:
+          required: true
+
+    - type: input
+      id: os-info
+      attributes:
+          label: 操作系统 / OS Info
+          description: '本地机器的操作系统及架构 / Operating system and architecture of your local machine'
+          placeholder: 'e.g. macOS 15.4 (arm64)'
+      validations:
+          required: true
+
+    - type: textarea
+      id: description
+      attributes:
+          label: 问题描述 / Bug Description
+          description: 清晰地描述你遇到的问题 / A clear and concise description of what the bug is
+          placeholder: '描述你遇到了什么问题，以及你期望的行为是什么... / Describe the problem you encountered and what you expected to happen...'
+      validations:
+          required: true
+
+    - type: textarea
+      id: steps-to-reproduce
+      attributes:
+          label: 复现步骤 / Steps To Reproduce
+          description: 请提供能够复现问题的详细步骤 / Steps to reproduce the behavior
+          placeholder: |
+              1. 打开 AI Auto Agent 并启用 Auto Retry / Open AI Auto Agent and enable Auto Retry
+              2. 触发一次模型失败 / Trigger a model failure
+              3. Agent 面板报错，但扩展没有自动重试... / The Agent panel shows an error, but the extension does not auto-retry...
+      validations:
+          required: true
+
+    - type: textarea
+      id: plugin-config
+      attributes:
+          label: 插件配置 / Extension Config
+          description: |
+              请提供你的 AI Auto Agent 配置（在 VS Code Settings 中搜索 `ai-auto-agent`）。
+              Please provide your AI Auto Agent configuration (search for `ai-auto-agent` in VS Code Settings).
+          placeholder: |
+              ai-auto-agent.enabled: true
+              ai-auto-agent.autoRetry: true
+              ai-auto-agent.cdpPort: 9333
+              ai-auto-agent.modelRotation: true
+          render: text
+      validations:
+          required: false
+
+    - type: textarea
+      id: logs
+      attributes:
+          label: 日志输出 / Logs
+          description: |
+              请提供相关的报错日志或开发者工具 Console 的输出（Help -> Toggle Developer Tools）。
+              Please provide relevant error logs or output from the Developer Tools Console (Help -> Toggle Developer Tools).
+          placeholder: '粘贴日志内容... / Paste logs here...'
+          render: text
+      validations:
+          required: false
+
+    - type: textarea
+      id: additional-context
+      attributes:
+          label: 补充信息 / Additional context
+          description: 其他有助于定位问题的信息（截图、报错界面等） / Add any other context about the problem here (screenshots, error UI, etc.)
+      validations:
+          required: false
+
+    - type: checkboxes
+      id: checklist
+      attributes:
+          label: 提交前检查 / Pre-submission Checklist
+          options:
+              - label: '我已搜索过 [现有 Issues](https://github.com/double12gzh/ai-auto-agent/issues)，没有找到类似的问题 / I have searched the [existing issues](https://github.com/double12gzh/ai-auto-agent/issues) and found no similar problem'
+                required: true

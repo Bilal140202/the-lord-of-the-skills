@@ -1,0 +1,176 @@
+name: Build (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Tag to check out and build from (e.g. v1.0.1 or v1.0.1-nightly.202605160530)"
+        required: true
+        type: string
+      channel:
+        description: "Lightcode release channel (stable | nightly)"
+        required: true
+        type: string
+      sentry_environment:
+        description: "Value to send as SENTRY_ENVIRONMENT"
+        required: false
+        type: string
+        default: production
+    secrets:
+      MAC_CSC_LINK:
+        required: false
+      MAC_CSC_KEY_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_APP_SPECIFIC_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      SENTRY_AUTH_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: dist-windows
+            platform: win
+          - os: ubuntu-latest
+            artifact: dist-linux
+            platform: linux
+          - os: macos-latest
+            artifact: dist-mac
+            platform: mac
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Cache Electron binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          # The packaging pipeline never launches Electron from the project's
+          # node_modules: `pnpm run build` only bundles, and packaging runs
+          # electron-builder in a clean staging dir that fetches its own Electron
+          # dist. The root postinstall's enforced Chromium download is therefore
+          # dead weight here, and its flaky/partial extractions (which exit 0 yet
+          # leave no usable binary) intermittently fail the build. Skip it; the
+          # other native deps (node-pty, better-sqlite3) are still verified.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+      - name: Build app
+        run: pnpm run build
+        shell: bash
+        env:
+          LIGHTCODE_CHANNEL: ${{ inputs.channel }}
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+          SENTRY_ENVIRONMENT: ${{ inputs.sentry_environment }}
+          POSTHOG_ENABLED: ${{ vars.POSTHOG_ENABLED || '1' }}
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST || 'https://us.i.posthog.com' }}
+          POSTHOG_ENABLE_DEV: "0"
+
+      - name: Upload Sentry source maps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Local `pnpm run dist` cleans source maps before packaging. Release CI
+          # uploads them from the build output first, then removes them below.
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "Sentry secrets are not configured; skipping source map upload."
+            exit 0
+          fi
+          pnpm run sentry:sourcemaps
+        shell: bash
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+
+      - name: Remove packaged source maps
+        run: pnpm run clean:sourcemaps
+        shell: bash
+
+      - name: Package Windows/Linux
+        if: matrix.os != 'macos-latest'
+        run: |
+          pnpm run prepare:package-assets
+          node scripts/build-desktop-artifact.mjs --platform "${{ matrix.platform }}" --skip-build
+        shell: bash
+        env:
+          LIGHTCODE_CHANNEL: ${{ inputs.channel }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Package macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          pnpm run prepare:package-assets
+          node scripts/build-desktop-artifact.mjs --platform mac --skip-build
+        shell: bash
+        env:
+          LIGHTCODE_CHANNEL: ${{ inputs.channel }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS Developer ID signing (base64-encoded .p12 + password).
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          # macOS notarization via Apple ID + app-specific password.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify macOS app bundle
+        if: matrix.os == 'macos-latest'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(release/mac*/Lightcode*.app)
+          if [ "${#apps[@]}" -eq 0 ]; then
+            echo "::error::No packaged macOS app bundles found under release/mac*."
+            exit 1
+          fi
+          for app in "${apps[@]}"; do
+            codesign --verify --deep --strict --verbose=4 "$app"
+          done
+        shell: bash
+
+      - name: Upload built artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            release/Lightcode-*.exe
+            release/Lightcode-*.dmg
+            release/Lightcode-*.zip
+            release/Lightcode-*.AppImage
+            release/Lightcode-*.deb
+            release/latest*.yml
+            release/nightly*.yml
+            release/*.blockmap
+          if-no-files-found: error
+          retention-days: 7

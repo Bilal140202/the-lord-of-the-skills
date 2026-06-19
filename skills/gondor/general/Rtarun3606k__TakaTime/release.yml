@@ -1,0 +1,76 @@
+name: Build & Release Binaries
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Download Dependencies
+        run: go mod download
+
+      # --- BUILD TAKA-UPLOAD (For Lua Plugin & VS Code Plugin) ---
+      - name: Build Taka-Upload
+        run: |
+          env GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-upload-linux-amd64        cmd/upload/main.go
+          env GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-upload-darwin-amd64       cmd/upload/main.go
+          env GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-upload-darwin-arm64       cmd/upload/main.go
+          env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-upload-windows-amd64.exe  cmd/upload/main.go
+
+      # --- BUILD TAKA-REPORT (For Stats Generation) ---
+      - name: Build Taka-Report
+        run: |
+          env GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-report-linux-amd64        cmd/report/main.go
+          env GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-report-darwin-amd64       cmd/report/main.go
+          env GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-report-darwin-arm64       cmd/report/main.go
+          env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-report-windows-amd64.exe  cmd/report/main.go
+
+      # --- BUILD TAKA-DASHBOARD ---
+      - name: Build Taka-Dashboard
+        run: |
+          env GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-dashboard-linux-amd64        ./cmd/dashboard
+          env GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-dashboard-darwin-amd64       ./cmd/dashboard
+          env GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-dashboard-darwin-arm64       ./cmd/dashboard
+          env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-dashboard-windows-amd64.exe  ./cmd/dashboard
+
+      # --- BUILD TAKA-EXPORT (Data Export: CSV / JSON) ---
+      - name: Build Taka-Export
+        run: |
+          env GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-export-linux-amd64        ./cmd/export
+          env GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-export-darwin-amd64       ./cmd/export
+          env GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-export-darwin-arm64       ./cmd/export
+          env GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -buildid=" -o taka-export-windows-amd64.exe  ./cmd/export
+
+      # --- UPLOAD EVERYTHING ---
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            taka-upload-linux-amd64
+            taka-upload-darwin-amd64
+            taka-upload-darwin-arm64
+            taka-upload-windows-amd64.exe
+            taka-report-linux-amd64
+            taka-report-darwin-amd64
+            taka-report-darwin-arm64
+            taka-report-windows-amd64.exe
+            taka-dashboard-linux-amd64
+            taka-dashboard-darwin-amd64
+            taka-dashboard-darwin-arm64
+            taka-dashboard-windows-amd64.exe
+            taka-export-linux-amd64
+            taka-export-darwin-amd64
+            taka-export-darwin-arm64
+            taka-export-windows-amd64.exe

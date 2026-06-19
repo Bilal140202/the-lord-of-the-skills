@@ -1,0 +1,28 @@
+name: Sync Antigravity Rules
+on:
+  push:
+    paths:
+      - '.cursor/rules/**' # Запускать только если изменились правила Cursor
+      - 'sync_rules.py'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Нужны права на запись в репо
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          
+      - name: Run Sync Script
+        run: python sync_rules.py
+        
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 Auto-sync: Update Antigravity rules from Cursor definitions"
+          file_pattern: '.agent/rules/*.md'

@@ -1,0 +1,118 @@
+# Data Science / ML — AI Dev Config Toolkit
+
+You are an expert data scientist and machine learning engineer. Follow these rules strictly.
+
+## Project Conventions
+- Python 3.11+ with scientific stack (NumPy, Pandas, Scikit-learn)
+- Project layout: `data/`, `notebooks/`, `src/`, `models/`, `reports/`
+- Environment: conda or venv with pinned dependencies
+- Reproducibility: Set random seeds, version control data and models
+- Documentation: README with problem statement, methodology, results
+
+## Notebook Best Practices
+- Use Jupyter notebooks for exploration, Python modules for production code
+- Clear markdown headers for each section (Problem, EDA, Modeling, Results)
+- One logical step per cell — avoid huge cells with multiple operations
+- Restart kernel and run all cells before sharing notebooks
+- Keep notebooks under version control (use nbstripout to remove outputs)
+
+## Data Handling
+- Store raw data in `data/raw/`, processed in `data/processed/`
+- Never modify raw data — create transformed versions
+- Document data sources, collection date, and any preprocessing
+- Use Pandas for tabular data, Polars for large datasets
+- Validate data schema and handle missing values explicitly
+
+## Exploratory Data Analysis
+- Start with data.info(), data.describe(), data.head()
+- Check for missing values, outliers, data types
+- Visualize distributions, correlations, relationships
+- Document insights and assumptions in markdown cells
+- Use seaborn/matplotlib for static plots, plotly for interactive
+
+## Feature Engineering
+- Create features in reproducible pipeline (sklearn.pipeline or custom)
+- One-hot encode categorical variables, scale numerical features
+- Handle missing values with imputation or flagging
+- Avoid data leakage — split data BEFORE feature engineering
+- Document feature creation logic for production use
+
+## Model Training
+- Split data: train/validation/test (e.g., 70/15/15)
+- Set random seed for reproducibility: `np.random.seed(42)`
+- Start with simple baseline model (mean, median, linear regression)
+- Use cross-validation for hyperparameter tuning
+- Track experiments with MLflow, Weights & Biases, or similar
+
+## Model Evaluation
+- Use appropriate metrics: classification (accuracy, F1, ROC-AUC), regression (MAE, RMSE, R²)
+- Evaluate on held-out test set (never on training data)
+- Visualize confusion matrix for classification, residuals for regression
+- Check for overfitting (compare train vs validation metrics)
+- Document model performance and limitations
+
+## Code Organization
+- Extract reusable code from notebooks to `src/` modules
+- Create functions for data loading, preprocessing, training, evaluation
+- Use type hints: `def train_model(X: pd.DataFrame, y: pd.Series) -> Model`
+- Write unit tests for data transformations and utility functions
+- Use logging instead of print statements in production code
+
+## Version Control
+- Track notebooks, source code, and configs with git
+- Use DVC (Data Version Control) for large datasets and models
+- Commit frequently with descriptive messages
+- Use .gitignore for data files, model artifacts, __pycache__
+- Use nbstripout to remove notebook outputs before committing
+
+## Reproducibility
+- Pin dependencies: requirements.txt or environment.yml
+- Set random seeds for NumPy, pandas, scikit-learn, PyTorch/TensorFlow
+- Document Python version, library versions, OS
+- Use containerization (Docker) for complex environments
+- Save trained models with versioning (models/model_v1.pkl)
+
+## Deep Learning (PyTorch/TensorFlow)
+- Use DataLoaders for efficient batching
+- Normalize inputs, use appropriate activation functions
+- Monitor training with validation loss and early stopping
+- Save model checkpoints during training
+- Use GPU when available, fallback to CPU gracefully
+
+## Production Deployment
+- Extract model from notebook to standalone script
+- Create prediction API with FastAPI or Flask
+- Containerize with Docker for reproducibility
+- Monitor model performance in production (data drift, accuracy)
+- Version models and track which version is deployed
+
+## Common Data Issues
+- Imbalanced classes: use stratified sampling, class weights, SMOTE
+- Missing values: impute (mean/median/mode), flag, or drop
+- Outliers: visualize, understand, handle (cap, transform, remove)
+- High cardinality categoricals: target encoding, frequency encoding
+- Feature scaling: StandardScaler for normal, MinMaxScaler for bounded
+
+## Visualization
+- Use seaborn for statistical plots (distplot, boxplot, heatmap)
+- Use matplotlib for custom plots with clear labels and titles
+- Use plotly for interactive dashboards
+- Always label axes, add titles, and include legends
+- Use color palettes that are colorblind-friendly
+
+## Testing & Validation
+- Test data transformations with simple examples
+- Validate model predictions on known cases
+- Test for data leakage (should not happen)
+- Sanity check: does the model beat a baseline?
+- A/B test in production when possible
+
+## Common Mistakes to Avoid
+- Do NOT train on test data — always hold out test set
+- Do NOT skip data exploration — visualize before modeling
+- Do NOT ignore missing values — handle them explicitly
+- Do NOT forget to set random seeds — results must be reproducible
+- Do NOT use accuracy for imbalanced data — use F1, precision, recall
+- Do NOT leak future information (look-ahead bias in time series)
+- Do NOT skip baseline model — always compare against simple baseline
+- Do NOT commit large data files or models to git — use DVC or cloud storage

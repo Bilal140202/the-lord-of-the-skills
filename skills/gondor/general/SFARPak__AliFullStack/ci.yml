@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Initialize environment
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+      - name: Clean up
+        run: |
+          rm -rf node_modules
+          npm cache clean --force
+      - name: Install node modules
+        run: npm install --no-audit --no-fund --progress=false
+      - name: Presubmit check (e.g. lint, format)
+        run: npm run presubmit
+      - name: Type-checking
+        run: npm run ts
+      - name: Unit tests
+        run: npm run test
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      # Not strictly needed but makes the e2e tests faster (and less flaky)
+      - name: Install scaffold dependencies
+        run: cd scaffold && pnpm install
+      - name: Install scaffold-3d dependencies
+        run: cd scaffold-3d && pnpm install
+      - name: Install Chromium browser for Playwright
+        run: npx playwright install chromium --with-deps
+      - name: Build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: npm run pre:e2e
+      - name: Prep test server
+        run: cd testing/fake-llm-server && npm install && npm run build && cd -
+      - name: E2E tests
+        # You can add debug logging to make it easier to see what's failing
+        # by adding "DEBUG=pw:browser" in front.
+        run: DEBUG=pw:browser npx playwright test
+      - name: Upload test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results
+          path: test-results
+          retention-days: 1

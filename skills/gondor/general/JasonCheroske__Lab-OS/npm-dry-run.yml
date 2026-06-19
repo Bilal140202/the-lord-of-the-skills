@@ -1,0 +1,30 @@
+name: npm publish dry-run
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: npm-dry-run-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - name: Pack contents (dry-run)
+        run: npm publish --dry-run --access public

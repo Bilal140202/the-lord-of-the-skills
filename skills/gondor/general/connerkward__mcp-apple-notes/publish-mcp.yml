@@ -1,0 +1,80 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Publish mcp-apple-notes to the official MCP Registry as a .mcpb bundle.
+#
+# Cut a release by pushing a version tag:
+#     git tag v1.0.0
+#     git push origin v1.0.0
+#
+# On a `v*` tag this workflow:
+#   1. Builds the MCPB bundle  -> mcp-apple-notes.mcpb
+#   2. Computes its sha256 and injects it as packages[0].fileSha256 into a
+#      working copy of server.json (NOT committed — only used for the publish).
+#   3. Creates/updates the GitHub Release for the tag and attaches the .mcpb
+#      (server.json's packages[0].identifier points at this release asset URL).
+#   4. Publishes server.json to registry.modelcontextprotocol.io via the
+#      mcp-publisher CLI using GitHub OIDC (no stored secret needed).
+#
+# Runner is macOS because `bun install` triggers the package.json `postinstall`
+# (bun run build:ui + an `open` command) which only works on macOS, and the
+# server itself reads the local Apple Notes store on macOS.
+# ──────────────────────────────────────────────────────────────────────────────
+name: Publish to MCP Registry
+
+on:
+  push:
+    tags: ["v*"] # Triggers on version tags like v1.0.0
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    permissions:
+      id-token: write # Required for MCP Registry OIDC authentication (no secret)
+      contents: write # Required to create the GitHub Release and upload the .mcpb asset
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install MCPB packer
+        run: npm install -g @anthropic-ai/mcpb # VERIFY: pkg is @anthropic-ai/mcpb v2.1.2 (bin `mcpb`); @modelcontextprotocol/mcpb does NOT exist
+
+      - name: Validate manifest
+        run: mcpb validate manifest.json
+
+      - name: Pack MCPB bundle
+        run: mcpb pack . mcp-apple-notes.mcpb # mcpb pack <directory> [output]; filename keeps the required "mcp" substring
+
+      - name: Compute sha256 and inject fileSha256 into server.json
+        run: |
+          SHA=$(shasum -a 256 mcp-apple-notes.mcpb | awk '{print $1}')
+          echo "mcp-apple-notes.mcpb sha256=$SHA"
+          jq --arg sha "$SHA" '.packages[0].fileSha256 = $sha' server.json > server.tmp.json
+          mv server.tmp.json server.json
+          echo "----- server.json packages[0] -----"
+          jq '.packages[0]' server.json
+
+      - name: Create/Update GitHub Release and upload .mcpb
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mcp-apple-notes.mcpb
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install mcp-publisher CLI
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server to MCP Registry
+        run: ./mcp-publisher publish

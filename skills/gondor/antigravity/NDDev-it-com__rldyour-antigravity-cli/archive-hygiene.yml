@@ -1,0 +1,41 @@
+name: Archive hygiene
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: archive-hygiene-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  archive-hygiene:
+    name: Archive hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Check source archive
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          git archive --format=zip --prefix=rldyour-antigravity-cli/ -o dist/rldyour-antigravity-cli-source.zip HEAD
+          python3 - <<'PY'
+          import sys, zipfile
+          bad = ('.git/', '__MACOSX/', '.venv/', '.pytest_cache/', '.serena/cache/', '__pycache__/', 'node_modules/')
+          with zipfile.ZipFile('dist/rldyour-antigravity-cli-source.zip') as zf:
+              names = zf.namelist()
+          hits = [name for name in names if any(part in name for part in bad)]
+          if hits:
+              print('forbidden archive entries:', hits[:20], file=sys.stderr)
+              raise SystemExit(1)
+          print('ok: archive hygiene passed')
+          PY
+

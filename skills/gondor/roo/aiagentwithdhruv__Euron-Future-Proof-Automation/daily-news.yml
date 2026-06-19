@@ -1,0 +1,60 @@
+name: Daily AI News Digest
+
+# Runs every day at 9:00 AM UTC (2:30 PM IST)
+# Also has a manual trigger button for testing
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      top:
+        description: 'Number of top stories (default: 5)'
+        required: false
+        default: '5'
+      dry_run:
+        description: 'Dry run (skip Telegram send)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  send-news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd AI_News_Telegram_Bot
+          pip install -r requirements.txt
+
+      - name: Run AI News Pipeline
+        working-directory: AI_News_Telegram_Bot
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python main.py --top ${{ github.event.inputs.top || '5' }} --dry-run
+          else
+            python main.py --top ${{ github.event.inputs.top || '5' }}
+          fi
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          EURI_API_KEY: ${{ secrets.EURI_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-log-${{ github.run_number }}
+          path: AI_News_Telegram_Bot/runs/
+          retention-days: 30

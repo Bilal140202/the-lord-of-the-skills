@@ -1,0 +1,357 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest tomli
+
+      - name: Install tmux
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install tmux
+          else
+            sudo apt-get update
+            sudo apt-get install -y tmux
+          fi
+
+      - name: Syntax check
+        run: python -m compileall -q lib bin ccb.py
+
+      - name: Run tests
+        run: pytest test/ -v --tb=short -m "not provider_blackbox"
+        shell: bash
+
+  provider-blackbox:
+    name: Provider blackbox / ubuntu-latest / py3.11
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest tomli
+
+      - name: Install tmux
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y tmux
+
+      - name: Syntax check
+        run: python -m compileall -q lib bin ccb.py
+
+      - name: Run provider blackbox tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          python -m pytest -q -m provider_blackbox test/test_v2_phase2_entrypoint.py
+
+  rust-helpers:
+    name: Rust helpers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run sidebar tests
+        run: cargo test --manifest-path tools/ccb-agent-sidebar/Cargo.toml
+
+      - name: Run ccb-rs-helper tests
+        run: cargo test --manifest-path tools/ccb-rs-helper/Cargo.toml
+
+      - name: Build sidebar binary
+        run: bin/build-ccb-agent-sidebar
+
+      - name: Build ccb-rs-helper binary
+        run: bin/build-ccb-rs-helper
+
+  macos-install-smoke:
+    name: macOS install smoke
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install macOS Rust targets
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Install pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest tomli
+
+      - name: Install tmux
+        shell: bash
+        run: brew install tmux
+
+      - name: Run install and update focused tests
+        run: |
+          pytest -q \
+            test/test_build_macos_release_script.py \
+            test/test_install_identity_output.py \
+            test/test_install_watchdog_optional.py \
+            test/test_install_major_upgrade_guard.py \
+            test/test_cli_management_update.py \
+            test/test_cli_startup_update.py
+
+      - name: Build macOS Rust helpers for release install smoke
+        run: |
+          bin/build-ccb-agent-sidebar
+          bin/build-ccb-rs-helper
+
+      - name: Smoke macOS release install
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          platform="$(bash -lc 'source ./install.sh; detect_platform')"
+          test "$platform" = "macos"
+
+          tmux_hint="$(bash -lc 'source ./install.sh; print_tmux_install_hint')"
+          printf '%s\n' "$tmux_hint"
+          [[ "$tmux_hint" == *"macOS:"* ]]
+
+          install_identity="$(
+            CCB_LANG=en \
+            CCB_SOURCE_KIND=release \
+            CCB_BUILD_CHANNEL=stable \
+            CCB_BUILD_VERSION=0.0.0-ci \
+            bash -lc 'source ./install.sh; print_install_identity_summary; print_install_identity_notice'
+          )"
+          printf '%s\n' "$install_identity"
+          [[ "$install_identity" == *"install_mode=release"* ]]
+          [[ "$install_identity" == *"source_kind=release"* ]]
+          [[ "$install_identity" == *"channel=stable"* ]]
+          [[ "$install_identity" == *"version=0.0.0-ci"* ]]
+          [[ "$install_identity" == *"Official release package install detected"* ]]
+
+          smoke_root="$(mktemp -d)"
+          mkdir -p "$smoke_root/home" "$smoke_root/bin"
+
+          HOME="$smoke_root/home" \
+          CODEX_INSTALL_PREFIX="$smoke_root/install" \
+          CODEX_BIN_DIR="$smoke_root/bin" \
+          CCB_LANG=en \
+          CCB_SOURCE_KIND=release \
+          CCB_BUILD_CHANNEL=stable \
+          CCB_BUILD_VERSION='0.0.0-ci-"quoted"' \
+          CCB_BUILD_TIME=2026-05-04T00:00:00Z \
+          CCB_ALLOW_TEMP_INSTALL_GLOBAL_BIN=1 \
+            bash -lc 'bash ./install.sh install'
+
+          python - "$smoke_root/install/BUILD_INFO.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert payload["version"] == '0.0.0-ci-"quoted"'
+          assert payload["install_mode"] == "release"
+          PY
+
+          test -d "$smoke_root/install/.venv"
+          test -x "$smoke_root/install/bin/_ccb-python"
+          "$smoke_root/install/bin/_ccb-python" --resolve >/dev/null
+          grep -F "$smoke_root/install/bin/_ccb-python" "$smoke_root/bin/ccb"
+          grep -F "$smoke_root/install/ccb.py" "$smoke_root/bin/ccb"
+          grep -F "$smoke_root/install/bin/_ccb-python" "$smoke_root/bin/ask"
+          grep -F "$smoke_root/install/bin/ask.py" "$smoke_root/bin/ask"
+          grep -F "$smoke_root/install/bin/_ccb-python" "$smoke_root/bin/autonew"
+          grep -F "$smoke_root/install/bin/autonew.py" "$smoke_root/bin/autonew"
+          grep -F "$smoke_root/install/bin/_ccb-python" "$smoke_root/bin/ctx-transfer"
+          grep -F "$smoke_root/install/bin/ctx-transfer.py" "$smoke_root/bin/ctx-transfer"
+          test -x "$smoke_root/bin/ccb"
+          test -x "$smoke_root/bin/ask"
+          test -x "$smoke_root/bin/autonew"
+          test -x "$smoke_root/bin/ctx-transfer"
+          test -x "$smoke_root/bin/ccb-rs-helper"
+          "$smoke_root/bin/ccb-rs-helper" --capabilities | grep -F 'native.output.observe'
+          "$smoke_root/install/.venv/bin/python" -c 'import watchdog'
+
+      - name: Smoke macOS release packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-macos-smoke
+          python scripts/build_macos_release.py --allow-dirty --output-dir dist-macos-smoke
+          test -f dist-macos-smoke/ccb-macos-universal.tar.gz
+          test -f dist-macos-smoke/SHA256SUMS
+          smoke_extract="$(mktemp -d)"
+          tar -xzf dist-macos-smoke/ccb-macos-universal.tar.gz -C "$smoke_extract"
+          helper="$smoke_extract/ccb-macos-universal/bin/ccb-agent-sidebar"
+          rs_helper="$smoke_extract/ccb-macos-universal/bin/ccb-rs-helper"
+          file "$helper" | tee "$smoke_extract/sidebar-file.txt"
+          file "$rs_helper" | tee "$smoke_extract/rs-helper-file.txt"
+          grep -F 'universal binary' "$smoke_extract/sidebar-file.txt"
+          grep -F 'universal binary' "$smoke_extract/rs-helper-file.txt"
+          "$helper" --help >/dev/null 2>&1 || test "$?" -eq 2
+          "$rs_helper" --capabilities | grep -F 'native.output.observe'
+
+  test-wsl:
+    name: WSL / Ubuntu 22.04
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup WSL
+        uses: Vampire/setup-wsl@v3
+        with:
+          distribution: Ubuntu-22.04
+
+      - name: Install Python and dependencies in WSL
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common python3 python3-venv python3-pip tmux
+          if ! apt-cache show python3.11 >/dev/null 2>&1; then
+            sudo add-apt-repository -y ppa:deadsnakes/ppa
+            sudo apt-get update
+          fi
+          sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
+          python3.11 -m venv /tmp/ccb-ci-py311
+          /tmp/ccb-ci-py311/bin/python -m pip install --upgrade pip
+          /tmp/ccb-ci-py311/bin/python -m pip install pytest tomli
+
+      - name: Syntax check in WSL
+        shell: wsl-bash {0}
+        run: |
+          /tmp/ccb-ci-py311/bin/python -m compileall -q lib bin ccb.py
+
+      - name: Smoke ccb startup from /mnt/c in WSL
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+
+          repo="$(pwd)"
+          project="/mnt/c/Temp/ccb-wsl-mnt-smoke-${{ github.run_id }}-${{ github.run_attempt }}"
+          export CCB_SOURCE_ALLOWED_ROOTS="$project"
+          rm -rf "$project"
+          mkdir -p "$project/.ccb"
+          printf 'demo:fake\n' > "$project/.ccb/ccb.config"
+
+          dump_diagnostics() {
+            printf '%s\n' '--- start.out ---'
+            cat "$project/start.out" 2>/dev/null || true
+            printf '%s\n' '--- start.err ---'
+            cat "$project/start.err" 2>/dev/null || true
+            printf '%s\n' '--- ping.out ---'
+            cat "$project/ping.out" 2>/dev/null || true
+            printf '%s\n' '--- ping.err ---'
+            cat "$project/ping.err" 2>/dev/null || true
+            printf '%s\n' '--- doctor.out ---'
+            cat "$project/doctor.out" 2>/dev/null || true
+            printf '%s\n' '--- doctor.err ---'
+            cat "$project/doctor.err" 2>/dev/null || true
+            if [ -d "$project/.ccb/ccbd" ]; then
+              printf '%s\n' '--- ccbd files ---'
+              find "$project/.ccb/ccbd" -maxdepth 1 -type f -print | sort
+              for file in "$project"/.ccb/ccbd/*.log "$project"/.ccb/ccbd/*.json; do
+                [ -f "$file" ] || continue
+                printf '%s\n' "--- $file ---"
+                tail -200 "$file" || true
+              done
+            fi
+          }
+
+          cleanup() {
+            (cd "$project" && "$repo/ccb" kill -f >/dev/null 2>&1) || true
+            rm -rf "$project"
+          }
+          on_exit() {
+            status="$?"
+            if [ "$status" -ne 0 ]; then
+              dump_diagnostics
+            fi
+            cleanup
+            exit "$status"
+          }
+          trap on_exit EXIT
+
+          if ! (
+            cd "$project"
+            CCB_NO_ATTACH=1 \
+            CCB_STARTUP_TRANSACTION_TIMEOUT_S=60 \
+            CCB_KEEPER_READY_TIMEOUT_S=10 \
+            CCB_TMUX_OBJECT_READY_TIMEOUT_S=10 \
+            TERM=xterm-256color \
+            timeout 90s "$repo/ccb" >start.out 2>start.err
+          ); then
+            exit 1
+          fi
+
+          (cd "$project" && "$repo/ccb" ping ccbd >ping.out 2>ping.err)
+          (cd "$project" && "$repo/ccb" doctor >doctor.out 2>doctor.err)
+
+          grep -F 'start_status: ok' "$project/start.out"
+          grep -F 'agents: demo' "$project/start.out"
+          grep -F 'mount_state: mounted' "$project/ping.out"
+          grep -F 'health: healthy' "$project/ping.out"
+          grep -F 'runtime_root_kind: relocated' "$project/ping.out"
+          grep -F 'runtime_relocation_reason: runtime_root_ref' "$project/ping.out"
+          grep -F 'socket_root_kind: runtime' "$project/ping.out"
+          grep -F 'tmux_socket_root_kind: runtime' "$project/ping.out"
+          grep -F 'ccbd_runtime_root_kind: relocated' "$project/doctor.out"
+          grep -F 'ccbd_runtime_relocation_reason: runtime_root_ref' "$project/doctor.out"
+          grep -F 'ccbd_socket_root_kind: runtime' "$project/doctor.out"
+          grep -F 'ccbd_tmux_socket_root_kind: runtime' "$project/doctor.out"
+
+      - name: Run tests in WSL with tmux
+        shell: wsl-bash {0}
+        run: |
+          export TERM=xterm-256color
+          /tmp/ccb-ci-py311/bin/python -m pytest test/ -v --tb=short -m "not provider_blackbox"

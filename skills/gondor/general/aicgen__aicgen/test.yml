@@ -1,0 +1,107 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Verify (Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate data package
+        run: data/scripts/validate-data
+
+      - name: Check embedded data freshness
+        run: bun run check:embedded-data
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Run tests
+        run: bun run test -- --runInBand
+
+      - name: Build package
+        run: bun run build
+
+      - name: Generate optional coverage report
+        if: always()
+        run: |
+          bun run test:coverage -- --runInBand > coverage-output.txt 2>&1 || true
+          echo "## Test Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          tail -n 40 coverage-output.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./coverage
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
+
+  test-windows:
+    name: Verify (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check embedded data freshness
+        run: bun run check:embedded-data
+
+      - name: Run tests
+        run: bun run test -- --runInBand
+
+      - name: Build package
+        run: bun run build
+
+  test-macos:
+    name: Verify (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check embedded data freshness
+        run: bun run check:embedded-data
+
+      - name: Run tests
+        run: bun run test -- --runInBand
+
+      - name: Build package
+        run: bun run build

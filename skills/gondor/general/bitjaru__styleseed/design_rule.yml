@@ -1,0 +1,74 @@
+name: "💡 Propose a design rule"
+description: "Teach everyone's AI a pattern you found — a decision + why it works."
+title: "[Rule] "
+labels: ["design-rule"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        StyleSeed is a living judgment framework. A great rule is a **decision + the reason it works**,
+        written so an AI can apply it — not an opinion. See `CONTRIBUTING.md` → "Propose a Design Rule"
+        for the format. Specific + sourced rules get merged fastest.
+  - type: input
+    id: name
+    attributes:
+      label: Rule name
+      description: A short, memorable name.
+      placeholder: "Numbers 2:1 with units"
+    validations:
+      required: true
+  - type: textarea
+    id: rule
+    attributes:
+      label: The rule (the decision)
+      description: Imperative, specific, with numbers/ratios where possible.
+      placeholder: "Set a value at ~2× the size of its unit — e.g. a 48px number over a 24px unit."
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it works (the reasoning)
+      description: The principle a model can reuse. This is the payload — be concrete.
+      placeholder: "The eye locks onto magnitude first; equal sizes flatten the value into noise, so hierarchy disappears."
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Do / Don't
+      description: A minimal good example and the common failure it replaces (code or description).
+      placeholder: |
+        ✅ <p class="text-[48px]">3.8<span class="text-[24px]">M</span></p>
+        ❌ <p class="text-[32px]">3.8<span class="text-[32px]">M</span></p>
+    validations:
+      required: false
+  - type: input
+    id: source
+    attributes:
+      label: Source (optional but loved)
+      description: Research or product that backs it.
+      placeholder: "Refactoring UI / Material 3 / Apple HIG / WCAG 2.2 / a named app"
+    validations:
+      required: false
+  - type: dropdown
+    id: target
+    attributes:
+      label: Where does it belong?
+      options:
+        - "DESIGN-LANGUAGE.md (visual/layout/composition rule)"
+        - "VISUAL-CRAFT.md (craft detail or coherence law)"
+        - "Not sure — help me place it"
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Quality check
+      options:
+        - label: "It's a decision, not a preference (states a choice + why)."
+          required: true
+        - label: "It's brand-agnostic (about layout/hierarchy/rhythm, not one skin's colors)."
+          required: true
+        - label: "It's specific and testable (numbers, ratios, or a clear do/don't)."
+          required: true

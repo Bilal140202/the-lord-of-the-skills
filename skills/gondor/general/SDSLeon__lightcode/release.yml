@@ -1,0 +1,203 @@
+name: Release (stable)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.0.1). If empty, master's package.json is used."
+        required: false
+        type: string
+        default: ""
+      dry_run:
+        description: "Dry run — skip tag push and build (for testing)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Step 1: Resolve version, commit if needed, tag, push ─────────
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          INPUT_VERSION="${{ inputs.version }}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ -z "$INPUT_VERSION" ]; then
+            VERSION="$PKG_VERSION"
+            echo "Using master's package.json version: $VERSION"
+          else
+            VERSION="$INPUT_VERSION"
+            echo "Using workflow input version: $VERSION"
+          fi
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Stable version must be plain semver (X.Y.Z), got '$VERSION'."
+            exit 1
+          fi
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Bump package.json if needed
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const next = '${{ steps.resolve.outputs.version }}';
+            if (pkg.version !== next) {
+              pkg.version = next;
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+              console.log('Updated package.json to ' + next);
+            } else {
+              console.log('package.json already at ' + next + '; no bump needed.');
+            }
+          "
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          if git diff --cached --quiet; then
+            echo "No package.json changes; tagging HEAD as-is."
+          else
+            git commit -m "release: ${{ steps.resolve.outputs.tag }}"
+          fi
+          git tag "${{ steps.resolve.outputs.tag }}"
+
+      - name: Push commit and tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git push origin HEAD
+          git push origin "${{ steps.resolve.outputs.tag }}"
+
+  # ── Step 2: Build installers for each platform ───────────────────
+  build:
+    needs: prepare
+    if: ${{ !inputs.dry_run }}
+    uses: ./.github/workflows/_build.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      channel: stable
+      sentry_environment: production
+    secrets:
+      MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+      MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+  # ── Step 3: Create GitHub Release with auto-generated notes ──────
+  release:
+    needs: [prepare, build]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          pattern: dist-*
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -lh release-assets
+
+      # Upload every asset to a DRAFT release first. A draft is invisible to
+      # electron-updater (it isn't in releases.atom and its assets aren't
+      # publicly downloadable), so clients never observe a release whose
+      # channel manifest (latest-mac.yml) is still mid-upload — the partial
+      # publish that surfaces as a "Cannot find latest-mac.yml" 404.
+      - name: Create GitHub Release (draft)
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Lightcode ${{ needs.prepare.outputs.tag }}
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Flip draft → published only after all assets (manifests included) are
+      # uploaded. This is the single atomic moment the release becomes visible
+      # to the updater, and marks it as the latest stable release.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "${{ needs.prepare.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --draft=false --latest
+
+  # ── Step 4: Bump master to next plain patch version ──────────────
+  post-release:
+    needs: [prepare, release]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 1
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Bump to next plain patch version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const v = p.version.split('-')[0].split('.').map(Number);
+            p.version = v[0] + '.' + v[1] + '.' + (v[2] + 1);
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          "
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          if git diff --cached --quiet; then
+            echo "No bump needed."
+          else
+            git commit -m "chore: bump to next patch version"
+            git push
+          fi

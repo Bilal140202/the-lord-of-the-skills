@@ -1,0 +1,98 @@
+name: Bug Report
+description: Something is broken or behaving unexpectedly
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "e.g. contextforge init exits without writing .context.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands and setup needed to reproduce the issue.
+      placeholder: |
+        1. Create a new directory
+        2. Run `contextforge init --ide claude-code`
+        3. See error ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      placeholder: "e.g. .context.md should be written to the project root"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      placeholder: "e.g. The process exits with code 1 and no output"
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Terminal output / error message
+      description: Paste the full output. Use code blocks for readability.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: ContextForge version
+      placeholder: "e.g. 0.1.0 (run `contextforge --version`)"
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "e.g. 22.4.0 (run `node --version`)"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "e.g. macOS 14.5 / Ubuntu 24.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ide
+    attributes:
+      label: IDE target (if relevant)
+      options:
+        - claude-code
+        - cursor
+        - windsurf
+        - vscode
+        - antigravity
+        - N/A
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help — project type, monorepo, Docker, etc.

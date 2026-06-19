@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/Draculabo/AntigravityManager#readme
+    about: Check our README for usage information
+  - name: ❓ Questions
+    url: https://github.com/Draculabo/AntigravityManager/discussions
+    about: Ask questions and discuss with the community

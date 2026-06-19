@@ -1,0 +1,34 @@
+name: npm publish
+
+# Protected publish: tag push only, requires npm-publish environment approval when configured.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      # NPM_TOKEN: granular token with Publish + “Bypass 2FA”. Without bypass, npm returns EOTP (no --otp in CI).
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

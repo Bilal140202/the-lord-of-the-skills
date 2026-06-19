@@ -16,7 +16,7 @@
 
 ### 🌟 *A Compilation of Agentic AI Skills from across the GitHub Realm* 🌟
 
-**10,888** Artifacts · **102** Source Repositories · **13** Frameworks · **10** Kingdoms · **1,880** Canonical ⭐
+**18,142** Artifacts · **307+** Source Repositories · **14** Frameworks (now incl. Antigravity!) · **10** Kingdoms · **357** Canonical ⭐
 
 </div>
 
@@ -63,11 +63,11 @@
 
 | Metric | Count | Description |
 |:---:|:---:|:---|
-| 🏰 **Source Repositories** | **102** | GitHub repos spidered & cloned |
-| 📜 **Artifacts Extracted** | **10,888** | SKILL.md, AGENTS.md, .cursorrules, .clinerules, CONVENTIONS.md, etc. |
-| ⭐ **Canonical Clusters** | **1,880** | One best representative per concept |
+| 🏰 **Source Repositories** | **307+** | GitHub repos spidered & cloned (102 base + 205 antigravity-focused) |
+| 📜 **Artifacts Extracted** | **18,142** | SKILL.md, AGENTS.md, .cursorrules, .clinerules, CONVENTIONS.md, + antigravity-specific files |
+| ⭐ **Canonical Clusters** | **357** | One best representative per concept |
 | 🏛 **Kingdoms** | **10** | LOTR-themed domains |
-| ⚙ **Frameworks** | **13** | Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph |
+| ⚙ **Frameworks** | **14** | Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **Antigravity** (new!) |
 | 📦 **Total Package Size** | **~180 MB** | Skills folder + catalogs + indexes |
 
 ---
@@ -79,7 +79,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 5,631 |
+| 📜 Artifacts | 10,141 |
 | ⭐ Canonical | ~1,000 |
 | ⚙ Frameworks | claude-code, cursor, cline, roo, aider, codex, openhands, continue, goose, copilot, autogen, crewai, langgraph |
 | 🎯 Skill Types | execution, planning, verification, conventions, tools |
@@ -93,7 +93,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 1,521 |
+| 📜 Artifacts | 1,776 |
 | ⭐ Canonical | ~300 |
 | 🎯 Focus | Research, literature review, synthesis, methodology |
 
@@ -104,7 +104,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 968 |
+| 📜 Artifacts | 1,630 |
 | ⭐ Canonical | ~200 |
 | 🎯 Focus | Subagents, multi-agent orchestration, delegation, planning |
 
@@ -115,7 +115,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 712 |
+| 📜 Artifacts | 1,272 |
 | ⭐ Canonical | ~150 |
 | 🎯 Focus | Blog posts, documentation, marketing copy, technical writing |
 
@@ -126,7 +126,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 703 |
+| 📜 Artifacts | 914 |
 | ⭐ Canonical | ~130 |
 | 🎯 Focus | Docker, Kubernetes, Terraform, CI/CD, monitoring, cloud |
 
@@ -137,7 +137,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 450 |
+| 📜 Artifacts | 718 |
 | ⭐ Canonical | ~90 |
 | 🎯 Focus | Unit tests, integration tests, E2E, linting, type checking |
 
@@ -148,7 +148,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 322 |
+| 📜 Artifacts | 708 |
 | ⭐ Canonical | ~60 |
 | 🎯 Focus | Memory banks, RAG, context preservation, knowledge bases |
 
@@ -159,7 +159,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 305 |
+| 📜 Artifacts | 496 |
 | ⭐ Canonical | ~55 |
 | 🎯 Focus | ETL, dataframes, ML, visualization, statistics |
 
@@ -170,7 +170,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 272 |
+| 📜 Artifacts | 406 |
 | ⭐ Canonical | ~50 |
 | 🎯 Focus | Vulnerability scanning, pentest, OWASP, crypto, secrets |
 
@@ -181,7 +181,7 @@
 
 | | |
 |:---|:---|
-| 📜 Artifacts | 4 |
+| 📜 Artifacts | 81 |
 | ⭐ Canonical | ~2 |
 | 🎯 Focus | Experimental, one-off, esoteric skills |
 
@@ -203,7 +203,8 @@
 | 🔵 **copilot** | 100+ | 5 | `.github/copilot-instructions.md` |
 | 🟣 **crewai** | 80+ | 6 | CrewAI agent configs |
 | 🟢 **langgraph** | 60+ | 5 | LangGraph agent definitions |
-| ⚪ **general** | 300+ | 10 | Unclassified / cross-framework |
+| 🟣 **antigravity** | 820+ | 10 | Google Antigravity IDE skills (NEW in v1.2.0) |
+| ⚪ **general** | 2,535+ | 10 | Unclassified / cross-framework |
 
 ---
 

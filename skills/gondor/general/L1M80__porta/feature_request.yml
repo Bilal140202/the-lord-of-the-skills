@@ -1,0 +1,50 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea? Describe the problem you're trying to solve and the
+        solution you'd like. Discussion before code saves everyone time.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem does this solve? Why does it matter?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should this work? Include API sketches, config examples, or mock-ups if helpful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you've thought about and why they're less ideal.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affected area
+      options:
+        - Proxy
+        - Web UI
+        - CLI / Scripts
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, screenshots, or related issues.

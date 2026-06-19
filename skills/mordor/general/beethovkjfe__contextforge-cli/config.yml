@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Ask a question / General discussion
+    url: https://github.com/originalowner/context-forge-npm/discussions
+    about: Use GitHub Discussions for questions and general conversation about ContextForge.
+  - name: Security vulnerability
+    url: https://github.com/originalowner/context-forge-npm/security/advisories/new
+    about: Please report security vulnerabilities privately — do not open a public issue.

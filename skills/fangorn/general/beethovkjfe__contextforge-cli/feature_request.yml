@@ -1,0 +1,55 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, please search existing issues to avoid duplicates.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the pain point or limitation. A clear "I'm trying to X but can't because Y" is ideal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature or change you'd like. Be as specific as you can about the interface or behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you explored, and why you prefer this one.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this affect?
+      multiple: true
+      options:
+        - CLI (init, serve, status, switch, audit, templates)
+        - MCP server / tools
+        - Scanner (language / framework / convention detection)
+        - Generator (.context.md format / IDE file writer)
+        - Watcher (incremental updates)
+        - Bootstrapper (project setup)
+        - Documentation
+        - CI / Tooling
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, links to related issues, or example output that illustrates the request.

@@ -13,26 +13,27 @@
 
 | Metric | Count |
 |:---|---:|
-| Total artifacts | 5631 |
-| Source repositories | 126 |
+| Total artifacts | 10141 |
+| Source repositories | 544 |
 | Canonical (⭐) | 188 |
-| Frameworks represented | 13 |
+| Frameworks represented | 14 |
 
 ## ⚙ Frameworks
 
 | Framework | Artifacts |
 |:---|---:|
-| claude-code | 4352 |
-| general | 654 |
-| cursor | 475 |
-| codex | 71 |
-| continue | 28 |
+| claude-code | 4798 |
+| general | 2464 |
+| antigravity | 2007 |
+| cursor | 566 |
+| codex | 144 |
+| roo | 59 |
+| continue | 35 |
+| cline | 24 |
 | openhands | 18 |
-| cline | 16 |
-| roo | 5 |
+| copilot | 11 |
+| aider | 8 |
 | goose | 4 |
-| copilot | 3 |
-| aider | 2 |
 | crewai | 2 |
 | langgraph | 1 |
 

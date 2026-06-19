@@ -1,0 +1,366 @@
+name: Sync Upstream & Translate
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync even if no new upstream release'
+        required: false
+        default: 'false'
+        type: boolean
+
+# Minimal protected files - ONLY branding and workflow files
+# Everything else is synced from upstream to avoid build incompatibilities
+env:
+  PROTECTED_FILES: |
+    .github/workflows/release.yml
+    .github/workflows/sync-upstream.yml
+    README.md
+    CUSTOMIZATIONS.md
+    SYNC_WORKFLOW.md
+    src-tauri/icons/
+    scripts/translate-chinese.py
+    .last-synced-upstream
+
+jobs:
+  check-upstream:
+    runs-on: ubuntu-latest
+    outputs:
+      has_new_release: ${{ steps.check.outputs.has_new }}
+      upstream_version: ${{ steps.check.outputs.upstream_version }}
+      our_new_version: ${{ steps.check.outputs.our_new_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new upstream release
+        id: check
+        run: |
+          # Get latest upstream release tag
+          UPSTREAM_VERSION=$(curl -s https://api.github.com/repos/lbjlaq/Antigravity-Manager/releases/latest | jq -r .tag_name)
+          echo "Upstream latest: $UPSTREAM_VERSION"
+          echo "upstream_version=$UPSTREAM_VERSION" >> $GITHUB_OUTPUT
+
+          # Read last synced upstream version from file (if exists)
+          LAST_SYNCED=""
+          if [ -f ".last-synced-upstream" ]; then
+            LAST_SYNCED=$(cat .last-synced-upstream)
+          fi
+          echo "Last synced upstream: $LAST_SYNCED"
+
+          # Get our latest release tag (handle missing releases gracefully)
+          OUR_LATEST=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name // "v1.1.10"')
+          echo "Our latest: $OUR_LATEST"
+
+          # Calculate next version (increment patch)
+          CURRENT_PATCH=$(echo "$OUR_LATEST" | sed 's/v1\.1\.//' | grep -oE '^[0-9]+' || echo "10")
+          NEXT_PATCH=$((CURRENT_PATCH + 1))
+          OUR_NEW_VERSION="v1.1.${NEXT_PATCH}"
+          echo "our_new_version=$OUR_NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Next version will be: $OUR_NEW_VERSION"
+
+          # Check if we need to sync
+          if [[ "$UPSTREAM_VERSION" != "$LAST_SYNCED" ]] || [[ "${{ inputs.force_sync }}" == "true" ]]; then
+            echo "New upstream version detected or force sync requested"
+            echo "has_new=true" >> $GITHUB_OUTPUT
+          else
+            echo "Already synced with upstream $UPSTREAM_VERSION"
+            echo "has_new=false" >> $GITHUB_OUTPUT
+          fi
+
+  sync-and-translate:
+    needs: check-upstream
+    if: needs.check-upstream.outputs.has_new_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/lbjlaq/Antigravity-Manager.git || true
+
+      - name: Fetch upstream
+        run: |
+          git fetch --unshallow origin 2>/dev/null || true
+          git fetch upstream main --force --no-tags
+          echo "Fetch completed successfully"
+
+      - name: Backup protected files
+        run: |
+          mkdir -p /tmp/protected_backup
+          echo "Backing up protected files..."
+
+          echo "$PROTECTED_FILES" | while IFS= read -r file; do
+            file=$(echo "$file" | xargs)
+            # Skip empty lines and comments
+            [[ -z "$file" || "$file" == \#* ]] && continue
+            if [ -d "$file" ]; then
+              echo "  Backing up directory: $file"
+              mkdir -p "/tmp/protected_backup/$(dirname "$file")"
+              cp -r "$file" "/tmp/protected_backup/$file"
+            elif [ -f "$file" ]; then
+              echo "  Backing up file: $file"
+              mkdir -p "/tmp/protected_backup/$(dirname "$file")"
+              cp "$file" "/tmp/protected_backup/$file"
+            fi
+          done
+
+          echo "Backup complete."
+
+      - name: Sync from upstream (checkout strategy)
+        run: |
+          echo "=== Full sync from upstream/main ==="
+          # Instead of merge/rebase (which fails with divergent histories),
+          # we checkout ALL files from upstream, then restore our branding overlay.
+          # This ensures the Rust backend and TS frontend are always consistent.
+
+          git checkout upstream/main -- . 2>/dev/null || {
+            echo "Full checkout failed, trying file-by-file..."
+            # Checkout key directories
+            git checkout upstream/main -- src-tauri/ src/ index.html vite.config.ts \
+              tsconfig.json tsconfig.node.json postcss.config.cjs tailwind.config.js \
+              package.json 2>/dev/null || true
+          }
+
+          echo "Upstream files synced"
+
+      - name: Restore protected files
+        run: |
+          echo "Restoring protected files..."
+
+          echo "$PROTECTED_FILES" | while IFS= read -r file; do
+            file=$(echo "$file" | xargs)
+            [[ -z "$file" || "$file" == \#* ]] && continue
+            if [ -d "/tmp/protected_backup/$file" ]; then
+              echo "  Restoring directory: $file"
+              rm -rf "$file"
+              cp -r "/tmp/protected_backup/$file" "$file"
+            elif [ -f "/tmp/protected_backup/$file" ]; then
+              echo "  Restoring file: $file"
+              mkdir -p "$(dirname "$file")"
+              cp "/tmp/protected_backup/$file" "$file"
+            fi
+          done
+
+      - name: Apply Supreme branding overlay
+        env:
+          NEW_VERSION: ${{ needs.check-upstream.outputs.our_new_version }}
+        run: |
+          VERSION_NUM="${NEW_VERSION#v}"
+          echo "Applying Supreme branding for $NEW_VERSION..."
+
+          # Update tauri.conf.json with Supreme branding
+          python3 -c "
+          import json
+          with open('src-tauri/tauri.conf.json', 'r') as f:
+              conf = json.load(f)
+          conf['productName'] = 'Antigravity Manager Supreme'
+          conf['version'] = '${VERSION_NUM}'
+          conf['identifier'] = 'com.aidev2024.antigravity-manager-supreme'
+          conf['app']['windows'][0]['title'] = 'Antigravity Manager Supreme'
+          # Update updater endpoint to our repo
+          if 'plugins' in conf and 'updater' in conf['plugins']:
+              if conf['plugins']['updater'] and 'endpoints' in conf['plugins']['updater']:
+                  conf['plugins']['updater']['endpoints'] = [
+                      'https://github.com/ai-dev-2024/Antigravity-Manager-Supreme/releases/latest/download/updater.json'
+                  ]
+          with open('src-tauri/tauri.conf.json', 'w') as f:
+              json.dump(conf, f, indent=2)
+          print('tauri.conf.json updated')
+          "
+
+          # Update package.json with Supreme branding
+          python3 -c "
+          import json
+          with open('package.json', 'r') as f:
+              pkg = json.load(f)
+          pkg['name'] = 'antigravity-manager-supreme'
+          pkg['version'] = '${VERSION_NUM}'
+          with open('package.json', 'w') as f:
+              json.dump(pkg, f, indent=2)
+          print('package.json updated')
+          "
+
+          # Update Cargo.toml version to match
+          sed -i "s/^version = \"[0-9.]*\"/version = \"${VERSION_NUM}\"/" src-tauri/Cargo.toml
+
+          # Update README version links
+          if [ -f README.md ]; then
+            UPSTREAM="${{ needs.check-upstream.outputs.upstream_version }}"
+            sed -i "s|## 📥 \[Download v[0-9.]*|## 📥 [Download $NEW_VERSION|g" README.md
+            sed -i "s|Upstream-v[0-9.]*-purple|Upstream-${UPSTREAM}-purple|g" README.md 2>/dev/null || true
+          fi
+
+          echo "Branding overlay applied"
+
+      - name: Remove hardcoded secrets (GitHub Push Protection)
+        run: |
+          echo "Replacing hardcoded OAuth credentials with env var lookups..."
+          # Upstream embeds Google OAuth credentials directly in oauth.rs
+          # GitHub Push Protection blocks pushes containing these secrets
+          # Replace with runtime environment variable lookups
+          if [ -f src-tauri/src/modules/oauth.rs ]; then
+            python3 -c "
+          import re
+
+          with open('src-tauri/src/modules/oauth.rs', 'r') as f:
+              content = f.read()
+
+          # Check if already using Lazy pattern (already patched)
+          if 'Lazy<String>' in content:
+              print('oauth.rs already patched, skipping')
+          else:
+              # Add once_cell import
+              content = content.replace(
+                  'use serde::{Deserialize, Serialize};',
+                  'use serde::{Deserialize, Serialize};\nuse once_cell::sync::Lazy;'
+              )
+
+              # Replace hardcoded CLIENT_ID
+              content = re.sub(
+                  r'const CLIENT_ID: &str = \"[^\"]*\";',
+                  '''static CLIENT_ID: Lazy<String> = Lazy::new(|| {
+      std::env::var(\"GOOGLE_OAUTH_CLIENT_ID\")
+          .unwrap_or_else(|_| String::from(\"GOOGLE_OAUTH_CLIENT_ID_NOT_SET\"))
+  });''',
+                  content
+              )
+
+              # Replace hardcoded CLIENT_SECRET
+              content = re.sub(
+                  r'const CLIENT_SECRET: &str = \"[^\"]*\";',
+                  '''static CLIENT_SECRET: Lazy<String> = Lazy::new(|| {
+      std::env::var(\"GOOGLE_OAUTH_CLIENT_SECRET\")
+          .unwrap_or_else(|_| String::from(\"GOOGLE_OAUTH_CLIENT_SECRET_NOT_SET\"))
+  });''',
+                  content
+              )
+
+              # Update all usages from &str to Lazy<String>
+              content = content.replace('(\"client_id\", CLIENT_ID)', '(\"client_id\", CLIENT_ID.as_str())')
+              content = content.replace('(\"client_secret\", CLIENT_SECRET)', '(\"client_secret\", CLIENT_SECRET.as_str())')
+
+              with open('src-tauri/src/modules/oauth.rs', 'w') as f:
+                  f.write(content)
+
+              print('oauth.rs patched: removed hardcoded secrets')
+          "
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install translation dependencies
+        run: pip install deep-translator
+
+      - name: Translate Chinese to English
+        run: |
+          echo "Running translation script..."
+          python scripts/translate-chinese.py 2>&1 || {
+            echo "Translation script had issues, continuing with partial translation..."
+          }
+
+          # Report remaining Chinese (informational only, not a failure)
+          REMAINING=$(grep -rP '[\x{4e00}-\x{9fff}]' src-tauri/src --include="*.rs" 2>/dev/null | wc -l || echo "0")
+          echo "Remaining lines with Chinese: $REMAINING"
+
+      - name: Record synced version
+        run: |
+          echo "${{ needs.check-upstream.outputs.upstream_version }}" > .last-synced-upstream
+
+      - name: Commit and tag
+        run: |
+          git add -A
+          git commit -m "feat: Sync upstream ${{ needs.check-upstream.outputs.upstream_version }} + English translation
+
+          - Synced from lbjlaq/Antigravity-Manager ${{ needs.check-upstream.outputs.upstream_version }}
+          - Translated Chinese comments to English
+          - Applied Supreme branding overlay" || {
+            echo "No changes to commit"
+            exit 0
+          }
+
+          # Get the proposed version
+          NEW_VERSION="${{ needs.check-upstream.outputs.our_new_version }}"
+
+          # Check if tag already exists
+          REMOTE_TAGS=$(git ls-remote --tags origin 2>/dev/null | grep -oE 'refs/tags/v[0-9.]+$' | sed 's|refs/tags/||' || echo "")
+          while git rev-parse "$NEW_VERSION" >/dev/null 2>&1 || echo "$REMOTE_TAGS" | grep -q "^${NEW_VERSION}$"; do
+            echo "Tag $NEW_VERSION already exists, incrementing..."
+            CURRENT_PATCH=$(echo "$NEW_VERSION" | sed 's/v[0-9]*\.[0-9]*\.//')
+            NEXT_PATCH=$((CURRENT_PATCH + 1))
+            NEW_VERSION="v1.1.${NEXT_PATCH}"
+          done
+
+          echo "Creating tag: $NEW_VERSION"
+          git tag "$NEW_VERSION" -m "Sync upstream ${{ needs.check-upstream.outputs.upstream_version }}"
+          echo "FINAL_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      - name: Push changes
+        run: |
+          TAG_VERSION="${FINAL_VERSION:-${{ needs.check-upstream.outputs.our_new_version }}}"
+          echo "Pushing with tag: $TAG_VERSION"
+
+          # Ensure clean git state before push
+          git merge --abort 2>/dev/null || true
+          git rebase --abort 2>/dev/null || true
+
+          # Force push main (we are the source of truth after sync)
+          echo "Force pushing main branch..."
+          git push origin main --force
+
+          # Push the tag
+          echo "Pushing tag $TAG_VERSION..."
+          git push origin "$TAG_VERSION" --force
+
+          echo "Push completed successfully"
+
+  cleanup-duplicates:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    steps:
+      - name: Cleanup duplicate releases
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            const tagGroups = {};
+            for (const release of releases.data) {
+              const tag = release.tag_name;
+              if (!tagGroups[tag]) tagGroups[tag] = [];
+              tagGroups[tag].push(release);
+            }
+
+            for (const [tag, group] of Object.entries(tagGroups)) {
+              if (group.length > 1) {
+                console.log(`Found ${group.length} duplicates for ${tag}`);
+                group.sort((a, b) => b.assets.length - a.assets.length);
+                for (let i = 1; i < group.length; i++) {
+                  console.log(`Deleting release ${group[i].id}`);
+                  await github.rest.repos.deleteRelease({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    release_id: group[i].id
+                  });
+                }
+              }
+            }

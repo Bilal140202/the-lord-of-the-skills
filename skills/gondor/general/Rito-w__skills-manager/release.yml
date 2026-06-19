@@ -1,0 +1,72 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Release type"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version (no commit/tag)
+        run: pnpm dlx standard-version --release-as ${{ inputs.release_type }} --skip.tag --skip.commit
+
+      - name: Sync Tauri version
+        run: |
+          node -e "const fs=require('fs');const pkg=require('./package.json');const path='src-tauri/tauri.conf.json';const conf=JSON.parse(fs.readFileSync(path,'utf8'));conf.version=pkg.version;fs.writeFileSync(path, JSON.stringify(conf,null,2)+'\\n');"
+
+      - name: Sync Cargo version
+        run: |
+          node -e 'const fs=require("fs");const pkg=require("./package.json");const path="src-tauri/Cargo.toml";const nextVersion=`version = "${pkg.version}"`;const content=fs.readFileSync(path,"utf8").replace(/^version = ".*"$/m, nextVersion);fs.writeFileSync(path, content);'
+
+      - name: Sync Cargo.lock version
+        run: |
+          node -e 'const fs=require("fs");const pkg=require("./package.json");const path="src-tauri/Cargo.lock";if(!fs.existsSync(path)) process.exit(0);const content=fs.readFileSync(path,"utf8").replace(/(name = "skills-manager-gui"\nversion = ").*(")/, `$1${pkg.version}$2`);fs.writeFileSync(path, content);'
+
+      - name: Commit and tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          git add package.json pnpm-lock.yaml CHANGELOG.md src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+          git commit -m "chore(release): v${VERSION}"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push --follow-tags origin HEAD:main

@@ -1,0 +1,50 @@
+# ROLE
+Bạn là Senior Automation Test Engineer chuyên về Selenium WebDriver và Java.
+
+# TASK
+Viết automation test script từ test scenario bằng Selenium Java.
+
+# CONTEXT
+Framework:
+- Language: Java
+- Test Framework: TestNG
+- Automation Tool: Selenium WebDriver v4
+- Design Pattern: Page Object Model (POM)
+- Build tool: Maven
+- Reporting: Extent Report / Allure Report
+- Logging: Log4j2
+
+Test Scenario:
+[DÁN TEST SCENARIO VÀO ĐÂY]
+URL: [URL hệ thống]
+Tài khoản test: [EMAIL] / [PASSWORD]
+
+# CONSTRAINTS
+1. Sử dụng Selenium MCP hoặc Playwright MCP để mở URL và inspect DOM thật trước khi viết code.
+   TUYỆT ĐỐI không đoán locator.
+2. Áp dụng Page Object Model — tách Page class và Test class.
+3. Ưu tiên locator theo thứ tự (tham khảo .agent/rules/selenium_rules.md):
+   - By.id() > By.cssSelector("[data-testid='...']") > By.name() > By.cssSelector() > By.xpath()
+4. Smart Waits bắt buộc (tham khảo .agent/rules/selenium_rules.md):
+   - Dùng: WebDriverWait + ExpectedConditions.visibilityOfElementLocated()
+   - Dùng: ExpectedConditions.elementToBeClickable()
+   - KHÔNG dùng: Thread.sleep()
+5. Test Data unique + traceable:
+   - Format: auto_[testName]_[timestamp]@test.com
+6. Code clean, có comment tiếng Việt ngắn gọn, naming convention chuẩn Java.
+7. Cấu trúc test theo pattern: Arrange > Act > Assert
+8. Sử dụng lại các hàm đã có trong source code hiện tại (nếu có).
+9. Sau khi viết xong, tự chạy test. Nếu FAIL thì tự sửa, chạy lại đến khi PASS.
+
+# OUTPUT FORMAT
+Cấu trúc file:
+1. Page Object: [Tên]Page.java — khai báo locator (By) + methods
+2. Test Class: [Tên]Test.java — logic test + assertions (@Test, @BeforeMethod, @AfterMethod)
+3. Utils (nếu cần): DataGenerator.java — sinh test data
+
+Ví dụ cấu trúc Page:
+  private final By emailInput = By.id("email");
+  private final By submitBtn = By.cssSelector("button[data-testid='submit-btn']");
+
+Ví dụ assertion:
+  Assert.assertTrue(dashboardPage.isDisplayed(), "Dashboard phai hien thi");

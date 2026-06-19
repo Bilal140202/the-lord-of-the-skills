@@ -1,0 +1,41 @@
+name: Documentation
+description: Report missing, incorrect, or unclear documentation
+labels: ["documentation", "needs-triage"]
+assignees: []
+
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Documentation type
+      options:
+        - README
+        - CONTRIBUTING
+        - Code comments / JSDoc
+        - CLI help text
+        - WORKING_FLOW / guides
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Where is the issue?
+      description: File name, section heading, or command (e.g. `README.md — MCP server setup`, `contextforge audit --help`).
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+      description: Describe what is incorrect, confusing, or absent.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: If you have a draft or specific wording in mind, paste it here.

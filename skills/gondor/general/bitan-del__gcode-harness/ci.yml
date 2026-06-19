@@ -1,0 +1,371 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  quality:
+    name: Quality Guardrails
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: quality-ubuntu
+          cache-all-crates: "true"
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Check all targets and all features
+        run: cargo check --all-targets --all-features
+
+      - name: Run clippy with warnings denied
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Enforce warning budget
+        shell: bash
+        run: scripts/check_warning_budget.sh
+
+      - name: Enforce oversized-file ratchet
+        shell: bash
+        run: python3 scripts/check_code_size_budget.py
+
+      - name: Enforce oversized-test ratchet
+        shell: bash
+        run: python3 scripts/check_test_size_budget.py
+
+      - name: Enforce panic-prone usage ratchet
+        shell: bash
+        run: python3 scripts/check_panic_budget.py
+
+      - name: Enforce swallowed-error usage ratchet
+        shell: bash
+        run: python3 scripts/check_swallowed_error_budget.py
+
+  mobile-simulator:
+    name: Mobile Simulator (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mobile-simulator-ubuntu
+
+      - name: Run mobile core and simulator tests
+        shell: bash
+        run: |
+          python3 .github/scripts/run_with_timeout.py 600 \
+            cargo test -p gcode-mobile-core -p gcode-mobile-sim
+
+      - name: Run mobile simulator CLI smoke
+        shell: bash
+        run: scripts/mobile_simulator_smoke.sh pairing_ready "hello ci simulator"
+
+  build:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+        continue-on-error: true
+        id: sccache
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+
+      - name: Install mold linker (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mold
+
+      - name: Build
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            cat > .cargo/config.toml << 'EOF'
+          [target.x86_64-unknown-linux-gnu]
+          linker = "clang"
+          rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+          EOF
+          fi
+          if command -v sccache &>/dev/null && sccache --start-server 2>/dev/null; then
+            export RUSTC_WRAPPER=sccache
+          fi
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Compile library and binary tests
+        shell: bash
+        run: |
+          python3 .github/scripts/run_with_timeout.py 900 \
+            cargo test --target ${{ matrix.target }} --lib --bins --no-run
+
+      - name: Run provider matrix tests
+        shell: bash
+        run: |
+          python3 .github/scripts/run_with_timeout.py 600 \
+            cargo test --target ${{ matrix.target }} --test provider_matrix
+
+      - name: Run e2e tests
+        shell: bash
+        run: |
+          python3 .github/scripts/run_with_timeout.py 900 \
+            cargo test --target ${{ matrix.target }} --test e2e
+
+      - name: Check PowerShell script syntax (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/check_powershell_syntax.ps1
+
+      - name: Enforce warning budget (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          scripts/check_warning_budget.sh
+
+      - name: Security preflight (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cargo install cargo-audit --locked
+          scripts/security_preflight.sh --strict
+
+  windows-build-test:
+    name: Build & Test (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+        continue-on-error: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-latest
+          cache-all-crates: "true"
+
+      - name: Build release binary
+        shell: pwsh
+        run: |
+          if (Get-Command sccache -ErrorAction SilentlyContinue) {
+            sccache --start-server *> $null
+            if ($LASTEXITCODE -eq 0) {
+              $env:RUSTC_WRAPPER = 'sccache'
+            }
+          }
+
+          & cargo build --locked --release --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Windows release build failed'
+          }
+
+      - name: Compile library and binary tests
+        shell: pwsh
+        run: |
+          & cargo test --locked --target x86_64-pc-windows-msvc --lib --bins --no-run
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Windows library/binary test compilation failed'
+          }
+
+      - name: Run targeted Windows validation tests
+        shell: pwsh
+        run: |
+          $tests = @(
+            'command_candidates_adds_extension_on_windows',
+            'command_exists_for_known_binary',
+            'command_exists_absolute_path',
+            'sibling_socket_path_roundtrip',
+            'cleanup_socket_pair_removes_main_and_debug_files',
+            'is_process_running_reports_exited_children_as_stopped',
+            'spawn_replacement_process_returns_without_waiting_for_child_exit',
+            'build_shell_command_uses_cmd_and_executes_command',
+            'pipe_name_is_stable_and_normalizes_case_and_separators',
+            'pipe_name_falls_back_when_stem_is_empty',
+            'stream_pair_round_trips_bytes'
+          )
+
+          foreach ($testName in $tests) {
+            & ./scripts/invoke_cargo_with_timeout.ps1 `
+              -Name "Windows targeted test: $testName" `
+              -TimeoutSeconds 300 `
+              -CargoArgs @('test', '--locked', '--target', 'x86_64-pc-windows-msvc', '--lib', $testName, '--', '--nocapture')
+          }
+
+      - name: Run Windows e2e smoke tests
+        shell: pwsh
+        run: |
+          $tests = @(
+            'provider_behavior::test_socket_model_cycle_supported_models',
+            'provider_behavior::test_model_switch_resets_provider_session'
+          )
+
+          foreach ($testName in $tests) {
+            & ./scripts/invoke_cargo_with_timeout.ps1 `
+              -Name "Windows e2e smoke test: $testName" `
+              -TimeoutSeconds 420 `
+              -CargoArgs @('test', '--locked', '--target', 'x86_64-pc-windows-msvc', '--test', 'e2e', $testName, '--', '--exact', '--nocapture')
+          }
+
+      - name: Run Windows lifecycle e2e tests
+        shell: pwsh
+        env:
+          GCODE_E2E_ARTIFACT_DIR: ${{ runner.temp }}/gcode-windows-e2e-logs
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:GCODE_E2E_ARTIFACT_DIR | Out-Null
+          $tests = @(
+            'windows_lifecycle::windows_binary_server_accepts_clients_and_debug_cli',
+            'windows_lifecycle::windows_binary_server_rebinds_named_pipe_after_exit'
+          )
+          foreach ($testName in $tests) {
+            & ./scripts/invoke_cargo_with_timeout.ps1 `
+              -Name "Windows lifecycle e2e test: $testName" `
+              -TimeoutSeconds 420 `
+              -CargoArgs @('test', '--locked', '--target', 'x86_64-pc-windows-msvc', '--test', 'e2e', $testName, '--', '--exact', '--nocapture')
+          }
+
+      - name: Upload Windows e2e diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-e2e-diagnostics
+          path: ${{ runner.temp }}/gcode-windows-e2e-logs
+          if-no-files-found: ignore
+
+      - name: Verify built binary launches
+        shell: pwsh
+        run: |
+          & "target/x86_64-pc-windows-msvc/release/gcode.exe" --version
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Built Windows binary failed to run --version'
+          }
+
+      - name: Verify installer using local artifact
+        shell: pwsh
+        run: |
+          $cargoVersion = Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+          if (-not $cargoVersion) {
+            throw 'Could not determine Cargo.toml version'
+          }
+
+          $version = 'v' + $cargoVersion.Matches[0].Groups[1].Value
+          & ./.github/scripts/verify_windows_install.ps1 `
+            -ArtifactExePath 'target/x86_64-pc-windows-msvc/release/gcode.exe' `
+            -Version $version
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  powershell-syntax:
+    name: PowerShell Syntax
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PowerShell script syntax (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          & ./scripts/check_powershell_syntax.ps1
+
+      - name: Check PowerShell script syntax (PowerShell 7)
+        shell: pwsh
+        run: |
+          & ./scripts/check_powershell_syntax.ps1
+
+  windows-cross-check:
+    name: Windows Cross-Target Check (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc,aarch64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-cross-check
+          cache-all-crates: "true"
+
+      - name: Install LLVM toolchain for cargo-xwin
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang lld llvm ninja-build
+
+      - name: Install cargo-xwin
+        run: cargo install --git https://github.com/rust-cross/cargo-xwin cargo-xwin
+
+      - name: Check Windows x64 target
+        run: cargo xwin check --locked --target x86_64-pc-windows-msvc
+
+      # cargo-xwin currently feeds clang-style ring builds MSVC /imsvc flags for
+      # aarch64-pc-windows-msvc on Linux. Keep this advisory until upstream
+      # cargo-xwin/ring interop is fixed; native Windows ARM64 smoke covers the
+      # release artifact path.
+      - name: Check Windows ARM64 target (advisory)
+        continue-on-error: true
+        run: cargo xwin check --locked --target aarch64-pc-windows-msvc --no-default-features --features pdf

@@ -1,0 +1,292 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  # ----------------------------------------------------------------
+  # JOB: VERIFY RELEASE SOURCE
+  # ----------------------------------------------------------------
+  verify-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate data package
+        run: data/scripts/validate-data
+
+      - name: Check embedded data freshness
+        run: bun run check:embedded-data
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Run tests
+        run: bun run test -- --runInBand
+
+      - name: Build package
+        run: bun run build
+
+  # ----------------------------------------------------------------
+  # JOB: BUILD WINDOWS
+  # ----------------------------------------------------------------
+  release-windows:
+    needs: verify-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Build Windows Binary
+        run: |
+          bun install --frozen-lockfile
+          bun run build:binary:windows
+
+      - name: Setup NSIS
+        run: |
+          choco install nsis
+          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+
+          # Install EnVar Plugin
+          Invoke-WebRequest -Uri "https://github.com/GsNSIS/EnVar/releases/download/v0.3.1/EnVar-Plugin.zip" -OutFile "envar.zip"
+          Expand-Archive "envar.zip" -DestinationPath "envar_temp"
+          Copy-Item "envar_temp\Plugins\x86-unicode\EnVar.dll" "C:\Program Files (x86)\NSIS\Plugins\x86-unicode\EnVar.dll"
+
+      - name: Create Installer (NSIS)
+        run: |
+          makensis packaging/windows/setup.nsi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/aicgen-setup-x64.exe
+
+  # ----------------------------------------------------------------
+  # JOB: BUILD LINUX
+  # ----------------------------------------------------------------
+  release-linux:
+    needs: verify-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Build Linux Binary
+        run: |
+          bun install --frozen-lockfile
+          bun run build:binary:linux
+
+      - name: Create Deb Package
+        run: |
+          mkdir -p dist/deb/usr/bin
+          cp dist/aicgen-linux dist/deb/usr/bin/aicgen
+          chmod +x dist/deb/usr/bin/aicgen
+
+          mkdir -p dist/deb/DEBIAN
+          cp packaging/linux/control dist/deb/DEBIAN/control
+
+          dpkg-deb --build dist/deb dist/aicgen_amd64.deb
+
+      - name: Create RPM Package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          cp dist/aicgen-linux ~/rpmbuild/SOURCES/
+          cp packaging/linux/aicgen.spec ~/rpmbuild/SPECS/
+
+          rpmbuild -ba ~/rpmbuild/SPECS/aicgen.spec
+          cp ~/rpmbuild/RPMS/x86_64/*.rpm dist/aicgen_x86_64.rpm
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-package
+          path: |
+            dist/aicgen_amd64.deb
+            dist/aicgen_x86_64.rpm
+
+  # ----------------------------------------------------------------
+  # JOB: HOMEBREW TAP
+  # ----------------------------------------------------------------
+  homebrew-tap:
+    needs: verify-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Build macOS Binary
+        run: |
+          bun install --frozen-lockfile
+          bun run build:binary:macos
+
+      - name: Create Tarball
+        run: |
+          mkdir -p dist/homebrew
+          cp dist/aicgen-macos dist/homebrew/aicgen
+          chmod +x dist/homebrew/aicgen
+          tar -czf dist/aicgen-macos.tar.gz -C dist/homebrew aicgen
+
+      - name: Calculate SHA256
+        id: sha256
+        run: |
+          SHA256=$(shasum -a 256 dist/aicgen-macos.tar.gz | awk '{print $1}')
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Get Version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload Tarball to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/aicgen-macos.tar.gz
+
+      - name: Update Homebrew Tap
+        env:
+          # REQUIRED: A Personal Access Token (PAT) with 'public_repo' scope
+          # stored in Settings > Secrets and variables > Actions > New repository secret
+          # Name: GH_PAT
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA256: ${{ steps.sha256.outputs.sha256 }}
+        run: |
+          # Clone the tap repository using the PAT
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/aicgen/homebrew-aicgen.git tap
+          cd tap
+
+          # Create Formula directory if it doesn't exist
+          mkdir -p Formula
+
+          # Generate the formula
+          cat > Formula/aicgen.rb << 'EOF'
+          class Aicgen < Formula
+            desc "Configuration generator for AI coding assistants"
+            homepage "https://github.com/aicgen/aicgen"
+            url "https://github.com/aicgen/aicgen/releases/download/v${VERSION}/aicgen-macos.tar.gz"
+            sha256 "${SHA256}"
+            version "${VERSION}"
+
+            def install
+              bin.install "aicgen"
+            end
+
+            test do
+              system "#{bin}/aicgen", "--version"
+            end
+          end
+          EOF
+
+          # Replace placeholders with actual values
+          sed -i '' "s/\${VERSION}/$VERSION/g" Formula/aicgen.rb
+          sed -i '' "s/\${SHA256}/$SHA256/g" Formula/aicgen.rb
+
+          # Commit and push
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/aicgen.rb
+          git commit -m "Update aicgen to version $VERSION" || echo "No changes to commit"
+          git push
+
+  # ----------------------------------------------------------------
+  publish-npm:
+    needs: [release-windows, release-linux, homebrew-tap]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: oven-sh/setup-bun@v1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Build and Publish
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+          npm publish --access public --tag latest
+
+  # ----------------------------------------------------------------
+  # JOB: PUBLISH RELEASE
+  # ----------------------------------------------------------------
+  publish-release:
+    needs: [release-windows, release-linux, homebrew-tap]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            windows-installer/aicgen-setup-x64.exe
+            linux-package/aicgen_amd64.deb
+            linux-package/aicgen_x86_64.rpm
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## Highlights in 1.2.0
+
+            - Capability-driven profiles for Claude Code, GitHub Copilot, Antigravity, and Codex.
+            - Gemini CLI target generation removed; Antigravity is now the Google-side agentic target.
+            - Profile levels are now `basic`, `standard`, and `full`.
+            - Codex gets a project-local `aicgen-sdlc` plugin with namespaced lifecycle skills.
+            - Generated hooks no longer run full test suites; use `/check` or `/aicgen-check`.
+            - Release builds embed the latest docs from the `data/` submodule.
+
+            ## Installation
+
+            ### Windows
+            Download and run `aicgen-setup-x64.exe`
+
+            ### Linux
+            **Debian/Ubuntu**: `sudo dpkg -i aicgen_amd64.deb`
+            **Fedora/RHEL**: `sudo rpm -i aicgen_x86_64.rpm`
+
+            ### macOS (via Homebrew)
+            ```bash
+            brew tap aicgen/aicgen
+            brew install aicgen
+            ```
+
+            ### All Platforms (via npm)
+            ```bash
+            npm install -g @aicgen/aicgen
+            ```

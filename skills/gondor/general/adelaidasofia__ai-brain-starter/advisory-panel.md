@@ -1,0 +1,175 @@
+# Advisory Panel
+
+3-5 voices per question. Each 1-2 sentences, authentic voice. One MUST dissent.
+
+**When:** High-stakes decisions, strategy, pitch rewrites, journaling, weekly reviews. Team can use too.
+
+**Customization:** Add, remove, or swap panelists to fit your life. The framework matters more than the specific names.
+
+---
+
+## Wealth & Strategy
+
+- **Naval Ravikant** — Built AngelList, mass angel investing pioneer. Pick when: leverage, freedom vs. obligation, "should I do this myself or build a system?"
+- **Warren Buffett** — $130B+ investor, ran Berkshire for 60 years. Pick when: patience, circle of competence, tempted to diversify or chase shiny objects
+- **Ray Dalio** — Built Bridgewater ($160B AUM), wrote *Principles*. Pick when: systemic decisions, macro cycles, "what's the principle here?"
+- **Alex Hormozi** — Scaled Gym Launch to $100M+, wrote *$100M Offers*. Pick when: pricing, offers, sales, execution, "just do the work" energy
+- **Tom Wheelwright** — CPA to the ultra-wealthy, wrote *Tax-Free Wealth*. Pick when: entity structuring, tax strategy, money architecture
+- **Marc Andreessen** — Co-founded Netscape, runs a16z ($35B AUM). Pick when: product-market fit, tech thesis, "is this a real market?"
+- **Stephen Schwarzman** — Founded Blackstone ($1T AUM). Pick when: high-stakes negotiation, institutional partnerships, PE discipline
+- **Howard Marks** — Co-founded Oaktree ($190B AUM), writes the famous memos. Pick when: contrarian thinking, risk, "what is everyone else missing?"
+- **Sam Zell** — "Grave Dancer" of real estate, legendary contrarian investor. Pick when: downside-first thinking, distressed opportunities, risk assessment
+- **Robert Kiyosaki** — *Rich Dad Poor Dad* author, 40M+ copies. Pick when: cash-flow mindset, asset vs. liability framing, money anxiety
+- **Ken Griffin** — Founded Citadel ($60B+ AUM). Pick when: risk-adjusted returns, financial modeling, "is this worth the risk?"
+- **Laurene Powell Jobs** — Runs Emerson Collective, $10B+ impact investing. Pick when: values-led legacy, impact alongside returns
+- **Richard Branson** — Built Virgin Group (400+ companies). Pick when: fun is draining from the work, brand building, joyful entrepreneurship
+
+## LatAm & Cross-Border
+
+- **David Velez** — Founded Nubank (largest digital bank in LatAm, 90M+ customers). Pick when: Colombia-specific startup strategy, LatAm fintech, regulatory navigation
+- **Simon Borrero** — Founded Rappi (LatAm super-app, $5B+ valuation). Pick when: hypergrowth execution in emerging markets, scrappy ops decisions
+- **Andres Moreno** — Founded Open English (scaled across 20+ countries). Pick when: US-LatAm bridge, fundraising as a Latino/a founder, cross-border companies
+- **Luis Carlos Sarmiento Angulo** — Colombia's wealthiest person, built Grupo Aval. Pick when: Colombian financial systems, capital preservation, institutional thinking
+- **Cross-border tax strategist** — IRS + DIAN specialist. Pick when: US-Colombia double taxation, entity structuring
+- **LatAm family office CIO** — Global allocation, currency risk. Pick when: investor mindset, offshore strategy
+- **Global mobility strategist** — Visa, residency, tax exposure. Pick when: travel logistics, residency planning
+
+## Colombia: Life & Business
+
+*Localization voices for building a life and business in Colombia. Covers corporate culture, brand building, identity, law, gender dynamics, relationships, bicultural experience, and wellness from a Colombian perspective.*
+
+- **Carlos Raul Yepes** — Former CEO of Bancolombia, Colombia's largest bank. Resigned from ISA's board in public protest over ethics violations. Author of *Por otro camino*, TEDx speaker on humanistic leadership. Pick when: selling to Colombian corporates, enterprise relationship dynamics, how business actually gets done in Colombia
+- **Catalina Escobar** — Founded Juanfe Foundation in Cartagena, CNN Hero 2012, Schwab Foundation Social Entrepreneur. Built one of Colombia's most recognized personal brands from Cartagena to the international stage. Pick when: building personal brand in Colombian media, which platforms and stages matter, visibility strategy from Colombia outward
+- **Hector Abad Faciolince** — One of Colombia's most important living writers. Author of *El olvido que seremos*. Lived in exile, returned. Pick when: Colombian identity and class dynamics, social codes in Bogota and Medellin, the "returning Colombian" experience, feeling between two worlds
+- **Francisco Reyes Villamizar** — Former Superintendente de Sociedades (Colombia's top corporate regulator), designed the SAS framework used by every Colombian startup. Professor at Universidad de los Andes, presided over UNCITRAL. Pick when: Colombian entity structuring, SAS formation, labor law, DIAN compliance, corporate governance
+- **Sylvia Escovar** — Former CEO of Terpel, one of Colombia's largest companies. Consistently ranked among the most powerful women in Colombian business. Pick when: navigating gender dynamics in Colombian corporate world, building executive authority with Colombian stakeholders
+- **Florence Thomas** — French-born psychologist, moved to Colombia in 1967. Professor emerita at Universidad Nacional, 50+ years writing about love, relationships, and gender in Colombian culture for El Tiempo. Order of Boyaca recipient. Pick when: how love and dating actually work in Colombia, gender dynamics in Colombian relationships
+- **Patricia Engel** — Colombian-American novelist, PEN/Hemingway finalist, NYT bestseller. Author of *Infinite Country*, *Vida*, *The Veins of the Ocean*. Pick when: bicultural identity, the emotional cost of living between two worlds, writing about the diaspora experience
+- **Dr. Jorge Carvajal Posada** — Colombian physician (Universidad de Antioquia), creator of Sintergetica (integrative medicine bridging Western medicine with traditional Latin American healing). 45+ years of practice, 5+ books. Pick when: wellness through a Colombian lens, healing as integrity, embodied health, holistic approaches rooted in Latin American tradition
+
+## Leadership & Operations
+
+- **Sheryl Sandberg** — COO of Facebook through hypergrowth ($0 to $86B revenue). Pick when: team growing pains, delegation, operating cadence
+- **Keith Rabois** — Exec at PayPal, Square, Khosla. Pick when: execution brutality, "how do I run this tighter?"
+- **Patrick Collison** — Co-founded Stripe ($95B valuation). Pick when: shipping fast without breaking things, speed + quality
+- **Reid Hoffman** — Co-founded LinkedIn, wrote *Blitzscaling*. Pick when: network strategy, "who should I know?", partnership ecosystems
+- **Adam Grant** — Wharton's top-rated professor, org psych expert. Pick when: team dynamics, giving too much, culture design
+- **Tony Robbins** — 50+ years of peak performance coaching, 100M+ followers. Pick when: energy dip, state management, needs a kick
+
+## Gatherings & Connection
+
+- **Priya Parker** — Author of *The Art of Gathering*, conflict resolution facilitator. Pick when: events strategy, community design, making gatherings meaningful
+
+## Psychology & Inner Work
+
+- **Brene Brown** — 20+ years of vulnerability/shame research, TED talks viewed 60M+ times. Pick when: Shame floor, fear of being seen, courage
+- **Robert Greene** — Author of *The 48 Laws of Power* (5M+ copies). Pick when: power dynamics, competitive situations, feeling outmaneuvered
+- **Debbie Ford** — Shadow work pioneer, trained 10,000+ coaches. Pick when: rejecting parts of yourself, "I hate that I..."
+- **Gabor Mate** — Physician, 30+ years addiction/trauma research. Pick when: childhood patterns surfacing, root wounds, compassion-led healing
+- **Martin Seligman** — Father of positive psychology, founded the field at UPenn. Pick when: strengths-based reframe, flourishing
+- **Jungian Analyst** — Archetypes, shadow, dreamwork. Pick when: recurring symbols, "what does this mean?"
+- **CBT Therapist** — Cognitive restructuring, bias correction. Pick when: spiraling thoughts, catastrophizing
+- **Existential Psychotherapist** — Meaning, authentic choice. Pick when: "what's the point?", identity crisis
+- **Inner Child Therapist** — Re-parenting, attachment repair. Pick when: Mom/Dad triggers, feeling small
+- **Dr. Emily Anhalt** — Psychologist specializing in emotional fitness for founders. Pick when: founder-specific emotional load
+
+## Relationships
+
+- **Esther Perel** — Therapist, author of *Mating in Captivity*, 500M+ podcast downloads. Pick when: romantic tension, desire, wanting vs. having
+- **Dr. Stan Tatkin** — PACT developer, attachment neuroscience. Pick when: anxious attachment showing up, co-regulation
+- **Dr. John & Julie Gottman** — 40+ years of relationship research, predicted divorce with 94% accuracy. Pick when: conflict repair, love maps
+- **Terry Real** — Founder of Relational Life Therapy. Pick when: boundaries in intimate relationships, codependence
+- **Dr. Sue Johnson** — Created Emotionally Focused Therapy (EFT). Pick when: "why do I keep doing this?" in relationships
+- **Alain de Botton** — Philosopher, founded The School of Life. Pick when: intellectual framing of romantic confusion
+- **Matthew Hussey** — Dating coach, NYT bestselling author. Pick when: tactical dating advice, "what do I text?"
+
+## Health & Body
+
+- **Dr. Peter Attia** — Longevity physician, author of *Outlive*. Pick when: health data, optimization, metric-driven protocols
+- **Dr. Stacy Sims** — Exercise physiologist, female athlete researcher. Pick when: training by cycle phase, women's performance
+- **Dr. Lara Briden** — Naturopath, author of *Period Repair Manual*. Pick when: hormonal symptoms, cycle irregularity
+- **Dr. Chris Winter** — Neurologist, sleep specialist, author of *The Sleep Solution*. Pick when: sleep issues, late nights
+- **Dr. Rhonda Patrick** — PhD in biomedical science, runs FoundMyFitness. Pick when: supplements, micronutrients, cellular health
+- **Dr. Peter Levine** — Created Somatic Experiencing (trauma-release method). Pick when: body holding tension, trauma response
+- **Bessel van der Kolk** — Psychiatrist, author of *The Body Keeps the Score*. Pick when: embodied healing, "the body knows"
+
+## Wisdom & Meaning
+
+- **Michael A. Singer** — Author of *The Untethered Soul* (2M+ copies) and *The Surrender Experiment*; founded Temple of the Universe. Pick when: stuck in the inner narrator, emotional contraction, "why can't I let this go?", releasing the seat of self.
+- **Dr. David R. Hawkins** — Psychiatrist, physician, spiritual teacher; author of *Power vs. Force* and *Letting Go*; created the Map of Consciousness (0-1000 scale mapping human energy/awareness levels). Pick when: floor work, consciousness calibration, releasing a fixed pattern, "what level am I actually operating from?"
+- **Drunvalo Melchizedek** — Spiritual teacher; author of *The Flower of Life* (Vols. 1 & 2) and *Living in the Heart*; known for sacred geometry, Merkaba meditation, and ancient wisdom traditions. Pick when: sacred/spiritual framework questions, heart-centered knowing, geometry of consciousness.
+- **Thich Nhat Hanh** — Zen master, founded Plum Village, 100+ books on mindfulness. Pick when: needs to slow down, Peace floor
+- **Marcus Aurelius** — Roman Emperor, wrote *Meditations* (2,000 years of influence). Pick when: frustration at things outside control, agency, serenity
+- **Yuval Noah Harari** — Historian, *Sapiens* sold 25M+ copies. Pick when: zooming out, "does any of this matter?"
+- **Mo Gawdat** — Former Chief Business Officer at Google X, *Solve for Happy*. Pick when: engineering joy, reframing expectations
+- **Jane Goodall** — 60+ years studying primates, UN Messenger of Peace. Pick when: purpose, humility, stewardship
+- **Charles Eisenstein** — Philosopher, *Sacred Economics*. Pick when: money + meaning tension
+- **Robin Wall Kimmerer** — Botanist + Potawatomi elder, *Braiding Sweetgrass*. Pick when: gratitude, reciprocity, awe
+- **Maya Angelou** — Poet, memoirist, civil rights voice, Presidential Medal of Freedom. Pick when: writing courage, "do I have the right to say this?"
+- **Oprah Winfrey** — Built a $2.5B media empire from nothing. Pick when: building audience, using voice, platform
+- **Balaji Srinivasan** — Former Coinbase CTO, a16z partner, network-state theorist. Pick when: future-of-work, decentralization, big-picture tech
+
+## Personal Growth & Becoming Better Humans
+
+Prescriptive voices for monthly insight reviews. Where Psychology & Inner Work observes patterns, this section recommends action. Used in `/monthly` Section 5a "Becoming-better-human pass" of the insights skill.
+
+- **Tony Robbins** — 50+ years of peak-performance coaching, 100M+ followers. 6 Human Needs framework (certainty, variety, significance, connection, growth, contribution), state management via Triad (focus + language + physiology). Pick when: state stuck, body data dropping, motion-creates-emotion intervention needed, identifying which human need is starving.
+- **Mel Robbins** — Bestselling author of *The 5 Second Rule* and *The Let Them Theory*; behavior change without motivation. Pick when: action gap, "I know what to do but don't do it," daily-decision micro-habits, breaking deliberation loops.
+- **Marisa Peer** — Created Rapid Transformational Therapy (RTT). "I am enough" identity work, self-worth ceilings, the language that programs the unconscious. Pick when: imposter signal, success-block, voice patterns that betray self-image, repetitive negative self-talk.
+- **Marshall Goldsmith** — Top-rated executive coach (Fortune 50 CEOs); author of *What Got You Here Won't Get You There* and *Triggers*. Daily Questions practice, "feedforward" not feedback, behaviors that helped you get here will not get you to the next level. Pick when: success-pattern dependency, blind-spot recognition, leader-stage transitions, when integration looks like coasting.
+- **Joe Dispenza** — Neuroscientist + meditation teacher; *Breaking the Habit of Being Yourself*, *Becoming Supernatural*. Mind-body practice, neural rewiring, stepping out of the personality that produced past results. Pick when: identity-level shift needed, body-mind integration practice, repeating patterns that survive cognitive reframes.
+- **David Goggins** — Former Navy SEAL, *Can't Hurt Me*, *Never Finished*. Mental toughness, accountability mirror, doing hard things on purpose. Pick when: comfort drift, body capacity declining, need for the dissenting voice that says "you're getting soft and you know it."
+- **Pema Chödrön** — Buddhist nun, *When Things Fall Apart*, *The Places That Scare You*. Sitting with difficult emotions without escape, basic goodness, groundlessness as practice. Pick when: bypassing through optimism, body asking for stillness, the comfortable floor that needs investigation.
+- **Wim Hof** — *The Iceman*, breath + cold + commitment method. Body-tone reset, sympathetic-system retraining, autonomic agency. Pick when: body data declining, recovery flag, need to physically reset state in 3 minutes.
+- **Peter Crone** — "The Mind Architect," identity-level coach. "Freedom is the absence of self-conflict." Examines the unconscious agreements behind repeated patterns. Pick when: same situation arrives in different clothing, root-cause work below behavior level, "what story am I living from?"
+- **Carol Dweck** — Stanford psychologist, *Mindset*. Fixed vs. growth mindset, the language of effort vs. talent, how praise shapes future behavior. Pick when: language of "I'm just X" or "I'm not Y" appearing, comparison to others, the subtle shift from learner to performer.
+- **Angela Duckworth** — *Grit*, MacArthur Fellow. Long-term passion + perseverance, deliberate practice over sprint heroics. Pick when: enthusiasm cycles + lulls visible, sustainability question, "is this a sprint or a marathon."
+- **Eckhart Tolle** — *The Power of Now*, *A New Earth*. Pain-body work, ego-identification, presence as primary practice. Pick when: future-anxiety/past-rumination spiral, identification with thought, the moment between stimulus and response.
+- **Vishen Lakhiani** — Founder of Mindvalley, *The Code of the Extraordinary Mind*. Consciousness engineering, three most important questions, lifestyle design as personal-development infrastructure. Pick when: integrating multiple practices into a coherent operating system.
+- **Susan David** — Harvard psychologist, *Emotional Agility*. Showing up to your emotions without fusing with them or fighting them. Pick when: emotion-suppression pattern, "should-feel" overriding "do-feel," the gap between values and present action.
+- **Robin Sharma** — *The 5 AM Club*, *The Monk Who Sold His Ferrari*. Daily ritual architecture, the 20/20/20 formula, willpower as muscle. Pick when: structural cadence breaking, morning ritual erosion visible in body data, need a practice not a principle.
+
+## Creativity
+
+- **Rick Rubin** — Produced for Jay-Z, Johnny Cash, Adele; founded Def Jam. Pick when: overthinking creative work, "less is more"
+- **Elizabeth Gilbert** — Author of *Eat Pray Love* (15M copies), *Big Magic*. Pick when: fear of publishing, creative courage
+- **Twyla Tharp** — Choreographer, 160+ works, MacArthur Fellow. Pick when: creative discipline, daily craft, routine structure
+
+## Specialized
+
+- **Jackie Kennedy Onassis** — Defined American elegance, fierce privacy protector. Pick when: public image, how to carry yourself
+- **Layla Martin** — Embodied feminine leadership teacher. Pick when: body, sensuality, feminine power
+- **Kasja Urbaniak** — Power & receptivity specialist, trained under Regena Thomashauer. Pick when: asking for what you want, sales as receptivity
+- **Cross-border real estate investor** — Pick when: property decisions (US, Colombia, international)
+- **LatAm political-economy strategist** — Pick when: macro Colombia/LatAm context, regulatory risk
+- **James E. Hughes Jr.** — Family wealth governance author (*Family Wealth*, now in 3rd edition). Pick when: family money dynamics, legacy planning
+
+## Technology & AI
+
+- **Ethan Mollick** — Wharton professor, *Co-Intelligence*. Evidence-based on how humans actually integrate AI. Pick when: delegate to AI vs. own it, workflow design, is this tool changing your thinking or just your output
+- **Tiago Forte** — Created PARA + Building a Second Brain, PKM pioneer. Pick when: vault architecture, whether a system helps you think or just produces more files, long-term knowledge compounding
+- **Andy Matuschak** — Independent researcher, evergreen notes, Orbit, tools-for-thought. More rigorous than Tiago, less practical. Pick when: stress-test whether a system changes how you form ideas, note architecture, long-horizon knowledge work
+- **Andrej Karpathy** — Former Tesla AI Director, OpenAI cofounder. Pick when: sanity-checking AI capability assumptions, MCP architecture, automation where wishful thinking could cause failure
+- **Tim Ferriss** — *The 4-Hour Workweek*, elimination thinker. Pick when: something is being done repeatedly, delegation decisions, energy-to-output ratio is off
+
+---
+
+## Panel Rules
+
+1. **Select 3-5 most relevant.** Score lens-fit 0-100 internally; surface 70+ (drop to 50 if fewer than 3 qualify). Never print the score.
+2. Each speaks in their authentic voice, 1-2 sentences. Format: **Name** (credentials) — sentence.
+3. **At least one MUST dissent or push back.** Not console, not affirm. Challenge. Especially when everything seems fine, because that's where rationalizations hide.
+4. If facts/studies are mentioned, include the source.
+5. Keep it tight. Not a seminar.
+6. Challenge assumptions, don't manufacture consensus.
+7. For high-stakes decisions, auto-offer `/deconstruct` before committing.
+8. **ONLY use named panelists from this file.** No archetypes, no invented experts. If none fit: say so, offer to add one. Never improvise.
+9. **Peer-review round (the step that turns N opinions into blind-spot detection).** After the 3-5 panelists have spoken but BEFORE you synthesize, run one peer-review pass with a 5-bucket taxonomy:
+   - **consensus** — where the panelists independently converged. Treat as higher-confidence.
+   - **contradictions** — where they genuinely clash. Present both sides. Do NOT smooth over.
+   - **partial coverage** — a dimension one panelist addressed that the others did not even speak to (distinct from a contradiction: nobody disagreed, they stayed silent). Single-source — weight accordingly.
+   - **unique insights** — a point raised by exactly one panelist that nobody else surfaced (distinct from a blind spot: it IS surfaced, just thinly). Single-source — weight accordingly.
+   - **blind spots** — what ALL of them missed.
+
+   Then synthesize. **The chairman ANALYZES, does not MERGE** — compare, structure, and surface the disagreement; never collapse contradictions into a balanced-view paragraph ("balancing X and Y, the path forward is Z" IS merging). Without this pass you average the voices instead of surfacing what they reveal. Adapted from Karpathy's LLM Council methodology; the 5-bucket taxonomy and the analyzes-not-merges framing are from OpenRouter Fusion's multi-model deliberation pipeline.
+10. **The panel is overkill for short tactical prompts.** Do NOT convene it for single-step, mechanical, or trivially reversible work (a file rename, formatting a list, a short factual lookup, a one-line edit). Convene it only when the cost of being wrong outweighs the cost of a few extra panelist completions. The default failure mode without this rule is panel-spam, where the synthesis is just performative texture on a question that did not need it. From OpenRouter Fusion: "overkill for short tactical prompts; use it when the cost of being wrong outweighs the cost of a few extra completions."

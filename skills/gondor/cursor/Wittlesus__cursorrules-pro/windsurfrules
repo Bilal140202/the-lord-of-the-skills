@@ -1,0 +1,60 @@
+# CLI Tool — Windsurf AI Configuration
+
+You are an expert CLI tool developer. Follow these rules strictly for command-line applications.
+
+## Project Conventions
+- Entry point: Single executable with subcommands
+- Configuration: Support config files (YAML/JSON/TOML) and env vars
+- Cross-platform: Windows, macOS, Linux compatibility
+- Helpful error messages with suggestions
+- Progress indicators for long operations
+
+## Command Structure
+- Main command with global flags: `--help`, `--version`, `--verbose`, `--config`
+- Subcommands for actions: `tool init`, `tool deploy`, `tool status`
+- Consistent flag naming conventions
+- Boolean flags: `--dry-run`, `--watch`, `--quiet`
+- Value flags: `--output <file>`, `--format <json|yaml|table>`
+
+## User Experience
+- Colorized output for readability (errors in red, success in green)
+- Interactive prompts with defaults
+- Confirm destructive operations unless `--force` flag is set
+- Progress indicators for operations taking >2 seconds
+- Helpful suggestions in error messages
+
+## Input Validation
+- Validate all arguments and flags before execution
+- Check file paths exist before reading
+- Validate URLs, emails, formats with clear error messages
+- Exit with non-zero code on validation failure
+
+## Output Formatting
+- Default: human-readable output (tables, lists, colors)
+- `--format json`: machine-readable JSON output
+- `--quiet`: suppress non-essential output
+- `--verbose`: detailed debug output with timestamps
+
+## Configuration Management
+- Config precedence: CLI flags > env vars > config file > defaults
+- Support `init` command to generate config template
+- Validate config file schema on load
+
+## Error Handling
+- Display user-friendly messages (no raw stack traces)
+- Use proper exit status codes (0 = success, 1 = error)
+- Provide recovery suggestions
+- Log debug info when `--verbose` flag is set
+
+## Secrets Management
+- Never log secrets or tokens
+- Support env vars for secrets
+- Store in OS keychain when possible
+- Mask secrets in output
+
+## Common Mistakes to Avoid
+- Do NOT show stack traces to end users
+- Do NOT ignore exit codes
+- Do NOT make API calls on every invocation without caching
+- Do NOT hardcode file paths
+- Do NOT assume specific OS

@@ -1,0 +1,73 @@
+name: PR Lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  branch-name:
+    name: Branch naming
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          PATTERN='^(feat|fix|refactor|docs|test|chore|ci)/[0-9]+/.+$'
+
+          # Allow well-known integration branches to bypass
+          if [[ "$BRANCH" =~ ^dependabot/ ]] || [[ "$BRANCH" =~ ^release/ ]] || [[ "$BRANCH" == "develop" ]]; then
+            echo "✅ Bypass branch: $BRANCH"
+            exit 0
+          fi
+
+          if [[ "$BRANCH" =~ $PATTERN ]]; then
+            echo "✅ Branch name OK: $BRANCH"
+          else
+            echo "::error::Branch name '$BRANCH' does not match the required format: {type}/{issue_no}/{short-desc}"
+            echo ""
+            echo "Examples:"
+            echo "  feat/42/add-filter"
+            echo "  fix/108/stale-step-after-resume"
+            echo "  docs/71/cloudflare-setup"
+            echo ""
+            echo "Allowed types: feat, fix, refactor, docs, test, chore, ci"
+            echo "See CONTRIBUTING.md → Branch naming for details."
+            exit 1
+          fi
+
+  pr-title:
+    name: PR title (Conventional Commits)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          # Allow dependabot branches to bypass
+          if [[ "$BRANCH" =~ ^dependabot/ ]]; then
+            echo "✅ Bypass Dependabot PR: $TITLE"
+            exit 0
+          fi
+
+          # Conventional Commits: type(optional-scope): description
+          PATTERN='^(feat|fix|refactor|docs|test|chore|ci)(\([a-z0-9-]+\))?!?: .{1,}'
+
+          if [[ "$TITLE" =~ $PATTERN ]]; then
+            echo "✅ PR title OK: $TITLE"
+          else
+            echo "::error::PR title does not follow Conventional Commits format."
+            echo ""
+            echo "Required: <type>(<scope>): <summary>"
+            echo ""
+            echo "Examples:"
+            echo "  feat(proxy): add workspace filtering to conversation list"
+            echo "  fix(web): prevent stale steps after tab resume"
+            echo "  docs: update Cloudflare tunnel setup instructions"
+            echo ""
+            echo "Allowed types: feat, fix, refactor, docs, test, chore, ci"
+            echo "Scopes (optional): proxy, web, or omit for repo-wide changes."
+            echo "See CONTRIBUTING.md → Commit messages for details."
+            exit 1
+          fi

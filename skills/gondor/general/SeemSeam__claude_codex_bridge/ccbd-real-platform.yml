@@ -1,0 +1,339 @@
+name: CCBD Real Platform Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-real:
+    name: macOS real ccbd/ask smoke
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pytest tomli
+          brew install tmux
+
+      - name: Syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q lib bin ccb.py
+          bash -n test/system_comm_matrix.sh test/system_linux_soak.sh test/system_fastpath_stress.sh
+
+      - name: Lifecycle smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          python -m pytest -q -m ccb_lifecycle_smoke \
+            test/test_v2_phase2_entrypoint.py \
+            test/test_v2_ccbd_start_matrix.py
+
+      - name: Communication matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          bash test/system_comm_matrix.sh
+
+      - name: Short soak
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          CCB_LINUX_SOAK_SECONDS=35 \
+          CCB_LINUX_SOAK_KILL_EVERY=2 \
+          CCB_LINUX_SOAK_STUB_DELAY=0.2 \
+          CCB_LINUX_SOAK_WATCH_TIMEOUT_S=90 \
+            bash test/system_linux_soak.sh
+
+      - name: Fastpath stress smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          CCB_FASTPATH_STRESS_ASK_COUNT=12 \
+          CCB_FASTPATH_STRESS_STUB_DELAY=0.3 \
+          CCB_FASTPATH_STRESS_WATCH_TIMEOUT_S=240 \
+            bash test/system_fastpath_stress.sh
+
+      - name: Storage doctor and cleanup smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "lib")
+          from storage.paths import PathLayout
+
+          project = Path(os.environ["RUNNER_TEMP"]) / "ccb-storage-cleanup-smoke"
+          if project.exists():
+              import shutil
+              shutil.rmtree(project)
+          (project / ".ccb").mkdir(parents=True)
+          (project / ".ccb" / "ccb.config").write_text("alpha:claude,gamma:gemini\n", encoding="utf-8")
+          layout = PathLayout(project)
+          claude_home = layout.agent_provider_state_dir("alpha", "claude") / "home"
+          gemini_home = layout.agent_provider_state_dir("gamma", "gemini") / "home"
+          for version, body in {"2.1.132": "old", "2.1.133": "rollback", "2.1.137": "current"}.items():
+              target = claude_home / ".local" / "share" / "claude" / "versions" / version / "claude"
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(body, encoding="utf-8")
+          bin_dir = claude_home / ".local" / "bin"
+          bin_dir.mkdir(parents=True, exist_ok=True)
+          link = bin_dir / "claude"
+          link.unlink(missing_ok=True)
+          link.symlink_to("../share/claude/versions/2.1.137/claude")
+          for relative, body in {
+              ".npm/_cacache/blob": "cache",
+              ".cache/node-gyp/state": "nodegyp",
+              ".gemini/tmp/session.json": "session",
+          }.items():
+              target = gemini_home / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(body, encoding="utf-8")
+          print(project)
+          PY
+          project="${RUNNER_TEMP}/ccb-storage-cleanup-smoke"
+          export CCB_SOURCE_ALLOWED_ROOTS="$project"
+          ./ccb --project "$project" doctor storage --json >"$RUNNER_TEMP/storage-before.json"
+          ./ccb --project "$project" cleanup >"$RUNNER_TEMP/cleanup.out"
+          ./ccb --project "$project" doctor storage --json >"$RUNNER_TEMP/storage-after.json"
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "lib")
+          from storage.paths import PathLayout
+
+          root = Path(os.environ["RUNNER_TEMP"])
+          project = root / "ccb-storage-cleanup-smoke"
+          before = json.loads((root / "storage-before.json").read_text(encoding="utf-8"))
+          after = json.loads((root / "storage-after.json").read_text(encoding="utf-8"))
+          layout = PathLayout(project)
+          claude_home = layout.agent_provider_state_dir("alpha", "claude") / "home"
+          gemini_home = layout.agent_provider_state_dir("gamma", "gemini") / "home"
+          cleanup_text = (root / "cleanup.out").read_text(encoding="utf-8")
+          assert "cleanup_status: ok" in cleanup_text
+          assert "old_claude_version_cache" in cleanup_text
+          assert "rebuildable_gemini_cache" in cleanup_text
+          checks = {
+              "old_removed": not (claude_home / ".local/share/claude/versions/2.1.132").exists(),
+              "rollback_kept": (claude_home / ".local/share/claude/versions/2.1.133/claude").exists(),
+              "current_kept": (claude_home / ".local/share/claude/versions/2.1.137/claude").exists(),
+              "gemini_cache_removed": not (gemini_home / ".npm/_cacache").exists(),
+              "node_gyp_removed": not (gemini_home / ".cache/node-gyp").exists(),
+              "gemini_session_kept": (gemini_home / ".gemini/tmp/session.json").exists(),
+              "storage_reduced": after["by_class"]["rebuildable_cache"]["bytes"] < before["by_class"]["rebuildable_cache"]["bytes"],
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          if failed:
+              raise AssertionError(f"storage cleanup smoke failed: {failed}")
+          PY
+
+      - name: Upload macOS artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-ccbd-real-artifacts
+          path: |
+            ${{ runner.workspace }}/test_ccb*
+          if-no-files-found: ignore
+
+  wsl-real:
+    name: WSL mounted-drive ccbd/ask smoke
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup WSL
+        uses: Vampire/setup-wsl@v3
+        with:
+          distribution: Ubuntu-22.04
+
+      - name: Install dependencies in WSL
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common python3 python3-venv python3-pip tmux git
+          if ! apt-cache show python3.11 >/dev/null 2>&1; then
+            sudo add-apt-repository -y ppa:deadsnakes/ppa
+            sudo apt-get update
+          fi
+          sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
+          python3.11 -m venv /tmp/ccb-ci-py311
+          /tmp/ccb-ci-py311/bin/python -m pip install --upgrade pip
+          /tmp/ccb-ci-py311/bin/python -m pip install pytest tomli
+
+      - name: Syntax check in WSL
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          /tmp/ccb-ci-py311/bin/python -m compileall -q lib bin ccb.py
+          bash -n test/system_comm_matrix.sh test/system_linux_soak.sh test/system_fastpath_stress.sh
+
+      - name: Lifecycle smoke in WSL
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          /tmp/ccb-ci-py311/bin/python -m pytest -q -m ccb_lifecycle_smoke \
+            test/test_v2_phase2_entrypoint.py \
+            test/test_v2_ccbd_start_matrix.py
+
+      - name: WSL path and relocation tests
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          /tmp/ccb-ci-py311/bin/python -m pytest -q \
+            test/test_v2_storage_paths.py \
+            test/test_wsl_path_utils.py \
+            test/test_opencode_paths_runtime.py \
+            test/test_project_id.py \
+            -k "wsl or mounted or relocation or socket or path or storage"
+
+      - name: Communication matrix in WSL mounted checkout
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          bash test/system_comm_matrix.sh
+
+      - name: Short soak in WSL mounted checkout
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          CCB_LINUX_SOAK_SECONDS=35 \
+          CCB_LINUX_SOAK_KILL_EVERY=2 \
+          CCB_LINUX_SOAK_STUB_DELAY=0.2 \
+          CCB_LINUX_SOAK_WATCH_TIMEOUT_S=90 \
+            bash test/system_linux_soak.sh
+
+      - name: Fastpath stress smoke in WSL mounted checkout
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          CCB_FASTPATH_STRESS_ASK_COUNT=12 \
+          CCB_FASTPATH_STRESS_STUB_DELAY=0.3 \
+          CCB_FASTPATH_STRESS_P95_RECEIPT_MS=2500 \
+          CCB_FASTPATH_STRESS_WATCH_TIMEOUT_S=240 \
+            bash test/system_fastpath_stress.sh
+
+      - name: Storage doctor and cleanup smoke in WSL mounted checkout
+        shell: wsl-bash {0}
+        run: |
+          set -euo pipefail
+          export TERM=xterm-256color
+          smoke_root="/mnt/c/Temp/ccb-storage-cleanup-smoke-${{ github.run_id }}-${{ github.run_attempt }}"
+          rm -rf "$smoke_root"
+          mkdir -p "$smoke_root/.ccb"
+          printf 'alpha:claude,gamma:gemini\n' >"$smoke_root/.ccb/ccb.config"
+          /tmp/ccb-ci-py311/bin/python - "$smoke_root" <<'PY'
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "lib")
+          from storage.paths import PathLayout
+
+          project = Path(sys.argv[1])
+          layout = PathLayout(project)
+          claude_home = layout.agent_provider_state_dir("alpha", "claude") / "home"
+          gemini_home = layout.agent_provider_state_dir("gamma", "gemini") / "home"
+          for version, body in {"2.1.132": "old", "2.1.133": "rollback", "2.1.137": "current"}.items():
+              target = claude_home / ".local" / "share" / "claude" / "versions" / version / "claude"
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(body, encoding="utf-8")
+          bin_dir = claude_home / ".local" / "bin"
+          bin_dir.mkdir(parents=True, exist_ok=True)
+          link = bin_dir / "claude"
+          link.unlink(missing_ok=True)
+          link.symlink_to("../share/claude/versions/2.1.137/claude")
+          for relative, body in {
+              ".npm/_cacache/blob": "cache",
+              ".cache/node-gyp/state": "nodegyp",
+              ".gemini/tmp/session.json": "session",
+          }.items():
+              target = gemini_home / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(body, encoding="utf-8")
+          PY
+          export CCB_SOURCE_ALLOWED_ROOTS="$smoke_root"
+          ./ccb --project "$smoke_root" doctor storage --json >/tmp/ccb-storage-before.json
+          ./ccb --project "$smoke_root" cleanup >/tmp/ccb-cleanup.out
+          ./ccb --project "$smoke_root" doctor storage --json >/tmp/ccb-storage-after.json
+          /tmp/ccb-ci-py311/bin/python - "$smoke_root" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "lib")
+          from storage.paths import PathLayout
+
+          project = Path(sys.argv[1])
+          before = json.loads(Path("/tmp/ccb-storage-before.json").read_text(encoding="utf-8"))
+          after = json.loads(Path("/tmp/ccb-storage-after.json").read_text(encoding="utf-8"))
+          layout = PathLayout(project)
+          claude_home = layout.agent_provider_state_dir("alpha", "claude") / "home"
+          gemini_home = layout.agent_provider_state_dir("gamma", "gemini") / "home"
+          cleanup_text = Path("/tmp/ccb-cleanup.out").read_text(encoding="utf-8")
+          assert "cleanup_status: ok" in cleanup_text
+          assert "old_claude_version_cache" in cleanup_text
+          assert "rebuildable_gemini_cache" in cleanup_text
+          assert before["runtime_root_kind"] == "relocated"
+          assert before["shared_cache_status"] == "enabled"
+          assert before["shared_cache_reason"] == "enabled"
+          checks = {
+              "old_removed": not (claude_home / ".local/share/claude/versions/2.1.132").exists(),
+              "rollback_kept": (claude_home / ".local/share/claude/versions/2.1.133/claude").exists(),
+              "current_kept": (claude_home / ".local/share/claude/versions/2.1.137/claude").exists(),
+              "gemini_cache_removed": not (gemini_home / ".npm/_cacache").exists(),
+              "node_gyp_removed": not (gemini_home / ".cache/node-gyp").exists(),
+              "gemini_session_kept": (gemini_home / ".gemini/tmp/session.json").exists(),
+              "storage_reduced": after["by_class"]["rebuildable_cache"]["bytes"] < before["by_class"]["rebuildable_cache"]["bytes"],
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          if failed:
+              raise AssertionError(f"storage cleanup smoke failed: {failed}")
+          PY
+          rm -rf "$smoke_root"
+
+      - name: Upload WSL artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wsl-ccbd-real-artifacts
+          path: |
+            ${{ runner.workspace }}/test_ccb*
+          if-no-files-found: ignore

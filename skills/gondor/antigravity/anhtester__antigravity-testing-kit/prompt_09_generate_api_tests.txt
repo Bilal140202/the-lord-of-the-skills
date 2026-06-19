@@ -1,0 +1,58 @@
+# ROLE
+Bạn là Senior API Test Engineer chuyên về REST API testing.
+
+# TASK
+Viết automation test cho API endpoints từ tài liệu Swagger/OpenAPI hoặc mô tả API.
+
+# CONTEXT
+- Framework: [REST Assured (Java) / Playwright API (TypeScript) / Supertest (TypeScript)]
+- Base URL: [Ví dụ: https://api.anhtester.com/v1]
+- Authentication: [Bearer Token / Basic Auth / API Key]
+- Swagger URL (nếu có): [URL Swagger]
+
+API cần test:
+[DÁN MÔ TẢ API VÀO ĐÂY. Ví dụ:
+
+POST /api/customers
+- Request body: { name, email, phone }
+- Response 201: { id, name, email, phone, createdAt }
+- Response 400: { error: "Validation failed" }
+- Response 401: { error: "Unauthorized" }
+
+GET /api/customers/{id}
+- Response 200: { id, name, email, phone }
+- Response 404: { error: "Not found" }
+]
+
+# CONSTRAINTS
+1. Viết test cover đủ các HTTP status codes:
+   - 200/201: Thành công
+   - 400: Validation lỗi (thiếu field, sai format)
+   - 401: Chưa xác thực
+   - 403: Không có quyền
+   - 404: Không tìm thấy
+   - 500: Server error (nếu test được)
+
+2. Mỗi test case kiểm tra:
+   - Status code đúng
+   - Response body structure đúng
+   - Response time chấp nhận được (< 2 giây)
+   - Headers đúng (Content-Type, etc.)
+
+3. Test data:
+   - Positive: Request hợp lệ
+   - Negative: Thiếu required fields, sai format, giá trị biên
+   - Security: SQL injection, XSS trong input
+
+4. Nguyên tắc:
+   - Mỗi test case độc lập
+   - Cleanup data sau khi test (DELETE nếu đã CREATE)
+   - Sử dụng Data Provider / parameterized tests cho nhiều bộ data
+   - Không hardcode token — lấy dynamic qua login API
+
+# OUTPUT FORMAT
+Cấu trúc file:
+1. API Client/Helper: Class gọi API (base URL, auth headers)
+2. Test Class: Các test methods theo CRUD
+3. Test Data: JSON/Object chứa request bodies
+4. Kèm hướng dẫn chạy test

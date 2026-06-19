@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / open-ended discussion
+    url: https://github.com/BadranRaza/com.unity.ide.antigravity/discussions
+    about: Got a "how do I" question or want to talk through an idea before filing a bug? Use Discussions.
+  - name: Antigravity IDE itself is broken
+    url: https://discuss.ai.google.dev/c/google-antigravity
+    about: If Antigravity IDE is crashing or misbehaving outside of Unity, report it to Google's Antigravity forum, not here.

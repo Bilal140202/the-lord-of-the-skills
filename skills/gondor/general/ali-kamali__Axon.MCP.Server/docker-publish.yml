@@ -1,0 +1,73 @@
+name: Docker Publish
+
+on:
+  push:
+    branches: [ public-release ]
+    tags: [ 'v*' ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_SERVER: ${{ github.repository_owner }}/axon-mcp-server
+  IMAGE_NAME_UI: ${{ github.repository_owner }}/axon-mcp-ui
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Backend (Server) Metadata
+      - name: Extract metadata (tags, labels) for Server
+        id: meta_server
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/public-release' }}
+
+      # Frontend (UI) Metadata
+      - name: Extract metadata (tags, labels) for UI
+        id: meta_ui
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_UI }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/public-release' }}
+
+      # Build and Push Server
+      - name: Build and push Server image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.optimized
+          push: true
+          tags: ${{ steps.meta_server.outputs.tags }}
+          labels: ${{ steps.meta_server.outputs.labels }}
+
+      # Build and Push UI
+      - name: Build and push UI image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ui
+          file: ui/Dockerfile
+          push: true
+          tags: ${{ steps.meta_ui.outputs.tags }}
+          labels: ${{ steps.meta_ui.outputs.labels }}

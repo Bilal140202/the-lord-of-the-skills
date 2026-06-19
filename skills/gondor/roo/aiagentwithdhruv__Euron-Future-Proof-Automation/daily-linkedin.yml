@@ -1,0 +1,53 @@
+name: Daily LinkedIn Post
+
+# Runs every day at 10:00 AM IST (4:30 AM UTC)
+# Also has a manual trigger with dry-run option
+on:
+  schedule:
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (generate but do not post)'
+        required: false
+        type: boolean
+        default: false
+      topic:
+        description: 'Override topic (optional)'
+        required: false
+        default: ''
+
+jobs:
+  post-to-linkedin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd Social-Media-Automations
+          pip install -r requirements.txt
+
+      - name: Generate + Post
+        working-directory: Social-Media-Automations
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          if [ -n "${{ github.event.inputs.topic }}" ]; then
+            ARGS="$ARGS --topic \"${{ github.event.inputs.topic }}\""
+          fi
+          eval "python tools/daily_linkedin.py $ARGS"
+        env:
+          EURI_API_KEY: ${{ secrets.EURI_API_KEY }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_PERSON_URN: ${{ secrets.LINKEDIN_PERSON_URN }}

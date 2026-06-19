@@ -1,0 +1,107 @@
+name: Build and Release DXT Package
+
+on:
+  push:
+  workflow_run:
+    workflows: ["Tests"]
+    types:
+      - completed
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'release' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+        
+    - name: Install dependencies
+      run: bun install
+      
+    - name: Build TypeScript
+      run: bun run build
+      
+    - name: Update manifest version
+      run: |
+        set -e
+        echo "🔄 Updating manifest version..."
+        VERSION=$(jq -r '.version' package.json)
+        if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+          echo "❌ Error: Could not read version from package.json"
+          exit 1
+        fi
+        echo "📝 Setting manifest version to: $VERSION"
+        jq --arg version "$VERSION" '.version = $version' manifest.json > manifest.tmp
+        if [ ! -s manifest.tmp ]; then
+          echo "❌ Error: Failed to update manifest.json"
+          exit 1
+        fi
+        mv manifest.tmp manifest.json
+        echo "✅ Manifest updated to version $VERSION"
+      
+    - name: Install DXT CLI
+      run: |
+        set -e
+        echo "⬇️ Installing DXT CLI v0.2.0..."
+        npm install -g @anthropic-ai/dxt@0.2.0
+        echo "✅ DXT CLI v0.2.0 installed successfully"
+      
+    - name: Validate build output
+      run: |
+        set -e
+        echo "🔍 Validating build output..."
+        if [ ! -f "dist/talk_to_figma_mcp/server.cjs" ]; then
+          echo "❌ Error: Entry point not found after build"
+          echo "Expected: dist/talk_to_figma_mcp/server.cjs"
+          ls -la dist/ || echo "dist/ directory not found"
+          exit 1
+        fi
+        if [ ! -f "dist/socket.cjs" ]; then
+          echo "❌ Error: Socket server not found after build"
+          echo "Expected: dist/socket.cjs"
+          exit 1
+        fi
+        echo "✅ Build output validated successfully"
+    
+    - name: Create DXT package
+      run: |
+        set -e
+        echo "📦 Creating DXT package..."
+        dxt pack
+        echo "✅ DXT package created successfully"
+      
+    - name: Get package info
+      id: package
+      run: |
+        echo "name=$(jq -r '.name' package.json)" >> $GITHUB_OUTPUT
+        echo "version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+        
+    - name: Upload DXT artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}.dxt
+        path: ${{ steps.package.outputs.name }}.dxt
+        retention-days: 90
+        
+    - name: Upload to release (on release only)
+      if: github.event_name == 'release'
+      run: |
+        set -e
+        echo "📦 Uploading DXT package to release..."
+        gh release upload ${{ github.event.release.tag_name }} \
+          ${{ steps.package.outputs.name }}.dxt \
+          --clobber
+        echo "✅ DXT package uploaded successfully"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

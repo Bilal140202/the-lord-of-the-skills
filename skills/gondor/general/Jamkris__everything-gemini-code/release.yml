@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version tag format
+        run: |
+          if ! [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version tag format (${{ github.ref_name }}). Expected vX.Y.Z"
+            exit 1
+          fi
+
+      - name: Verify versions match tag
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          TAG_VERSION="${TAG_NAME#v}"
+          
+          # Check package.json
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($PACKAGE_VERSION)"
+            exit 1
+          fi
+          
+          # Check gemini-extension.json
+          EXTENSION_VERSION=$(node -p "require('./gemini-extension.json').version")
+          if [ "$TAG_VERSION" != "$EXTENSION_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match gemini-extension.json version ($EXTENSION_VERSION)"
+            exit 1
+          fi
+          
+          # Check .gemini-plugin/plugin.json
+          PLUGIN_VERSION=$(node -p "require('./.gemini-plugin/plugin.json').version")
+          if [ "$TAG_VERSION" != "$PLUGIN_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match .gemini-plugin/plugin.json version ($PLUGIN_VERSION)"
+            exit 1
+          fi
+          
+          echo "All versions match tag $TAG_NAME"
+
+      - name: Get last tag and date
+        id: get_last_tag
+        run: |
+          # Get the tag before the current one
+          TAG_LIST=$(git tag --list 'v[0-9]*' --sort=-v:refname)
+          LAST_TAG=$(echo "$TAG_LIST" | sed -n '2p')
+          
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="v0.0.0"
+            TAG_DATE="1970-01-01T00:00:00Z"
+          else
+            TAG_DATE=$(git log -1 --format=%aI "$LAST_TAG" || date -Iseconds)
+          fi
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+          echo "last_tag_date=$TAG_DATE" >> $GITHUB_OUTPUT
+
+      - name: Generate Changelog from merged PRs
+        id: changelog
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "closed",
+              base: "main",
+              per_page: 100
+            });
+
+            const since = new Date("${{ steps.get_last_tag.outputs.last_tag_date }}");
+            const mergedPRs = prs.filter(pr => pr.merged_at && new Date(pr.merged_at) > since);
+
+            let changelog = "## What's Changed in ${{ github.ref_name }}\n\n";
+            if (mergedPRs.length === 0) {
+              changelog += "_No pull requests merged since last release._";
+            } else {
+              const formatted = [];
+              for (const pr of mergedPRs) {
+                let body = pr.body?.trim();
+                if (!body) {
+                  // PR body가 없으면 커밋 목록으로 대체
+                  try {
+                    const { data: commits } = await github.rest.pulls.listCommits({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      pull_number: pr.number,
+                      per_page: 20
+                    });
+                    body = commits.map(c => `- ${c.commit.message.split('\n')[0]}`).join('\n');
+                  } catch {
+                    body = '_No description provided._';
+                  }
+                }
+                formatted.push(`### ${pr.title} (#${pr.number}) by @${pr.user.login}\n\n${body}`);
+              }
+              changelog += formatted.join("\n\n---\n\n");
+            }
+            
+            const fs = require('fs');
+            fs.writeFileSync('RELEASE_NOTES.md', changelog);
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md

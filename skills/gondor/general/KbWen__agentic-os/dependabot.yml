@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+  # NOTE: a `pip` ecosystem for .github/requirements-ci.txt was tried (#163) but
+  # Dependabot rejects this layout with `dependency_file_not_supported`, so the
+  # CI pins are maintained manually. Re-add only with a Dependabot-supported
+  # manifest layout if auto-bumping is needed.

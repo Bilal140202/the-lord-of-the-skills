@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: mac
+            artifact_path: |
+              dist/*.dmg
+              dist/*.zip
+          - os: windows-latest
+            target: win
+            artifact_path: dist/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Platform evidence
+        run: node -p "process.platform + '-' + process.arch"
+      - run: npm ci
+      - run: npm run dist:${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: token-monitor-${{ matrix.target }}
+          if-no-files-found: error
+          path: ${{ matrix.artifact_path }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.dmg
+            artifacts/*.zip
+            artifacts/*.exe
+          body_path: .github/RELEASE_TEMPLATE.md

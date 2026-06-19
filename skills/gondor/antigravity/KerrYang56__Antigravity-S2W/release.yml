@@ -1,0 +1,78 @@
+name: Release Integration
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Release .vsix
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Update Version from Tag
+        run: |
+          # Extract version from tag (e.g. v1.0.0 -> 1.0.0)
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Syncing package.json version to: $VERSION"
+          npm version $VERSION --no-git-tag-version --allow-same-version
+
+      - name: Package Extension
+        # install vsce locally to avoid version issues, then run package
+        # --no-dependencies because webpack bundles them
+        run: npx @vscode/vsce package --no-dependencies
+
+      - name: Generate Changelog
+        run: |
+          # Fetch all tags to ensure we have the list
+          git fetch --tags --force
+
+          # Get tags sorted by creation date (newest first)
+          # We expect the current release tag to be at the top or near it
+          ALL_TAGS=$(git tag --sort=-creatordate)
+          params=($ALL_TAGS)
+
+          CURRENT_TAG=${params[0]}
+          PREV_TAG=${params[1]} # The one before current
+
+          echo "Current Tag: $CURRENT_TAG"
+          echo "Previous Tag: $PREV_TAG"
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found. Generating full changelog..."
+            git log --pretty=format:"* %s (%h)%n%b" > CHANGELOG.txt
+          else
+            echo "Generating changelog from $PREV_TAG to HEAD..."
+            git log --pretty=format:"* %s (%h)%n%b" ${PREV_TAG}..HEAD > CHANGELOG.txt
+          fi
+
+          echo "Changelog Content:"
+          cat CHANGELOG.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.vsix"
+          body_path: CHANGELOG.txt
+          generate_release_notes: false
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

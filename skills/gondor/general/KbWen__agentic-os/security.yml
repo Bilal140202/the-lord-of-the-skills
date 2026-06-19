@@ -1,0 +1,174 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Mirrors validate.yml: SAST has no new surface to scan on docs-only changes,
+  # so Semgrep is gated. TruffleHog (secrets can hide in any file) and the
+  # dependency audit (cheap, self-skips when no manifests) always run.
+  changes:
+    name: Detect change scope
+    runs-on: ubuntu-latest
+    outputs:
+      heavy: ${{ steps.scope.outputs.heavy }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files (docs-only -> skip SAST)
+        id: scope
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+          zero="0000000000000000000000000000000000000000"
+          if [ -z "$base_sha" ] || [ "$base_sha" = "$zero" ]; then
+            echo "No usable base sha ($base_sha) — running full suite (fail-safe)."
+            echo "heavy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files="$(git diff --name-only "${base_sha}...${head_sha}" 2>/dev/null)"; then
+            echo "git diff failed — running full suite (fail-safe)."
+            echo "heavy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed files:"
+          printf '%s\n' "$files"
+          heavy=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              README.md|README_*.md|llms.txt|LICENSE|CHANGELOG.md|CONTRIBUTING.md|CITATION.cff) ;;
+              docs/*|.agentcortex/context/*|.agentcortex/docs/*) ;;
+              *) heavy=true; break ;;
+            esac
+          done <<< "$files"
+          echo "Heavy (code) jobs needed: $heavy"
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+
+  semgrep:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.heavy == 'true'
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Semgrep
+        run: pip install semgrep==1.123.0
+
+      - name: Run Semgrep
+        run: semgrep --config auto --error .
+
+  trufflehog:
+    name: Secret Detection (TruffleHog)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # On pull_request: scans base..head range automatically.
+      # On push to main: scans github.event.before..github.sha range.
+      # Requires branch protection to block force-pushes (event.before = 0000... edge case).
+      - name: Scan for secrets
+        uses: trufflesecurity/trufflehog@d411fff7b8879a62509f3fa98c07f247ac089a51  # v3.95.5
+        with:
+          extra_args: --only-verified
+
+  credential-scan:
+    name: Credential Pattern Scan (PR diff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # Pattern-based catch on the PR diff only — complements TruffleHog's
+      # `--only-verified` (which misses revoked / unverifiable but real-shaped
+      # credentials). Precise distinctive-prefix patterns keep false positives low.
+      # Backlog #73 (the cross-contributor T1; the .githooks pre-commit hook is opt-in).
+      - name: Scan PR diff for credential patterns
+        shell: bash
+        run: |
+          set -uo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          zero="0000000000000000000000000000000000000000"
+          if [ -z "$base" ] || [ "$base" = "$zero" ]; then
+            echo "::warning::credential-scan: no usable base sha — relying on TruffleHog backstop"
+            exit 0
+          fi
+          # Three-dot = what THIS PR introduced since the merge-base (matches the repo's
+          # `changes` job + GitHub "Files changed"); two-dot would over-scan a diverged base.
+          echo "Scanning credential patterns in ${base}...${head}"
+          rc=0
+          python .agentcortex/tools/scan_credentials.py --range "${base}...${head}" || rc=$?
+          if [ "$rc" = "3" ]; then
+            echo "::warning::credential-scan: scan could not run (git error) — relying on TruffleHog backstop"
+            exit 0
+          fi
+          exit "$rc"
+
+  dependency-audit:
+    name: Dependency Audit (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Job-level hashFiles() is evaluated before checkout (workspace empty) — always returns ''.
+    # Gating is handled at the shell level in the run step below.
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install pip-audit
+        run: pip install pip-audit==2.10.0
+
+      - name: Audit Python dependencies
+        shell: bash
+        run: |
+          req_args=()
+          for f in requirements*.txt; do
+            [ -f "$f" ] && req_args+=(-r "$f")
+          done
+          if [ "${#req_args[@]}" -gt 0 ]; then
+            pip-audit "${req_args[@]}" --vulnerability-service osv --strict
+          elif [ -f pyproject.toml ] && grep -qE '^\[project\]|^\[build-system\]' pyproject.toml; then
+            pip-audit . --vulnerability-service osv --strict
+          else
+            echo "::warning::dependency-audit: no auditable Python manifests at repo root — pip-audit skipped"
+            echo "No auditable Python dependency files found in repo root — skipping audit"
+            exit 0
+          fi

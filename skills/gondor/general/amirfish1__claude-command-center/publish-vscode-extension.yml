@@ -1,0 +1,38 @@
+name: Publish VS Code extension
+
+# Tag-driven publish for the marketplace surface. Tag the repo as
+# `vscode-vX.Y.Z` (separate from `vX.Y.Z`, which is the Python
+# package version) and this workflow compiles the extension and
+# pushes it to the VS Code Marketplace.
+#
+# Requires a repository secret VSCE_PAT — a personal access token
+# scoped for the publisher id declared in vscode-extension/package.json.
+
+on:
+  push:
+    tags:
+      - "vscode-v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies
+        run: npm install
+      - name: Compile
+        run: npm run compile
+      - name: Package .vsix (sanity)
+        run: npx @vscode/vsce package
+      - name: Publish to Marketplace
+        if: startsWith(github.ref, 'refs/tags/vscode-v')
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx @vscode/vsce publish --pat "$VSCE_PAT"

@@ -1,0 +1,308 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'release/**']
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Prevent duplicate runs: do not cancel in-progress runs to avoid
+# dispatch/push collisions killing 34 matrix jobs mid-flight
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+# Minimal permissions
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}, Node ${{ matrix.node }}, ${{ matrix.pm }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['20.x', '22.x']
+        pm: [npm, yarn, bun]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      # Package manager setup
+      - name: Setup Yarn (via Corepack)
+        if: matrix.pm == 'yarn'
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare yarn@stable --activate
+
+      - name: Setup Bun
+        if: matrix.pm == 'bun'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      # Cache configuration
+      - name: Get npm cache directory
+        if: matrix.pm == 'npm'
+        id: npm-cache-dir
+        shell: bash
+        run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+      - name: Cache npm
+        if: matrix.pm == 'npm'
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ${{ steps.npm-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ matrix.node }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node }}-npm-
+
+      - name: Get yarn cache directory
+        if: matrix.pm == 'yarn'
+        id: yarn-cache-dir
+        shell: bash
+        run: |
+          # Try Yarn Berry first, fall back to Yarn v1
+          if yarn config get cacheFolder >/dev/null 2>&1; then
+            echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+          else
+            echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cache yarn
+        if: matrix.pm == 'yarn'
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ${{ steps.yarn-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ matrix.node }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node }}-yarn-
+
+      - name: Cache bun
+        if: matrix.pm == 'bun'
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Setup Python 3.12 (Windows)
+        if: runner.os == 'Windows'
+        id: python-win
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+
+      - name: Pin Python and MSVS for node-gyp (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-Content $env:GITHUB_ENV "npm_config_python=${{ steps.python-win.outputs.python-path }}"
+          $vcs = @(Get-Item "C:\Program Files\Microsoft Visual Studio\*\*\VC" -ErrorAction SilentlyContinue)
+          if ($vcs) { Add-Content $env:GITHUB_ENV "VCINSTALLDIR=$(($vcs | Sort-Object FullName -Descending)[0].FullName)\" }
+          npm install -g node-gyp@12
+          $v12 = Join-Path (npm -g root) "node-gyp"
+          $nodeDir = Split-Path (Get-Command node).Source -Parent
+          $bundled = Join-Path $nodeDir "node_modules\npm\node_modules\node-gyp"
+          Write-Host "v12=$v12 exists=$(Test-Path $v12)"
+          Write-Host "bundled=$bundled exists=$(Test-Path $bundled)"
+          if ((Test-Path $v12) -and (Test-Path $bundled)) {
+            Remove-Item $bundled -Recurse -Force
+            Copy-Item $v12 $bundled -Recurse -Force
+            Write-Host "node-gyp bundled replaced"
+          }
+
+      # Install dependencies
+      - name: Install dependencies
+        shell: bash
+        env:
+          COREPACK_ENABLE_STRICT: '0'
+        run: |
+          case "${{ matrix.pm }}" in
+            npm) npm ci ;;
+            yarn) yarn install --no-immutable ;;
+            bun) bun install ;;
+            *) echo "Unsupported package manager: ${{ matrix.pm }}" && exit 1 ;;
+          esac
+
+      # Run tests
+      - name: Run tests
+        run: node tests/run-all.js
+        env:
+          GEMINI_CODE_PACKAGE_MANAGER: ${{ matrix.pm }}
+
+      # Upload test artifacts on failure
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-${{ matrix.os }}-node${{ matrix.node }}-${{ matrix.pm }}
+          path: |
+            tests/
+            !tests/node_modules/
+
+  validate:
+    name: Validate Components
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20.x'
+
+      - name: Install validation dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate agents
+        run: node scripts/ci/validate-agents.js
+        continue-on-error: false
+
+      - name: Validate hooks
+        run: node scripts/ci/validate-hooks.js
+        continue-on-error: false
+
+      - name: Validate commands
+        run: node scripts/ci/validate-commands.js
+        continue-on-error: false
+
+      - name: Validate skills
+        run: node scripts/ci/validate-skills.js
+        continue-on-error: false
+
+      - name: Validate install manifests
+        run: node scripts/ci/validate-install-manifests.js
+        continue-on-error: false
+
+      - name: Validate workflow security
+        run: node scripts/ci/validate-workflow-security.js
+        continue-on-error: false
+
+      - name: Validate rules
+        run: node scripts/ci/validate-rules.js
+        continue-on-error: false
+
+      - name: Validate catalog counts
+        run: node scripts/ci/catalog.js --text
+        continue-on-error: false
+
+      - name: Check unicode safety
+        run: node scripts/ci/check-unicode-safety.js
+        continue-on-error: false
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20.x'
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npx eslint "scripts/**/*.js" "tests/**/*.js"
+
+      - name: Run markdownlint
+        run: npx markdownlint "agents/**/*.md" "skills/**/*.md" "commands/**/*.md" "rules/**/*.md"
+
+      - name: Verify npm pack surface
+        run: |
+          npm pack --dry-run 2>&1 | tee /tmp/pack.log
+          test -s /tmp/pack.log
+
+
+  runtime-cli-smoke:
+    name: Runtime CLI Smoke (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    continue-on-error: true
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Smoke runtime-topology.js
+        run: |
+          node scripts/ci/runtime-topology.js > /tmp/topology.json
+          python3 -c "import json; d=json.load(open('/tmp/topology.json')); assert len(d['nodes']) >= 20; assert len(d['edges']) >= 12; print(f'topology nodes={len(d[\"nodes\"])} edges={len(d[\"edges\"])}')"
+
+      - name: Smoke capability-graph.js vs catalog.js
+        run: |
+          node scripts/ci/capability-graph.js --counts > /tmp/cap.json
+          node scripts/ci/catalog.js --text > /tmp/cat.txt
+          python3 -c "
+          import json, re
+          cap = json.load(open('/tmp/cap.json'))
+          cat = open('/tmp/cat.txt').read()
+          m = re.search(r'agents: (\d+)', cat)
+          cat_agents = int(m.group(1))
+          m = re.search(r'commands: (\d+)', cat)
+          cat_commands = int(m.group(1))
+          m = re.search(r'skills: (\d+)', cat)
+          cat_skills = int(m.group(1))
+          assert cap['agents'] == cat_agents, (cap, cat_agents)
+          assert cap['commands'] == cat_commands, (cap, cat_commands)
+          assert cap['skills'] == cat_skills, (cap, cat_skills)
+          print(f'capability-graph counts match catalog: agents={cap[\"agents\"]} skills={cap[\"skills\"]} commands={cap[\"commands\"]} hooks={cap[\"hooks\"]}')
+          "
+
+      - name: Smoke runtime-snapshot.js
+        run: |
+          node scripts/ci/runtime-snapshot.js --events-only > /tmp/snap.json
+          python3 -c "
+          import json
+          d = json.load(open('/tmp/snap.json'))
+          assert 'tracer' in d and 'generatedAt' in d
+          print(f'snapshot tracer logExists={d[\"tracer\"][\"logExists\"]} totalEvents={d[\"tracer\"][\"totalEvents\"]}')
+          "

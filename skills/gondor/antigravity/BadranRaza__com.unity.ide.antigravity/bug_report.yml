@@ -1,0 +1,93 @@
+name: Bug report
+description: Something's broken or behaving unexpectedly in the package
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more concrete you can be
+        about what you did and what happened, the faster I can land a fix.
+
+        Before filing, please check the [Troubleshooting / FAQ in the README](https://github.com/BadranRaza/com.unity.ide.antigravity#troubleshooting--faq)
+        and the [Antigravity 2.0 split deep-dive](https://github.com/BadranRaza/com.unity.ide.antigravity/blob/master/Documentation~/antigravity-2-0-fix.md)
+        — most "Unity opens the wrong app" reports are resolved by updating
+        to v1.0.7+ and re-selecting **Antigravity IDE** in External Tools.
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version
+      description: From `Window > Package Manager` → Antigravity IDE Editor → installed version
+      placeholder: e.g. 1.0.7
+    validations:
+      required: true
+
+  - type: input
+    id: unity-version
+    attributes:
+      label: Unity version
+      placeholder: e.g. 2022.3.45f1
+    validations:
+      required: true
+
+  - type: input
+    id: antigravity-version
+    attributes:
+      label: Antigravity IDE version
+      description: From the IDE's `Help > About` menu
+      placeholder: e.g. 1.107.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: also-installed
+    attributes:
+      label: Do you also have the standalone Antigravity 2.0 agent app installed?
+      description: Both products can coexist; the package should still detect Antigravity IDE only.
+      options:
+        - "No, only Antigravity IDE"
+        - "Yes, both are installed"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what did you see instead?
+      placeholder: |
+        Steps to reproduce:
+        1. ...
+        2. ...
+
+        Expected: Antigravity IDE opens the file at the right line.
+        Actual: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Anything from Unity's Console mentioning `[Antigravity]` or `Antigravity IDE`. Will be rendered as a code block, no need for triple backticks.
+      render: shell
+
+  - type: input
+    id: editor-path
+    attributes:
+      label: External Script Editor path
+      description: From `Edit > Preferences > External Tools`, the full path Unity currently has saved. Make sure it ends in `Antigravity IDE.exe` (or the platform equivalent), not bare `Antigravity.exe`.
+      placeholder: e.g. C:\Users\you\AppData\Local\Programs\Antigravity IDE\Antigravity IDE.exe

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "mcp-multi-agents": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/home/konsing/mcp-multi-agents/dist/index.js"]
+    }
+  }
+}
