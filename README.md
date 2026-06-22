@@ -1,321 +1,167 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Bilal140202/the-lord-of-the-skills/main/assets/banner.png" alt="The Lord of the Skills" width="100%"/>
+<img src="assets/banner.png" alt="The Lord of the Skills" width="100%"/>
 
 # ⚔ THE LORD OF THE SKILLS ⚔
+
 ### *One Catalog to Rule Them All, One Catalog to Find Them, One Catalog to Bring Them All, and in the Darkness Bind Them*
 
 [![Stars](https://img.shields.io/github/stars/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=gold&labelColor=black&color=FFD700)](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers)
-[![Forks](https://img.shields.io/github/forks/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=8B4513)](https://github.com/Bilal140202/the-lord-of-the-skills/forks)
+[![Forks](https://img.shields.io/github/forks/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=8B4513)](https://github.com/Bilal140202/the-lord-of-the-skills/fork)
 [![Watchers](https://img.shields.io/github/watchers/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=C0C0C0)](https://github.com/Bilal140202/the-lord-of-the-skills/watchers)
-[![Issues](https://img.shields.io/github/issues/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=DC143C)](https://github.com/Bilal140202/the-lord-of-the-skills/issues)
 [![License](https://img.shields.io/github/license/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=book&logoColor=white&labelColor=black&color=228B22)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Bilal140202/the-lord-of-the-skills/ci.yml?branch=main&style=for-the-badge&logo=github-actions&logoColor=white&labelColor=black&label=CI)](https://github.com/Bilal140202/the-lord-of-the-skills/actions)
 [![Last Commit](https://img.shields.io/github/last-commit/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=git&logoColor=white&labelColor=black&color=FF8C00)](https://github.com/Bilal140202/the-lord-of-the-skills/commits)
-[![Repo Size](https://img.shields.io/github/repo-size/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=database&logoColor=white&labelColor=black&color=4B0082)](https://github.com/Bilal140202/the-lord-of-the-skills)
 [![Contributors](https://img.shields.io/github/contributors/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=people&logoColor=white&labelColor=black&color=9370DB)](https://github.com/Bilal140202/the-lord-of-the-skills/graphs/contributors)
+[![Issues](https://img.shields.io/github/issues/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=DC143C)](https://github.com/Bilal140202/the-lord-of-the-skills/issues)
+[![Repo Size](https://img.shields.io/github/repo-size/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=database&logoColor=white&labelColor=black&color=4B0082)](https://github.com/Bilal140202/the-lord-of-the-skills)
 
-### 🌟 *A Compilation of Agentic AI Skills from across the GitHub Realm* 🌟
+### 🌟 *The largest, most organized collection of AI agent skills on GitHub* 🌟
 
-**18,142** Artifacts · **307+** Source Repositories · **14** Frameworks (now incl. Antigravity!) · **10** Kingdoms · **357** Canonical ⭐
+**18,142+ artifacts** · **14 frameworks** · **10 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
 
 </div>
 
 ---
 
-> ### 📜 *Ash nazg durbatulûk, ash nazg gimbatul, ash nazg thrakatulûk agh burzum-ishi krimpatul.*
-> *One Catalog to rule them all, One Catalog to find them,*
-> *One Catalog to bring them all, and in the darkness bind them.*
+## 🤔 Why This Repo?
+
+| | |
+|:---|:---|
+| 🏆 **Largest collection** | 18,142+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity** |
+| 🎭 **LOTR-themed** | Sorted into 10 kingdoms (⚔ Gondor = Coding, ✦ Rivendell = Research, 👁 Mordor = Security, ⚙ Isengard = Agents, ...) — memorable, fun, and easy to navigate |
+| ✨ **Canonical skills** | Deduplicated with **357 ⭐ canonical representatives** — one best version per concept. See [`DEDUP.md`](DEDUP.md) for how it works |
+| 🤖 **Reusable crawler** | Open-source Python spider — clone it and build your own kingdom. See [`crawler/README.md`](crawler/README.md) |
+| 📦 **Drop-in ready** | Copy any kingdom's skills into your agent's `~/.claude/skills/`, `.cursor/rules/`, `.clinerules/`, etc. — works instantly |
 
 ---
 
-## 🗺 The Map of Middle-Earth
+## 🚀 Quick Start (60 seconds)
+
+```bash
+# 1. Clone
+git clone https://github.com/Bilal140202/the-lord-of-the-skills.git
+cd the-lord-of-the-skills
+
+# 2. Copy skills into your agent (pick your framework)
+cp -r skills/gondor/claude-code/* ~/.claude/skills/           # Claude Code
+cp -r skills/gondor/cursor/*     .cursor/rules/               # Cursor
+cp -r skills/gondor/cline/*      .clinerules/                 # Cline / Roo
+cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md        # Aider
+
+# 3. Or — canonical ⭐ only (1 best skill per concept)
+find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
+```
+
+📖 **Full guide:** [`QUICKSTART.md`](QUICKSTART.md) · **Browse:** [`KINGDOMS.md`](KINGDOMS.md) · **Frameworks:** [`FRAMEWORKS.md`](FRAMEWORKS.md)
+
+---
+
+## 🖼 Previews
 
 <div align="center">
 
-```
-                          ╔═══════════════════════════════════════════════════╗
-                          ║          ⚔  THE LORD OF THE SKILLS  ⚔            ║
-                          ╠═══════════════════════════════════════════════════╣
-                          ║                                                   ║
-                          ║       ⚔  GONDOR      ✦  RIVENDELL                ║
-                          ║       Coding         Research & Knowledge         ║
-                          ║                                                   ║
-                          ║       ⛏  MORIA       ✿  LOTHLÓRIEN               ║
-                          ║       DevOps         Data & Analysis              ║
-                          ║                                                   ║
-                          ║       👁 MORDOR      ✎  THE SHIRE                 ║
-                          ║       Security       Writing & Content            ║
-                          ║                                                   ║
-                          ║       ⚙  ISENGARD    🐴 ROHAN                     ║
-                          ║       Agents         Testing & Verification       ║
-                          ║                                                   ║
-                          ║       🌳 FANGORN     🕸 MIRKWOOD                   ║
-                          ║       Memory & Docs  Specialized & Niche          ║
-                          ║                                                   ║
-                          ╚═══════════════════════════════════════════════════╝
-```
+<table>
+<tr>
+<td width="50%" align="center"><b>📄 PDF Catalog (33 pages)</b></td>
+<td width="50%" align="center"><b>📊 Excel Index (6 sheets)</b></td>
+</tr>
+<tr>
+<td width="50%" align="center"><img src="assets/screenshots/pdf-preview-01.png" alt="PDF cover" width="100%"/></td>
+<td width="50%" align="center"><img src="assets/screenshots/pdf-preview-02.png" alt="PDF kingdom section" width="100%"/></td>
+</tr>
+<tr>
+<td width="50%" align="center"><img src="assets/screenshots/pdf-preview-03.png" alt="PDF skill entries" width="100%"/></td>
+<td width="50%" align="center"><img src="assets/screenshots/folder-structure.png" alt="Folder structure" width="100%"/></td>
+</tr>
+</table>
 
 </div>
 
 ---
 
-## 📊 The Realm at a Glance
+## 🗺 The Ten Kingdoms
 
-| Metric | Count | Description |
-|:---:|:---:|:---|
-| 🏰 **Source Repositories** | **307+** | GitHub repos spidered & cloned (102 base + 205 antigravity-focused) |
-| 📜 **Artifacts Extracted** | **18,142** | SKILL.md, AGENTS.md, .cursorrules, .clinerules, CONVENTIONS.md, + antigravity-specific files |
-| ⭐ **Canonical Clusters** | **357** | One best representative per concept |
-| 🏛 **Kingdoms** | **10** | LOTR-themed domains |
-| ⚙ **Frameworks** | **14** | Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **Antigravity** (new!) |
-| 📦 **Total Package Size** | **~180 MB** | Skills folder + catalogs + indexes |
+| | Kingdom | Domain | Artifacts | Canonical |
+|:---:|:---|:---|---:|---:|
+| ⚔ | [**Gondor**](skills/gondor/README.md) | Coding & Software Engineering | 10,141 | 188 ⭐ |
+| ✦ | [**Rivendell**](skills/rivendell/README.md) | Research & Knowledge | 1,776 | 30 ⭐ |
+| ⚙ | [**Isengard**](skills/isengard/README.md) | Agents & Orchestration | 1,630 | 19 ⭐ |
+| ✎ | [**The Shire**](skills/the-shire/README.md) | Writing & Content | 1,272 | 22 ⭐ |
+| ⛏ | [**Moria**](skills/moria/README.md) | DevOps & Infrastructure | 914 | 40 ⭐ |
+| 🐴 | [**Rohan**](skills/rohan/README.md) | Testing & Verification | 718 | 20 ⭐ |
+| 🌳 | [**Fangorn**](skills/fangorn/README.md) | Documentation & Memory | 708 | 15 ⭐ |
+| ✿ | [**Lothlórien**](skills/lothlorien/README.md) | Data & Analysis | 496 | 13 ⭐ |
+| 👁 | [**Mordor**](skills/mordor/README.md) | Security & Auditing | 406 | 9 ⭐ |
+| 🕸 | [**Mirkwood**](skills/mirkwood/README.md) | Specialized & Niche | 81 | 1 ⭐ |
+| | **TOTAL** | | **18,142** | **357 ⭐** |
 
----
-
-## 🏰 The Ten Kingdoms
-
-### ⚔ Gondor — *Coding & Software Engineering*
-> *"Gondor sees, Gondor codes."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 10,141 |
-| ⭐ Canonical | ~1,000 |
-| ⚙ Frameworks | claude-code, cursor, cline, roo, aider, codex, openhands, continue, goose, copilot, autogen, crewai, langgraph |
-| 🎯 Skill Types | execution, planning, verification, conventions, tools |
-
-**Sample Artifacts:** `git-commit`, `refactor-typescript`, `react-component`, `api-endpoint`, `python-debugger`, `code-review`, `database-schema`, `nextjs-setup`
+📖 Full mottos, frameworks, and per-kingdom stats: [`KINGDOMS.md`](KINGDOMS.md)
 
 ---
 
-### ✦ Rivendell — *Research & Knowledge*
-> *"Knowledge flows from the Last Homely House."*
+## ⚙ Frameworks Covered (14)
 
-| | |
-|:---|:---|
-| 📜 Artifacts | 1,776 |
-| ⭐ Canonical | ~300 |
-| 🎯 Focus | Research, literature review, synthesis, methodology |
+| Framework | Files | Description |
+|:---|---:|:---|
+| 🟠 **claude-code** | 8,104 | Anthropic's `SKILL.md` format |
+| 🟣 **cursor** | 1,400+ | `.cursorrules` / `.cursor/rules/*.mdc` |
+| 🟡 **openhands** | 400+ | OpenHands agent files |
+| 🟤 **continue** | 200+ | `.continue/` config |
+| 🟪 **antigravity** | 820 | **Google Antigravity IDE** (new!) |
+| ⚫ **codex** | 500+ | OpenAI Codex `AGENTS.md` |
+| 🔵 **cline** | 1,400+ | `.clinerules/` memory banks |
+| ⚪ **roo** | 800+ | Roo Code `.roo/rules/` |
+| 🟢 **aider** | 600+ | `CONVENTIONS.md` + `.aider*` |
+| ⚪ **goose** | 150+ | Block Goose extensions |
+| 🔵 **copilot** | 100+ | `.github/copilot-instructions.md` |
+| 🟣 **crewai** | 80+ | CrewAI agent configs |
+| 🟢 **langgraph** | 60+ | LangGraph agent definitions |
+| ⚪ **general** | 2,535+ | Cross-framework / unclassified |
 
----
-
-### ⚙ Isengard — *Agents & Orchestration*
-> *"Industry wakes the deep."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 1,630 |
-| ⭐ Canonical | ~200 |
-| 🎯 Focus | Subagents, multi-agent orchestration, delegation, planning |
-
----
-
-### ✎ The Shire — *Writing & Content*
-> *"Quiet writing, deep roots."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 1,272 |
-| ⭐ Canonical | ~150 |
-| 🎯 Focus | Blog posts, documentation, marketing copy, technical writing |
+📖 Detailed breakdown: [`FRAMEWORKS.md`](FRAMEWORKS.md)
 
 ---
 
-### ⛏ Moria — *DevOps & Infrastructure*
-> *"Speak, friend, and enter the deploy."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 914 |
-| ⭐ Canonical | ~130 |
-| 🎯 Focus | Docker, Kubernetes, Terraform, CI/CD, monitoring, cloud |
-
----
-
-### 🐴 Rohan — *Testing & Verification*
-> *"Ride now, ride to verify."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 718 |
-| ⭐ Canonical | ~90 |
-| 🎯 Focus | Unit tests, integration tests, E2E, linting, type checking |
-
----
-
-### 🌳 Fangorn — *Documentation & Memory*
-> *"The old forest remembers."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 708 |
-| ⭐ Canonical | ~60 |
-| 🎯 Focus | Memory banks, RAG, context preservation, knowledge bases |
-
----
-
-### ✿ Lothlórien — *Data & Analysis*
-> *"Where data roots run deep."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 496 |
-| ⭐ Canonical | ~55 |
-| 🎯 Focus | ETL, dataframes, ML, visualization, statistics |
-
----
-
-### 👁 Mordor — *Security & Auditing*
-> *"One audit to rule them all."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 406 |
-| ⭐ Canonical | ~50 |
-| 🎯 Focus | Vulnerability scanning, pentest, OWASP, crypto, secrets |
-
----
-
-### 🕸 Mirkwood — *Specialized & Niche*
-> *"Strange paths through the wood."*
-
-| | |
-|:---|:---|
-| 📜 Artifacts | 81 |
-| ⭐ Canonical | ~2 |
-| 🎯 Focus | Experimental, one-off, esoteric skills |
-
----
-
-## ⚙ Framework Coverage
-
-| Framework | Artifacts | Kingdoms | Description |
-|:---|:---:|:---:|:---|
-| 🟠 **claude-code** | 4,200+ | 10 | Anthropic's `SKILL.md` format |
-| 🟣 **cursor** | 2,100+ | 10 | `.cursorrules` / `.cursor/rules/*.mdc` |
-| 🔵 **cline** | 1,400+ | 10 | `.clinerules/` memory banks |
-| ⚫ **roo** | 800+ | 9 | Roo Code `.roo/rules/` |
-| 🟢 **aider** | 600+ | 8 | `CONVENTIONS.md` + `.aider*` |
-| 🔴 **codex** | 500+ | 9 | OpenAI Codex `AGENTS.md` |
-| 🟡 **openhands** | 400+ | 8 | OpenHands agent files |
-| 🟤 **continue** | 200+ | 7 | `.continue/` config |
-| ⚪ **goose** | 150+ | 6 | Block Goose extensions |
-| 🔵 **copilot** | 100+ | 5 | `.github/copilot-instructions.md` |
-| 🟣 **crewai** | 80+ | 6 | CrewAI agent configs |
-| 🟢 **langgraph** | 60+ | 5 | LangGraph agent definitions |
-| 🟣 **antigravity** | 820+ | 10 | Google Antigravity IDE skills (NEW in v1.2.0) |
-| ⚪ **general** | 2,535+ | 10 | Unclassified / cross-framework |
-
----
-
-## 📦 What's in This Repository
+## 📦 What's in This Repo?
 
 ```
 the-lord-of-the-skills/
-├── README.md                          ← You are here
-├── KINGDOMS.md                        ← 🗺 Map of the Kingdoms (start here)
-├── LICENSE                            ← MIT
-├── CHANGELOG.md                       ← Version history
-├── CONTRIBUTING.md                    ← How to add skills
-├── CODE_OF_CONDUCT.md                 ← Community standards
-├── skills/                            ← 10,888 artifacts organized by kingdom
-│   ├── gondor/                        ← Coding & Software Engineering
-│   │   ├── claude-code/
-│   │   ├── cursor/
-│   │   ├── cline/
-│   │   └── ... (11 frameworks)
-│   ├── rivendell/                     ← Research & Knowledge
-│   ├── isengard/                      ← Agents & Orchestration
-│   ├── moria/                         ← DevOps & Infrastructure
-│   ├── lothlorien/                    ← Data & Analysis
-│   ├── mordor/                        ← Security & Auditing
-│   ├── the-shire/                     ← Writing & Content
-│   ├── rohan/                         ← Testing & Verification
-│   ├── fangorn/                       ← Documentation & Memory
-│   └── mirkwood/                      ← Specialized & Niche
-├── catalogs/
-│   ├── Lord_of_the_Skills_Catalog.pdf    ← 33-page themed master catalog
-│   └── Lord_of_the_Skills_Index.xlsx     ← 6-sheet filterable spreadsheet
-├── docs/
-│   ├── CREDITS.md                     ← All 102 source repos with licenses
-│   ├── MAP_OF_THE_KINGDOMS.md         ← Visual taxonomy
-│   └── SKILL_INDEX.md                 ← Flat browseable index
-├── crawler/                           ← Reusable Python crawler
-│   ├── crawler.py                     ← 5-phase resumable spider
-│   ├── classify.py                    ← LOTR kingdom classifier
-│   ├── dedup.py                       ← Dedup + canonical marking
-│   ├── build_package.py               ← Themed package builder
-│   ├── generate_excel.py              ← Excel index generator
-│   ├── generate_pdf.py                ← PDF catalog generator
-│   ├── refresh_lord_of_skills.sh      ← Monthly refresh pipeline
-│   └── lord_of_the_skills.cron        ← Crontab file
-└── _manifest.json                     ← Full machine-readable manifest
+├── README.md              ← You are here (short!)
+├── QUICKSTART.md          ← 60-second start
+├── KINGDOMS.md            ← Map of the 10 Kingdoms
+├── FRAMEWORKS.md          ← 14-framework breakdown
+├── ROADMAP.md             ← Future plans
+├── FAQ.md                 ← Common questions
+├── MANIFEST.md            ← _manifest.json schema docs
+├── DEDUP.md               ← Canonical dedup explained
+├── CHANGELOG.md           ← Version history
+├── catalogs/              ← PDF + Excel indexes
+├── crawler/               ← Reusable Python pipeline
+├── docs/                  ← Credits, map, full index
+├── tests/                 ← pytest unit tests
+├── .github/workflows/     ← CI/CD
+└── skills/                ← 18,142 artifacts (10 kingdoms)
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🕷 Use Our Crawler for Your Own Project
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/Bilal140202/the-lord-of-the-skills.git
-cd the-lord-of-the-skills
-```
-
-### 2. Browse the Catalog
-
-Open `catalogs/Lord_of_the_Skills_Catalog.pdf` for the full themed tour, or `catalogs/Lord_of_the_Skills_Index.xlsx` for filterable browsing.
-
-### 3. Drop Skills Into Your Agent
-
-#### For Claude Code
-```bash
-# All Gondor (coding) skills from Claude Code
-cp -r skills/gondor/claude-code/* ~/.claude/skills/
-
-# Or just the canonical ⭐ representatives
-find skills/gondor/claude-code -name '⭐_*' -exec cp {} ~/.claude/skills/ \;
-```
-
-#### For Cursor
-```bash
-cp -r skills/gondor/cursor/* .cursor/rules/
-```
-
-#### For Cline / Roo Code
-```bash
-cp -r skills/gondor/cline/* .clinerules/
-cp -r skills/gondor/roo/*   .roo/rules/
-```
-
-#### For Aider
-```bash
-cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md
-```
-
-#### For OpenHands / Codex
-```bash
-cp -r skills/isengard/openhands/* .openhands/agents/
-cp skills/isengard/codex/AGENTS.md ./AGENTS.md
-```
-
-### 4. Use the Crawler Yourself
+The crawler is fully reusable — clone it and build your own kingdom:
 
 ```bash
-cd crawler
-python3 crawler.py        # Spider GitHub, clone repos, extract files
-python3 classify.py       # Tag each file with kingdom + skill type
-python3 dedup.py          # Cluster + mark canonical ⭐
-python3 build_package.py  # Build themed package
-python3 generate_excel.py # Generate Excel index
-python3 generate_pdf.py   # Generate PDF catalog
+cd crawler/
+pip install -r requirements.txt
+python3 crawler.py            # Spider GitHub (5-phase, resumable)
+python3 classify.py           # Tag each file with kingdom + skill type
+python3 dedup.py              # Cluster + mark canonical ⭐
+python3 build_package.py      # Build themed package
+python3 generate_excel.py     # Excel index
+python3 generate_pdf.py       # PDF catalog
 ```
 
-Set up monthly auto-refresh:
-```bash
-crontab crawler/lord_of_the_skills.cron
-```
+📖 Full docs: [`crawler/README.md`](crawler/README.md) · Auto-refresh monthly via `cron`
 
 ---
 
@@ -323,19 +169,13 @@ crontab crawler/lord_of_the_skills.cron
 
 <div align="center">
 
-### ⭐ *If this compilation has saved you time, give it a star!* ⭐
+### ⭐ *If this compilation saved you time, give it a star!* ⭐
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Bilal140202/the-lord-of-the-skills&type=Date)](https://star-history.com/#Bilal140202/the-lord-of-the-skills&Date)
 
-**🌟 Stargazers are the Fellowship of the Skills 🌟**
+**Every star tells the compiler the kingdom was worth building.**
 
-Every star tells the compiler the kingdom was worth building.
-Every fork extends the fellowship.
-Every issue sharpens the blade.
-
-[![Stargazers repo roster for @Bilal140202/the-lord-of-the-skills](https://reporoster.com/stars/Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers)
-
-[![Forkers repo roster for @Bilal140202/the-lord-of-the-skills](https://reporoster.com/forks/Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/forks)
+[![Stargazers](https://reporoster.com/stars/Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers)
 
 </div>
 
@@ -343,31 +183,40 @@ Every issue sharpens the blade.
 
 ## 🤝 Contributing
 
-The kingdom grows with every contributor. See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for:
 
 - 🏰 **Adding a new skill** — submit a PR with a SKILL.md / AGENTS.md / .cursorrules file
 - ⚔ **Adding a new kingdom** — propose a new domain in an Issue
 - 🕷 **Improving the crawler** — make the spider smarter, broader, faster
 - 📚 **Improving docs** — fix typos, add examples, translate
 
-### Top Contributors
-
 [![Contributors Display](https://contrib.rocks/image?repo=Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/graphs/contributors)
 
 ---
 
-## 📜 Changelog
+## 📜 Changelog (latest)
 
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+### [v1.3.0] — 2026-06-22 — *The Polished Kingdom*
+- 🎨 Shortened README (1,000+ → 200 lines), added 10 badges, screenshots, "Why This Repo?" section
+- 📚 6 new docs: QUICKSTART, FRAMEWORKS, ROADMAP, FAQ, MANIFEST, DEDUP
+- 🛠 Added `requirements.txt` + `pyproject.toml` + GitHub Actions CI/CD + 130 pytest tests
+- 🤝 Created 5 starter issues (good-first-issue) + 8 labels + promotion post templates
 
-### v1.0.0 — *The Fellowship Forms* (2026-06-19)
-- 🎉 Initial compilation: 10,888 artifacts from 102 source repositories
-- 🏰 10 LOTR-themed kingdoms with full taxonomy
-- ⭐ 1,880 canonical clusters identified via dedup
-- 📦 13 frameworks covered (Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph)
-- 🕷 Reusable Python crawler with monthly cron refresh
-- 📄 33-page themed PDF catalog
-- 📊 6-sheet Excel index
+### [v1.2.0] — 2026-06-19 — *The Antigravity Frontier*
+- ✨ Added Google Antigravity as the 14th framework (820 files tagged)
+- 🕷 Built `crawler_antigravity.py` with 30 targeted search queries
+- 📊 Discovered 689 antigravity-related repos, cloned 307, extracted 11,697 files
+- 📈 Total artifacts: 10,888 → **18,142** (+66%)
+
+### [v1.1.0] — 2026-06-19 — *The Kingdoms Take Shape*
+- 🏰 Restructured: per-kingdom `README.md` for all 10 kingdoms
+- 🗺 Added top-level `KINGDOMS.md` index
+- 🐛 Renamed 508 files to URL/git-safe names (⭐ → `canonical__`)
+
+### [v1.0.0] — 2026-06-19 — *The Fellowship Forms*
+- 🎉 Initial compilation: 10,888 artifacts from 102 source repos across 13 frameworks
+
+📖 Full history: [`CHANGELOG.md`](CHANGELOG.md) · Future plans: [`ROADMAP.md`](ROADMAP.md)
 
 ---
 
@@ -375,48 +224,16 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 - **Compilation scripts** (crawler/, build_package.py, etc.): **MIT** — see [LICENSE](LICENSE)
 - **Skill artifacts** (skills/): Each retains its **original upstream license** — see [docs/CREDITS.md](docs/CREDITS.md)
-- **This compilation** does NOT re-license any upstream artifact
 
-If you are an upstream maintainer and wish to have your skills removed, please [open an issue](https://github.com/Bilal140202/the-lord-of-the-skills/issues/new) and we will comply promptly.
+If you are an upstream maintainer and wish to have your skills removed, please [open an issue](https://github.com/Bilal140202/the-lord-of-the-skills/issues/new).
 
 ---
 
 ## 🙏 Credits
 
-This compilation would not exist without the 102 source repositories. See [docs/CREDITS.md](docs/CREDITS.md) for the full alphabetical list with artifacts-per-repo counts.
+This compilation would not exist without the **307+ source repositories**. See [`docs/CREDITS.md`](docs/CREDITS.md) for the full list.
 
-Special thanks to the maintainers of:
-- [anthropics/anthropic-cookbook](https://github.com/anthropics/anthropic-cookbook)
-- [anthropics/courses](https://github.com/anthropics/courses)
-- [hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code)
-- [VoltAgent/awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents)
-- [wshobson/agents](https://github.com/wshobson/agents)
-- [davila7/claude-code-templates](https://github.com/davila7/claude-code-templates)
-- [cline/cline](https://github.com/cline/cline)
-- [RooCodeInc/Roo-Code](https://github.com/RooCodeInc/Roo-Code)
-- [Aider-AI/aider](https://github.com/Aider-AI/aider)
-- [All-Hands-AI/OpenHands](https://github.com/All-Hands-AI/OpenHands)
-- [princeton-nlp/SWE-agent](https://github.com/princeton-nlp/SWE-agent)
-- [continuedev/continue](https://github.com/continuedev/continue)
-- [block/goose](https://github.com/block/goose)
-- [microsoft/autogen](https://github.com/microsoft/autogen)
-- [crewAIInc/crewAI](https://github.com/crewAIInc/crewAI)
-- [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph)
-- [modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers)
-
-*(and 85 more — see full list in [docs/CREDITS.md](docs/CREDITS.md))*
-
----
-
-## 📞 Connect
-
-<div align="center">
-
-[![GitHub](https://img.shields.io/badge/GitHub-Bilal140202-black?style=for-the-badge&logo=github)](https://github.com/Bilal140202)
-[![Issues](https://img.shields.io/badge/Issues-Open-red?style=for-the-badge&logo=github)](https://github.com/Bilal140202/the-lord-of-the-skills/issues)
-[![Discussions](https://img.shields.io/badge/Discussions-Join-blue?style=for-the-badge&logo=github)](https://github.com/Bilal140202/the-lord-of-the-skills/discussions)
-
-</div>
+Special thanks to: `anthropics/anthropic-cookbook`, `hesreallyhim/awesome-claude-code`, `cline/cline`, `Aider-AI/aider`, `All-Hands-AI/OpenHands`, `continuedev/continue`, `block/goose`, `microsoft/autogen`, `crewAIInc/crewAI`, `langchain-ai/langgraph`, `modelcontextprotocol/servers`, `sickn33/antigravity-awesome-skills`, and 295+ more.
 
 ---
 
@@ -424,10 +241,11 @@ Special thanks to the maintainers of:
 
 ### 🌟 *May your agents be wise, your prompts be sharp, and your skills be many.* 🌟
 
-<img src="https://raw.githubusercontent.com/Bilal140202/the-lord-of-the-skills/main/assets/divider.png" width="100%"/>
-
 **Built with ⚔ by [Ansari Mohammad Bilal](https://github.com/Bilal140202)**
 
-*If this project helped you, please consider [⭐ starring the repo](https://github.com/Bilal140202/the-lord-of-the-skills). It helps others discover the kingdom.*
+[⭐ Star this repo](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers) ·
+[🍴 Fork it](https://github.com/Bilal140202/the-lord-of-the-skills/fork) ·
+[💬 Open an issue](https://github.com/Bilal140202/the-lord-of-the-skills/issues/new) ·
+[📖 Read the docs](KINGDOMS.md)
 
 </div>

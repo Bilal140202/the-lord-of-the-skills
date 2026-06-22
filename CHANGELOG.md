@@ -161,3 +161,81 @@ skills/
 ├── moria/antigravity/          ← NEW: Antigravity devops skills
 ├── ... (all 10 kingdoms now have antigravity/ subdirs)
 ```
+
+---
+
+## [1.3.0] — 2026-06-22 — *The Polished Kingdom*
+
+### 🎨 Aesthetics & First Impressions
+- **Shortened README** from 1,000+ lines to ~200 lines — scannable, with clear CTAs
+- **Added 10 GitHub badges** at the top: stars, forks, watchers, license, CI, last commit, contributors, issues, repo size, license
+- **Generated screenshots**: PDF preview pages + folder-structure image (stored in `assets/screenshots/`)
+- **Added "Why This Repo?" section** to README highlighting USPs (largest collection, LOTR-themed, canonical skills, reusable crawler)
+- **Added "Previews" section** with image grid showing PDF catalog and folder structure
+
+### 📚 New Documentation (6 new files)
+- `QUICKSTART.md` — 60-second start guide with copy-paste commands for every framework
+- `FRAMEWORKS.md` — detailed 14-framework breakdown with detection patterns + how to add new frameworks
+- `ROADMAP.md` — prioritized roadmap with completed/in-progress/planned/ideas sections
+- `FAQ.md` — 25+ common questions covering usage, crawler, kingdoms, licensing, troubleshooting
+- `MANIFEST.md` — full schema documentation for `_manifest.json` with Python/JS/jq examples
+- `DEDUP.md` — detailed explanation of canonical dedup algorithm with framework/skill-type priority tables
+
+### 🛠 Technical Robustness
+- **Added `crawler/requirements.txt`** — pinned Python dependencies (requests, openpyxl, reportlab, pypdf, Pillow, cairosvg, pytest, etc.)
+- **Added `crawler/pyproject.toml`** — modern Python packaging with `lotr-crawl`, `lotr-classify`, `lotr-dedup` CLI entry points
+- **Added GitHub Actions CI/CD** (`.github/workflows/ci.yml`):
+  - Tests on Python 3.10, 3.11, 3.12
+  - Lint with flake8, black, isort
+  - pytest with coverage upload to Codecov
+  - Markdown link checker
+  - Catalog artifact verification
+  - Kingdom structure verification
+- **Added pytest unit tests** (`tests/`):
+  - `test_classify.py` — 30+ tests for kingdom classification, skill types, title/summary extraction
+  - `test_dedup.py` — 25+ tests for normalize_title, tokenize, jaccard, canonical_score
+  - `test_crawler.py` — 30+ tests for skill file detection, framework detection, seed list sanity, BFS regex
+  - `conftest.py` — pytest configuration
+  - **130 tests total, all passing**
+- **Added `tests/README.md`** — how to run tests, add new tests
+
+### 🤝 Community Engagement
+- **Created 5 starter issues** (labeled `good first issue` + `help wanted`):
+  1. Add Windsurf IDE support (15th framework)
+  2. Add 11th kingdom "The Grey Havens" for dev tools
+  3. Fix typos and improve grammar in docs
+  4. Add Streamlit web UI for browsing skills
+  5. Add embeddings-based semantic search for skills
+- **Created 8 GitHub labels**: good first issue, help wanted, enhancement, documentation, crawler, kingdoms, frameworks, LOTR
+- **Enabled GitHub Discussions** for longer-form conversations
+
+### 📣 Promotion Materials
+- **Added `docs/promotion/PROMOTION_POSTS.md`** with ready-to-post templates for:
+  - Reddit (r/MachineLearning, r/artificial)
+  - Hacker News (Show HN)
+  - Twitter/X (7-tweet thread)
+  - LinkedIn
+  - Dev.to / Medium (blog post outline)
+  - Awesome-list submissions (3 PRs to submit)
+- **Promotion checklist** with 11 channels
+
+### 📊 Summary
+| Category | Items Added |
+|:---|---:|
+| New docs | 6 (QUICKSTART, FRAMEWORKS, ROADMAP, FAQ, MANIFEST, DEDUP) |
+| Screenshots | 5 (PDF previews + folder structure) |
+| GitHub badges | 10 |
+| Test files | 4 (test_classify, test_dedup, test_crawler, conftest) |
+| Tests passing | 130 |
+| CI/CD workflows | 1 (ci.yml with 3 jobs) |
+| Starter issues | 5 |
+| GitHub labels | 8 |
+| Promotion posts | 6 platform templates |
+| Python packaging | 2 (requirements.txt, pyproject.toml) |
+
+### 🎯 Impact (Expected)
+Based on the critique feedback:
+- **+Stars**: Shorter README + badges + screenshots = better first impression
+- **+Contributors**: 5 good-first-issues + clear CONTRIBUTING.md = lower barrier
+- **+Trust**: CI badge + tests + dependency management = professional appearance
+- **+Discoverability**: Promotion posts + awesome-list submissions = wider reach
