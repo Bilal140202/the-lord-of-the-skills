@@ -20,7 +20,7 @@ The Lord of the Skills covers **14 agentic AI frameworks**. Each is identified b
 | 🔵 **copilot** | 100+ | 5 | `.github/copilot-instructions.md` | GitHub Copilot instructions |
 | 🟣 **crewai** | 80+ | 6 | `crewai`, `CrewAI` | CrewAI agent configs |
 | 🟢 **langgraph** | 60+ | 5 | `langgraph`, `LangGraph` | LangGraph agent definitions |
-| 🟪 **antigravity** | 820 | 10 | Antigravity-tagged repos | **NEW in v1.2.0**: Google Antigravity IDE skills |
+| 🟪 **antigravity** | 820 | 10 | Antigravity-tagged repos | [Google Antigravity IDE](https://antigravity.google) — Google's AI-first IDE launched Nov 2025 with Gemini 3. **This is the only major skills catalog covering Antigravity.** |
 | ⚪ **general** | 2,535+ | 10 | Various / unclassified | Cross-framework or unclassified skills |
 
 ---

@@ -16,11 +16,27 @@
 [![Issues](https://img.shields.io/github/issues/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=DC143C)](https://github.com/Bilal140202/the-lord-of-the-skills/issues)
 [![Repo Size](https://img.shields.io/github/repo-size/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=database&logoColor=white&labelColor=black&color=4B0082)](https://github.com/Bilal140202/the-lord-of-the-skills)
 
-### 🌟 *The largest, most organized collection of AI agent skills on GitHub* 🌟
+### 🌟 *A growing, organized collection of AI agent skills — covering 14 frameworks* 🌟
 
 **18,142+ artifacts** · **14 frameworks** · **10 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
 
 </div>
+
+---
+
+## ✨ Spotlight: The Only Catalog Covering Google Antigravity
+
+<div align="center">
+
+**🟪 Google Antigravity** ([antigravity.google](https://antigravity.google)) is Google's new AI-first IDE launched November 2025 alongside Gemini 3 — a heavily modified VS Code fork.
+
+**820 Antigravity-tagged skills** · across all 10 kingdoms · spidered via a dedicated 30-query focused crawler
+
+</div>
+
+While most AI skill catalogs have **zero Antigravity coverage**, this repo has been on it since launch. If you're an Antigravity user, this is your definitive skill library. Browse: `find skills/ -path '*antigravity*' -name '*.md'`
+
+📖 See [`FRAMEWORKS.md`](FRAMEWORKS.md) for the full 14-framework breakdown.
 
 ---
 

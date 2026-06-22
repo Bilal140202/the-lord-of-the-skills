@@ -239,3 +239,61 @@ Based on the critique feedback:
 - **+Contributors**: 5 good-first-issues + clear CONTRIBUTING.md = lower barrier
 - **+Trust**: CI badge + tests + dependency management = professional appearance
 - **+Discoverability**: Promotion posts + awesome-list submissions = wider reach
+
+---
+
+## [1.4.0] — 2026-06-22 — *The Trustworthy Kingdom*
+
+### 🎯 Trust & Credibility Fixes (based on community critique)
+
+#### 📝 Description & Topics Sync
+- **Updated GitHub repo description** to match README: 18,142+ artifacts, 14 frameworks, 307+ repos (was stale at 10,888/102/13)
+- **Updated GitHub topics** (20 max): added `cursor-rules`, `mcp`, `prompt-engineering`, `rules`, `antigravity`; dropped lower-search-value ones (`agent-framework`, `agents-md`, `compilation`, `roo-code`, `skill-md`)
+
+#### 📦 GitHub Releases (was: 0 → now: 4)
+- Published **4 proper GitHub Releases** with full release notes:
+  - [v1.0.0 — The Fellowship Forms](https://github.com/Bilal140202/the-lord-of-the-skills/releases/tag/v1.0.0)
+  - [v1.1.0 — The Kingdoms Take Shape](https://github.com/Bilal140202/the-lord-of-the-skills/releases/tag/v1.1.0)
+  - [v1.2.0 — The Antigravity Frontier](https://github.com/Bilal140202/the-lord-of-the-skills/releases/tag/v1.2.0)
+  - [v1.3.0 — The Polished Kingdom](https://github.com/Bilal140202/the-lord-of-the-skills/releases/tag/v1.3.0)
+- Releases appear in GitHub search, notifications, and the trending algorithm
+
+#### 💬 Discussions Seeded (was: empty → now: 3 starter threads)
+- [#6 Which kingdom do you use most?](https://github.com/Bilal140202/the-lord-of-the-skills/discussions/6) — General
+- [#7 Request a new kingdom — what domain are we missing?](https://github.com/Bilal140202/the-lord-of-the-skills/discussions/7) — Ideas
+- [#8 Share your workflow](https://github.com/Bilal140202/the-lord-of-the-skills/discussions/8) — Show and tell
+
+#### 🔒 SECURITY.md Added
+- Full security policy covering: vulnerability reporting, scope (in/out), IP & redistribution concerns, crawler security properties, user best practices
+- Eligible for GitHub's security policy badge
+
+#### 🖼 Social Preview Image Generated
+- Created custom 1280×640 social preview at `assets/social/social-preview.png`
+- LOTR-themed: dark parchment background, gold ring centerpiece, all 10 kingdoms listed
+- **Manual step required**: upload via Settings → Social preview (GitHub has no API for this)
+
+#### ✨ Antigravity Spotlight
+- Added dedicated "Spotlight" section to README highlighting that this is the **only major skills catalog covering Google Antigravity**
+- Added direct link to [antigravity.google](https://antigravity.google) in FRAMEWORKS.md
+- Softened "LARGEST COLLECTION" claim to "A growing, organized collection" — letting the community validate the claim over time
+
+#### 🐛 CONTRIBUTING.md Fix
+- Fixed contradiction: instructions now say `canonical__` (not `⭐_`) for canonical prefix, matching DEDUP.md and README
+- Updated dev setup to use `pip install -r crawler/requirements.txt` (was: ad-hoc pip install)
+- Added `pytest tests/ -v` step
+
+### 📋 Summary
+| Item | Before | After |
+|:---|:---|:---|
+| GitHub Releases | 0 | 4 |
+| Discussion threads | 0 | 3 |
+| SECURITY.md | ❌ | ✅ |
+| Custom social preview | ❌ | ✅ (generated; needs manual upload) |
+| Repo description | stale (10,888/102/13) | current (18,142/14/307+) |
+| Topics | 20 (missing high-search terms) | 20 (includes mcp, prompt-engineering, cursor-rules) |
+| Antigravity visibility | buried in table | headline spotlight section |
+| "LARGEST" claim | "largest on GitHub" | "growing, organized collection" |
+| CONTRIBUTING.md | contradicted README | consistent (canonical__ everywhere) |
+
+### 🎯 Commit Hygiene Note
+This release consolidates all v1.4.0 fixes into a **single commit** (addressing feedback that v1.0→v1.3 looked like an AI mass-dump). Going forward, commits will be spaced out organically as features are developed.
