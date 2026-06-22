@@ -12,7 +12,7 @@ Have a skill file (SKILL.md, AGENTS.md, .cursorrules, etc.) that should be in th
 **Option A — Add directly to source repo:**
 1. Place your skill in `skills/<kingdom>/<framework>/<your-repo>/`
 2. Filename should match the original convention (e.g., `SKILL.md`, `.cursorrules`)
-3. If it's the canonical representative, prefix with `⭐_`
+3. If it's the canonical representative, prefix with `canonical__` (e.g., `canonical__SKILL.md`). See [DEDUP.md](DEDUP.md) for how canonical skills are chosen.
 4. Open a PR
 
 **Option B — Add a source repo:**
@@ -54,8 +54,8 @@ The crawler is in `crawler/crawler.py`. Common improvements:
 git clone https://github.com/Bilal140202/the-lord-of-the-skills.git
 cd the-lord-of-the-skills
 
-# Install Python deps
-pip install requests openpyxl reportlab pypdf
+# Install Python deps (pinned in requirements.txt)
+pip install -r crawler/requirements.txt
 
 # Run the full pipeline
 python3 crawler/crawler.py
@@ -64,6 +64,9 @@ python3 crawler/dedup.py
 python3 crawler/build_package.py
 python3 crawler/generate_excel.py
 python3 crawler/generate_pdf.py
+
+# Run tests
+pytest tests/ -v
 ```
 
 ## 📋 Pull Request Checklist
