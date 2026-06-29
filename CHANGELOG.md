@@ -367,3 +367,61 @@ The CLI knows exactly where each framework expects its skills:
 | New tests | 43 |
 | Frameworks supported | 10 (antigravity, cursor, claude-code, cline, roo, continue, goose, aider, codex, copilot) |
 | Languages detected | 6 (typescript, javascript, python, ruby, go, rust) |
+
+---
+
+## [1.6.0] — 2026-06-29 — *The Kickoff + PyPI*
+
+### 🚀 New: `lotr kickoff` — Multi-Kingdom Project Setup
+
+A new mode that installs skills across **multiple kingdoms** for project kickoff. Instead of one task, you describe the project and the CLI fetches skills from all relevant domains.
+
+```bash
+# Two modes, same command — auto-detected:
+lotr "write unit tests"          # → install mode (single kingdom: rohan)
+lotr "building a tauri app"      # → kickoff mode (5 kingdoms: gondor, rohan, moria, fangorn, isengard)
+```
+
+**Kickoff mode downloads only 10-15 canonical skills — not 18,000.**
+
+### 🧠 Smart Auto-Detection
+
+The CLI figures out the mode from how you describe it:
+- **Kickoff signals**: "building", "starting", "creating", "setting up", "tauri", "saas", "dashboard", "microservice", "full-stack"
+- **Single-task signals**: compound phrases like "unit tests", "code review", "OWASP" (clear primary intent)
+- 13/13 test cases pass correctly
+
+### 📦 New: PyPI Package (`lotr-skills`)
+
+The CLI is now pip-installable:
+
+```bash
+pip install lotr-skills
+lotr "write unit tests"
+```
+
+- `pyproject.toml` at repo root with `[project.scripts] lotr = "cli.lotr:main"`
+- `cli/__init__.py` makes it a proper Python package
+- Dual-mode imports: works as script (`python3 cli/lotr.py`) AND as package (`from cli.lotr import main`)
+- Built + tested locally: `lotr --version` → `lotr 1.0.0`
+- `PUBLISHING.md` with full twine upload instructions
+
+### 🛠 New Files
+- `pyproject.toml` — PyPI package config with `lotr` entry point
+- `cli/__init__.py` — package marker
+- `PUBLISHING.md` — step-by-step PyPI publishing guide
+- `dist/` — built wheel + sdist (gitignored)
+
+### 🧪 Tests
+- **21 new tests** for kickoff mode (194 total, all passing)
+- `TestKickoffDetection` — 15 parametrized cases for is_kickoff_intent()
+- `TestMatchMulti` — 5 tests for multi-kingdom matching + default padding
+
+### 📊 Summary
+| Item | Count |
+|:---|---:|
+| CLI subcommands | 8 (install, kickoff, preview, list, search, detect, kingdoms, update) |
+| Tests passing | 194 |
+| PyPI package | Ready to publish (`lotr-skills` 1.0.0) |
+| Kickoff detection accuracy | 13/13 (100%) |
+| Skills downloaded in kickoff mode | 10-15 (not 18,000) |

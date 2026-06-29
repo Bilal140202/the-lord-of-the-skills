@@ -300,3 +300,80 @@ class TestFetch:
         result = fetch_skills_by_index(fake_index, tags=["security"])
         assert len(result) == 1
         assert result[0]["kingdom"] == "mordor"
+
+
+# ============================================================
+# Kickoff mode tests
+# ============================================================
+
+class TestKickoffDetection:
+    """Test is_kickoff_intent() heuristic."""
+
+    @pytest.mark.parametrize("intent,expected", [
+        # Kickoff intents (project descriptions)
+        ("building a tauri app", True),
+        ("starting a nextjs SaaS dashboard", True),
+        ("creating a microservice", True),
+        ("setting up a full-stack react platform", True),
+        ("building a python fastapi backend", True),
+        ("bootstrapping a new project", True),
+        ("scaffolding a vue app", True),
+        # Single-task intents (NOT kickoff)
+        ("update the UI to be more modern", False),
+        ("write unit tests for the API", False),
+        ("deploy to kubernetes", False),
+        ("audit for OWASP vulnerabilities", False),
+        ("refactor the authentication module", False),
+        ("write a blog post about our launch", False),
+        ("research the literature on transformers", False),
+        ("set up memory bank for context", False),
+    ])
+    def test_kickoff_detection(self, intent, expected):
+        from match import is_kickoff_intent
+        result = is_kickoff_intent(intent)
+        assert result == expected, f"Intent {intent!r}: expected kickoff={expected}, got {result}"
+
+    def test_empty_intent_not_kickoff(self):
+        from match import is_kickoff_intent
+        assert is_kickoff_intent("") == False
+        assert is_kickoff_intent("   ") == False
+
+
+class TestMatchMulti:
+    """Test match_multi() for project kickoff mode."""
+
+    def test_returns_multiple_kingdoms(self):
+        from match import match_multi
+        results = match_multi("building a react app with tests and deployment")
+        assert len(results) >= 3, f"Expected 3+ kingdoms, got {len(results)}"
+
+    def test_pads_with_defaults(self):
+        """Even if only 1 kingdom matches keywords, match_multi should
+        return at least 5 kingdoms for kickoff mode."""
+        from match import match_multi
+        # "tauri" only matches gondor, but kickoff should still return 5+
+        results = match_multi("building a tauri app")
+        assert len(results) >= 5, f"Expected 5+ kingdoms (padded), got {len(results)}"
+        kingdoms = [r[0] for r in results]
+        assert "gondor" in kingdoms  # matched from "tauri"
+        assert "rohan" in kingdoms   # padded default
+        assert "moria" in kingdoms   # padded default
+
+    def test_respects_top_n(self):
+        from match import match_multi
+        results = match_multi("building a react app", top_n=3)
+        assert len(results) <= 3
+
+    def test_returns_scores_and_keywords(self):
+        from match import match_multi
+        results = match_multi("building a react app with tests")
+        for kingdom, score, kws in results:
+            assert isinstance(kingdom, str)
+            assert isinstance(score, int)
+            assert isinstance(kws, list)
+
+    def test_sorts_by_score_desc(self):
+        from match import match_multi
+        results = match_multi("building a react app with tests and deployment and docs")
+        scores = [r[1] for r in results]
+        assert scores == sorted(scores, reverse=True)

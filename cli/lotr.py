@@ -33,15 +33,23 @@ import time
 from pathlib import Path
 from typing import Optional
 
-# Add cli/ to path so we can import sibling modules
+# Support both script mode (python3 cli/lotr.py) and package mode (pip install)
 CLI_DIR = Path(__file__).parent.resolve()
 if str(CLI_DIR) not in sys.path:
     sys.path.insert(0, str(CLI_DIR))
 
-from detect import detect as detect_stack
-from match import match as match_intent, match_kingdoms
-from fetch import fetch_index, fetch_skills_by_index, fetch_and_save
-from place import resolve_destination, place_skill, list_installed, DESTINATIONS
+try:
+    # Package mode (when installed via pip)
+    from cli.detect import detect as detect_stack
+    from cli.match import match as match_intent, match_kingdoms, match_multi, is_kickoff_intent
+    from cli.fetch import fetch_index, fetch_skills_by_index, fetch_and_save
+    from cli.place import resolve_destination, place_skill, list_installed, DESTINATIONS
+except ImportError:
+    # Script mode (python3 cli/lotr.py)
+    from detect import detect as detect_stack
+    from match import match as match_intent, match_kingdoms, match_multi, is_kickoff_intent
+    from fetch import fetch_index, fetch_skills_by_index, fetch_and_save
+    from place import resolve_destination, place_skill, list_installed, DESTINATIONS
 
 # Kingdom data (for `lotr kingdoms` command)
 KINGDOMS = {
@@ -204,6 +212,88 @@ def cmd_preview(args):
     print(c("  (dry-run — no files written. Run `lotr install` to actually install.)", "gray"))
     return 0
 
+def cmd_kickoff(args):
+    """Multi-kingdom project setup: install skills across multiple kingdoms
+    based on a project description.
+
+    This is the "project kickoff" mode — instead of one task, you describe
+    the project ("building a tauri app") and the CLI fetches skills from
+    all relevant kingdoms (gondor for coding, rohan for testing, moria for
+    build, fangorn for docs, etc.).
+
+    Only downloads 10-15 canonical skills total — not 18,000.
+    """
+    banner()
+    intent = args.intent
+    if not intent:
+        print(c("  Provide a project description.", "red"))
+        print(c('  Usage: lotr kickoff "building a tauri app"', "gray"))
+        return 1
+    t0 = time.time()
+    # Detect
+    print(c("[detect]", "bold"), "Scanning project...")
+    result = detect_stack(args.project_root)
+    framework = args.framework or result["framework"]
+    if not framework:
+        print(c("  No agent framework detected. Pass --framework to override.", "red"))
+        return 1
+    print(f"  Framework: {c(framework, 'gold')}  Language: {c(result['language'], 'blue')}  Stack: {c(str(result['stack']), 'blue')}")
+    # Match multiple kingdoms
+    print()
+    print(c("[plan]", "bold"), f"Planning skills needed for: {c(intent, 'gold')!r}")
+    matches = match_multi(intent, top_n=args.top_kingdoms or 6, min_score=1)
+    if not matches:
+        print(c("  No kingdoms matched. Try a more descriptive phrase.", "red"))
+        print(c('  Example: lotr kickoff "building a react SaaS dashboard with postgres"', "gray"))
+        return 1
+    for kingdom, score, kws in matches:
+        info = KINGDOMS.get(kingdom, {"symbol": "?"})
+        print(f"  {c(info['symbol'], 'gold')} {c(kingdom, 'bold'):12s} (score={score}, keywords={kws})")
+    # Fetch skills for each kingdom
+    print()
+    print(c("[fetch]", "bold"), "Querying skills index...")
+    try:
+        idx = fetch_index()
+    except Exception as e:
+        print(c(f"  Failed to fetch index: {e}", "red"))
+        return 1
+    skills_per_kingdom = args.skills_per_kingdom or 2
+    all_skills = []
+    for kingdom, _, _ in matches:
+        skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
+                                        canonical_only=not args.all,
+                                        limit=skills_per_kingdom)
+        all_skills.extend(skills)
+    if not all_skills:
+        print(c(f"  No canonical skills found for {framework}. Try --all to include non-canonical.", "red"))
+        return 1
+    print(f"  Downloading {c(str(len(all_skills)), 'green')} canonical skills across {c(str(len(matches)), 'green')} kingdoms")
+    # Place
+    print()
+    print(c("[place]", "bold"), f"Installing to {c(str(resolve_destination(framework, args.project_root)), 'blue')}")
+    dest = resolve_destination(framework, args.project_root)
+    installed = []
+    current_kingdom = None
+    for s in all_skills:
+        if s.get("kingdom") != current_kingdom:
+            current_kingdom = s.get("kingdom")
+            info = KINGDOMS.get(current_kingdom, {"symbol": "?", "name": current_kingdom.title()})
+            print(f"  {c(info['symbol'], 'gold')} {c(info['name'], 'bold')}:")
+        try:
+            path = fetch_and_save(s, dest)
+            installed.append(path)
+            title = (s.get("title") or s.get("filename") or "(untitled)")[:55]
+            canon = "star" if s.get("canonical") else " "
+            print(f"      {c('OK', 'green')} {title}")
+        except Exception as e:
+            print(f"      {c('X', 'red')} {s.get('filename', '?')}: {e}")
+    elapsed = time.time() - t0
+    print()
+    print(c(f"Done: installed {len(installed)} skills across {len(matches)} kingdoms in {elapsed:.1f}s", "green"))
+    print(c(f"  Only {len(installed)} files downloaded — not 18,000.", "gray"))
+    print(c(f"  Next: restart your agent ({framework}) to pick up the new skills.", "gray"))
+    return 0
+
 def cmd_install(args):
     """Install skills for a given intent (or explicit kingdom/framework)."""
     banner()
@@ -351,7 +441,7 @@ def main():
     p_preview.add_argument("--limit", type=int, default=10)
 
     # install
-    p_install = subparsers.add_parser("install", help="Install skills for a task")
+    p_install = subparsers.add_parser("install", help="Install skills for a single task")
     p_install.add_argument("intent", nargs="?", help="Natural-language task (omit for --kingdom+--framework)")
     p_install.add_argument("--project-root", default=".")
     p_install.add_argument("--framework")
@@ -359,23 +449,34 @@ def main():
     p_install.add_argument("--all", action="store_true")
     p_install.add_argument("--limit", type=int, default=10)
 
+    # kickoff
+    p_kickoff = subparsers.add_parser("kickoff",
+        help="Multi-kingdom project setup: install skills across all relevant kingdoms")
+    p_kickoff.add_argument("intent", help="Project description (e.g., 'building a tauri app')")
+    p_kickoff.add_argument("--project-root", default=".")
+    p_kickoff.add_argument("--framework")
+    p_kickoff.add_argument("--all", action="store_true")
+    p_kickoff.add_argument("--top-kingdoms", type=int, default=6, help="Max kingdoms to cover (default: 6)")
+    p_kickoff.add_argument("--skills-per-kingdom", type=int, default=2, help="Skills per kingdom (default: 2)")
+
     # update
     p_update = subparsers.add_parser("update", help="Update installed skills to latest")
     p_update.add_argument("--project-root", default=".")
 
-    # Shorthand: `lotr "do something"` = `lotr install "do something"`
-    # We detect this by checking if argv[1] is not a known subcommand
-    known_commands = {"detect", "kingdoms", "search", "list", "preview", "install", "update",
-                      "-h", "--help", "--version"}
+    # Shorthand: `lotr "do something"` = auto-detect install vs kickoff
+    known_commands = {"detect", "kingdoms", "search", "list", "preview", "install",
+                      "kickoff", "update", "-h", "--help", "--version"}
     argv = sys.argv[1:]
     if argv and argv[0] not in known_commands and not argv[0].startswith("-"):
-        # Treat as `lotr install "<intent>"`
-        argv = ["install"] + argv
+        # Auto-detect: if the intent looks like a project kickoff, use kickoff mode
+        intent = argv[0]
+        if is_kickoff_intent(intent):
+            argv = ["kickoff"] + argv
+        else:
+            argv = ["install"] + argv
     args = parser.parse_args(argv)
 
-    # Common args (apply to install shorthand)
     if args.command is None:
-        # No subcommand — check if there's an intent from shorthand
         parser.print_help()
         return 0
 
@@ -390,7 +491,14 @@ def main():
     elif args.command == "preview":
         return cmd_preview(args)
     elif args.command == "install":
+        # Auto-redirect to kickoff if intent is a project description
+        if hasattr(args, 'intent') and args.intent and is_kickoff_intent(args.intent):
+            print(c("  Kickoff intent detected — switching to kickoff mode.", "gold"))
+            print()
+            return cmd_kickoff(args)
         return cmd_install(args)
+    elif args.command == "kickoff":
+        return cmd_kickoff(args)
     elif args.command == "update":
         return cmd_update(args)
     else:

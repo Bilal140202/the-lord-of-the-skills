@@ -22,7 +22,9 @@ INTENT_MAP: dict[str, list[str]] = {
         r"\b(code|coding|refactor|debug|implement|function|class|method|api|endpoint|"
         r"git|commit|branch|merge|codebase|module|package|build|compile|typescript|"
         r"javascript|python|rust|go|java|react|vue|svelte|next\.?js|node|database|"
-        r"sql|schema|migration|orm)\b",
+        r"sql|schema|migration|orm|tauri|electron|vite|webpack|esbuild|prisma|"
+        r"drizzle|trpc|express|fastify|hono|solid|angular|astro|nuxt|remix|"
+        r"backend|frontend|fullstack|full-stack)\b",
         r"\b(ui|ux|interface|component|frontend|front-end|style|css|tailwind|"
         r"layout|design|theme|button|form|page)\b",
     ],
@@ -168,10 +170,118 @@ def match_kingdoms(intent: str, top_n: int = 3) -> List[str]:
     """Convenience: return just the kingdom names (no scores/keywords)."""
     return [k for k, _, _ in match(intent, top_n=top_n)]
 
+
+# ============================================================
+# Kickoff mode — multi-kingdom project setup
+# ============================================================
+
+# Keywords that signal "project kickoff" (not a single task)
+# These are VERBS (building, starting) + project TYPE NOUNS (tauri, saas)
+# Common words like "api", "app", "system" are NOT here — they're too ambiguous
+_KICKOFF_SIGNALS = {
+    # Verbs
+    "building", "building a", "building an",
+    "starting", "starting a", "starting an",
+    "creating", "creating a", "creating an",
+    "setting up", "setup", "initializing", "bootstrapping", "scaffolding",
+    "new project", "kickoff", "kick off",
+    # Project type nouns (specific enough to signal a new project)
+    "tauri", "electron", "nextjs", "next.js",
+    "react app", "vue app", "svelte app",
+    "full stack", "fullstack", "full-stack",
+    "saas", "dashboard", "marketplace", "e-commerce", "ecommerce",
+    "microservice", "micro-service",
+}
+
+def is_kickoff_intent(intent: str) -> bool:
+    """Detect whether an intent is a project-kickoff description
+    (multi-kingdom setup) vs a single-task intent.
+
+    Heuristics (in order):
+    1. Contains kickoff signal words ("building a", "starting a", etc.) → kickoff
+    2. Contains project nouns ("app", "service", "platform", "tauri", etc.) → kickoff
+    3. If top match has score >= 2 (compound phrase) AND second match <= 1 → single install
+       (clear primary intent like "write unit tests" → rohan)
+    4. If 3+ kingdoms tie at score 1 (no clear winner) → kickoff
+
+    Returns True if kickoff mode is more appropriate.
+    """
+    if not intent:
+        return False
+    intent_lower = intent.lower()
+
+    # 1. Signal-word check (strongest signal)
+    for signal in _KICKOFF_SIGNALS:
+        if signal in intent_lower:
+            return True
+
+    # 2. Get matches to apply remaining heuristics
+    matches = match(intent, top_n=5, min_score=1)
+    if not matches:
+        # No keyword matches at all — could still be kickoff if signal words present
+        # (already checked above). Default to single install.
+        return False
+
+    top_score = matches[0][1]
+    second_score = matches[1][1] if len(matches) > 1 else 0
+
+    # 3. Clear primary intent (compound phrase match dominates)
+    if top_score >= 2 and second_score <= 1:
+        return False  # single install — one kingdom clearly wins
+
+    # 4. No clear winner — multiple kingdoms tie → kickoff
+    if len(matches) >= 3 and top_score <= 1:
+        return True
+
+    return False
+
+
+def match_multi(intent: str, top_n: int = 6, min_score: int = 1) -> List[Tuple[str, int, list[str]]]:
+    """Match an intent to MULTIPLE kingdoms for project kickoff mode.
+
+    Unlike `match()` which returns the top-N ranked kingdoms, `match_multi`
+    is designed for project descriptions that span multiple domains.
+
+    Always returns at least 5 kingdoms for a project kickoff — if fewer
+    match from keywords, pads with default kingdoms (rohan, moria, fangorn,
+    isengard) that every software project needs.
+
+    Args:
+        intent: Project description (e.g., "building a tauri app")
+        top_n: Max kingdoms to return (default 6 — enough for a full project)
+        min_score: Minimum score threshold
+
+    Returns:
+        List of (kingdom, score, keywords) tuples, highest score first.
+    """
+    results = match(intent, top_n=top_n, min_score=min_score)
+    matched_kingdoms = {k for k, _, _ in results}
+
+    # For kickoff mode, always include these default kingdoms (every project needs them)
+    defaults = [
+        ("gondor", 1, ["project"]),
+        ("rohan", 1, ["project"]),
+        ("moria", 1, ["project"]),
+        ("fangorn", 1, ["project"]),
+        ("isengard", 1, ["project"]),
+    ]
+    # Pad with defaults we haven't already matched
+    for kingdom, score, kws in defaults:
+        if kingdom not in matched_kingdoms and len(results) < top_n:
+            results.append((kingdom, score, kws))
+            matched_kingdoms.add(kingdom)
+
+    # Sort by score desc, then alphabetical
+    results.sort(key=lambda x: (-x[1], x[0]))
+    return results[:top_n]
+
+
 if __name__ == "__main__":
     import sys
     intent = " ".join(sys.argv[1:]) or "update the UI to be more modern"
     print(f"Intent: {intent!r}")
+    kickoff = is_kickoff_intent(intent)
+    print(f"Kickoff mode: {kickoff}")
     print(f"Matches:")
     for kingdom, score, kws in match(intent):
         print(f"  {kingdom:12s} (score={score}, keywords={kws})")
