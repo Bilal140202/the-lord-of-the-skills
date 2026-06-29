@@ -34,15 +34,31 @@ lotr "write unit tests for the API"
 
 ## 📋 Commands
 
-### `lotr "<intent>"` (shorthand for `install`)
+### `lotr "<intent>"` (auto-detects install vs kickoff)
 Natural-language install. Auto-detects framework, matches intent to kingdom, fetches + places skills.
 
+The CLI auto-detects whether you want a **single task** (install mode) or a **project kickoff** (multi-kingdom setup) based on your phrasing:
+
 ```bash
+# Single-task mode (auto-detected):
 lotr "update the UI to be more modern"      # → gondor (coding)
 lotr "deploy to kubernetes"                  # → moria (devops)
 lotr "audit for OWASP vulnerabilities"       # → mordor (security)
 lotr "write a blog post about our launch"    # → the-shire (writing)
 lotr "set up memory bank for context"        # → fangorn (memory)
+
+# Project kickoff mode (auto-detected):
+lotr "building a tauri app"                  # → 5 kingdoms (gondor, rohan, moria, fangorn, isengard)
+lotr "starting a nextjs SaaS dashboard"      # → 5+ kingdoms
+lotr "setting up a full-stack react platform" # → 5+ kingdoms
+```
+
+### `lotr kickoff` (explicit kickoff mode)
+Multi-kingdom project setup. Install skills across all relevant kingdoms for a new project.
+
+```bash
+lotr kickoff "building a tauri app"
+lotr kickoff "starting a nextjs SaaS dashboard" --top-kingdoms 4 --skills-per-kingdom 3
 ```
 
 ### `lotr install`

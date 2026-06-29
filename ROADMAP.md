@@ -38,11 +38,34 @@ This document tracks the future direction of The Lord of the Skills.
 - [x] Added new docs: `QUICKSTART.md`, `FRAMEWORKS.md`, `ROADMAP.md`, `FAQ.md`, `MANIFEST.md`, `DEDUP.md`
 - [x] Wrote promotion post for Reddit/HN/Twitter
 
+### v1.4.0 — *The Trustworthy Kingdom* (2026-06-22)
+- [x] Fixed GitHub description to match README stats
+- [x] Added `SECURITY.md` policy
+- [x] Published 4 GitHub Releases (v1.0.0 – v1.3.0)
+- [x] Seeded 3 Discussions
+- [x] Updated topics (added mcp, prompt-engineering, cursor-rules, antigravity)
+- [x] Generated custom social preview image
+- [x] Antigravity spotlight in README
+
+### v1.5.0 — *The One Command* (2026-06-29)
+- [x] Built `lotr` CLI (detect, match, fetch, place, lotr entry point)
+- [x] Generated `skills/index.json` (16,760 skills, 354 canonical)
+- [x] 7 subcommands: install, preview, list, search, detect, kingdoms, update
+- [x] 43 CLI tests (all passing)
+
+### v1.6.0 — *The Kickoff + PyPI* (2026-06-29)
+- [x] `lotr kickoff` mode — multi-kingdom project setup
+- [x] Smart auto-detection (install vs kickoff from phrasing)
+- [x] PyPI package (`pyproject.toml` + `cli/__init__.py` + entry point)
+- [x] `PUBLISHING.md` with twine upload instructions
+- [x] 21 new kickoff tests (194 total, all passing)
+
 ---
 
 ## 🚧 In Progress
 
-### v1.4.0 — *The Searchable Realm* (target: Q3 2026)
+### v1.7.0 — *The Searchable Realm* (target: Q3 2026)
+- [ ] **Publish `lotr-skills` to PyPI** — `pip install lotr-skills` for everyone (see [`PUBLISHING.md`](PUBLISHING.md))
 - [ ] **Web search interface** — Streamlit app for browsing/searching skills by keyword, kingdom, framework
 - [ ] **Semantic search** — Embeddings-based search using sentence-transformers
 - [ ] **Skill preview pane** — Render SKILL.md content in-browser

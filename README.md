@@ -47,12 +47,40 @@ While most AI skill catalogs have **zero Antigravity coverage**, this repo has b
 | 🏆 **Largest collection** | 18,142+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity** |
 | 🎭 **LOTR-themed** | Sorted into 10 kingdoms (⚔ Gondor = Coding, ✦ Rivendell = Research, 👁 Mordor = Security, ⚙ Isengard = Agents, ...) — memorable, fun, and easy to navigate |
 | ✨ **Canonical skills** | Deduplicated with **357 ⭐ canonical representatives** — one best version per concept. See [`DEDUP.md`](DEDUP.md) for how it works |
+| 🤖 **`lotr` CLI** | One-command installer: `lotr "write unit tests"` — auto-detects your framework, matches intent to kingdom, downloads only the skills you need. See [`cli/README.md`](cli/README.md) |
+| 🚀 **Kickoff mode** | `lotr "building a tauri app"` — auto-installs skills across 5+ kingdoms for a new project. Only 10-15 files downloaded, not 18,000 |
 | 🤖 **Reusable crawler** | Open-source Python spider — clone it and build your own kingdom. See [`crawler/README.md`](crawler/README.md) |
 | 📦 **Drop-in ready** | Copy any kingdom's skills into your agent's `~/.claude/skills/`, `.cursor/rules/`, `.clinerules/`, etc. — works instantly |
 
 ---
 
 ## 🚀 Quick Start (60 seconds)
+
+### Option A — `lotr` CLI (recommended)
+
+```bash
+# Install (once PyPI is published — see PUBLISHING.md)
+pip install lotr-skills
+
+# cd into any project that uses an AI agent
+cd my-react-project/
+
+# One command does everything:
+lotr "write unit tests for the API"
+# → detects cursor + typescript + react
+# → matches "unit tests" → rohan (testing)
+# → downloads 2 canonical skills
+# → places in .cursor/rules/ (1 second)
+
+# Project kickoff mode (auto-detected):
+lotr "building a tauri app"
+# → detects cursor + typescript
+# → plans 5 kingdoms (gondor, rohan, moria, fangorn, isengard)
+# → downloads 4 canonical skills across all kingdoms
+# → places in .cursor/rules/ (1.4 seconds)
+```
+
+### Option B — Manual copy
 
 ```bash
 # 1. Clone
@@ -69,7 +97,7 @@ cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md        # Aider
 find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 ```
 
-📖 **Full guide:** [`QUICKSTART.md`](QUICKSTART.md) · **Browse:** [`KINGDOMS.md`](KINGDOMS.md) · **Frameworks:** [`FRAMEWORKS.md`](FRAMEWORKS.md)
+📖 **Full guide:** [`QUICKSTART.md`](QUICKSTART.md) · **CLI docs:** [`cli/README.md`](cli/README.md) · **Browse:** [`KINGDOMS.md`](KINGDOMS.md) · **Frameworks:** [`FRAMEWORKS.md`](FRAMEWORKS.md)
 
 ---
 
@@ -144,15 +172,18 @@ find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 ```
 the-lord-of-the-skills/
 ├── README.md              ← You are here (short!)
-├── QUICKSTART.md          ← 60-second start
+├── QUICKSTART.md          ← 60-second start (CLI + manual)
 ├── KINGDOMS.md            ← Map of the 10 Kingdoms
 ├── FRAMEWORKS.md          ← 14-framework breakdown
 ├── ROADMAP.md             ← Future plans
 ├── FAQ.md                 ← Common questions
 ├── MANIFEST.md            ← _manifest.json schema docs
 ├── DEDUP.md               ← Canonical dedup explained
+├── PUBLISHING.md          ← How to publish lotr-skills to PyPI
+├── pyproject.toml         ← PyPI package config (lotr-skills)
 ├── CHANGELOG.md           ← Version history
 ├── catalogs/              ← PDF + Excel indexes
+├── cli/                   ← lotr CLI (install, kickoff, search, ...)
 ├── crawler/               ← Reusable Python pipeline
 ├── docs/                  ← Credits, map, full index
 ├── tests/                 ← pytest unit tests
@@ -211,6 +242,23 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 ---
 
 ## 📜 Changelog (latest)
+
+### [v1.6.0] — 2026-06-29 — *The Kickoff + PyPI*
+- 🚀 New `lotr kickoff` mode — multi-kingdom project setup (`lotr "building a tauri app"`)
+- 🧠 Smart auto-detection: CLI figures out install vs kickoff from your phrasing
+- 📦 PyPI package ready: `pip install lotr-skills` (see [`PUBLISHING.md`](PUBLISHING.md))
+- 🧪 21 new tests (194 total, all passing)
+
+### [v1.5.0] — 2026-06-29 — *The One Command*
+- 🚀 New `lotr` CLI — smart skills installer (`lotr "write unit tests"`)
+- 📊 `skills/index.json` — 16,760 skills indexed, instant lookup
+- 🎨 Per-framework placement (10 frameworks)
+- 🧪 43 new CLI tests
+
+### [v1.4.0] — 2026-06-22 — *The Trustworthy Kingdom*
+- 🔒 Added SECURITY.md, 4 GitHub Releases, 3 seeded Discussions
+- 🏷 Updated description + topics (added mcp, prompt-engineering, antigravity)
+- ✨ Antigravity spotlight, softened "LARGEST" claim
 
 ### [v1.3.0] — 2026-06-22 — *The Polished Kingdom*
 - 🎨 Shortened README (1,000+ → 200 lines), added 10 badges, screenshots, "Why This Repo?" section

@@ -90,6 +90,65 @@ cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md
 
 ---
 
+## 🤖 lotr CLI
+
+### Q: What is the `lotr` CLI?
+
+**A:** A one-command installer that detects your project's AI agent framework, maps your natural-language task to the right LOTR kingdom, fetches canonical skills from GitHub, and drops them in the exact right location — in under 3 seconds.
+
+```bash
+lotr "write unit tests for the API"
+# → detects cursor + typescript + react
+# → matches "unit tests" → rohan (testing)
+# → downloads 2 canonical skills → .cursor/rules/
+```
+
+See [`cli/README.md`](cli/README.md) for full docs.
+
+### Q: How do I install the `lotr` CLI?
+
+**A:** Once published to PyPI:
+```bash
+pip install lotr-skills
+```
+
+Until then, run from source:
+```bash
+git clone https://github.com/Bilal140202/the-lord-of-the-skills.git
+cd the-lord-of-the-skills
+python3 cli/lotr.py "write unit tests"
+```
+
+See [`PUBLISHING.md`](PUBLISHING.md) for PyPI publishing instructions.
+
+### Q: What's the difference between `lotr install` and `lotr kickoff`?
+
+**A:**
+- **`lotr install`** — single-task mode. Maps your intent to ONE kingdom and installs 2-10 skills for that task. Example: `lotr "write unit tests"` → rohan only.
+- **`lotr kickoff`** — project kickoff mode. Maps your project description to MULTIPLE kingdoms (5-6) and installs skills across all of them. Example: `lotr "building a tauri app"` → gondor + rohan + moria + fangorn + isengard.
+
+The CLI **auto-detects** which mode to use based on your phrasing. You can also force it with `lotr install "..."` or `lotr kickoff "..."`.
+
+### Q: How does the CLI know which mode to use?
+
+**A:** It checks your phrasing for kickoff signals:
+- **Kickoff signals**: "building", "starting", "creating", "setting up", "tauri", "saas", "dashboard", "microservice", "full-stack"
+- **Single-task signals**: compound phrases like "unit tests", "code review", "OWASP" (clear primary intent)
+
+If a kickoff signal is present → kickoff mode. If a compound phrase dominates (score ≥ 2) → install mode. See `is_kickoff_intent()` in `cli/match.py`.
+
+### Q: Does the CLI download all 18,000 skills?
+
+**A:** No. The CLI queries a small `skills/index.json` manifest (~7 MB) to find the 2-15 relevant skills, then downloads only those via GitHub raw URLs. Total download: 10-50 KB per command.
+
+### Q: The CLI says "No agent framework detected." What do I do?
+
+**A:** The CLI looks for framework markers in your project (`.cursor/`, `.claude/`, `.clinerules/`, `AGENTS.md`, etc.). If none exist, either:
+1. Initialize your agent (e.g., `cursor init`, `claude code init`)
+2. Pass `--framework` explicitly: `lotr "write unit tests" --framework cursor`
+
+---
+
 ## 🕷 Crawler
 
 ### Q: How long does the crawler take to run?
