@@ -6,7 +6,49 @@ Welcome to The Lord of the Skills — 18,142 AI agent skills organized into 10 L
 
 ---
 
-## ⏱ The 60-Second Path
+## ⏱ The 60-Second Path (Option A: `lotr` CLI)
+
+### Step 1: Install the CLI
+
+```bash
+# From PyPI (live!):
+pip install lotr-skills
+
+# Or run from source (no install needed):
+git clone https://github.com/Bilal140202/the-lord-of-the-skills.git
+cd the-lord-of-the-skills
+python3 cli/lotr.py --version
+```
+
+### Step 2: cd into your project
+
+```bash
+cd my-react-project/   # must have .cursor/, .claude/, .clinerules/, etc.
+```
+
+### Step 3: Install skills for a task
+
+```bash
+# Single-task mode (auto-detected):
+lotr "write unit tests for the API"
+# → detects cursor + typescript + react
+# → matches "unit tests" → rohan (testing)
+# → downloads 2 canonical skills → .cursor/rules/
+
+# Project kickoff mode (auto-detected):
+lotr "building a tauri app"
+# → detects cursor + typescript
+# → plans 5 kingdoms (gondor, rohan, moria, fangorn, isengard)
+# → downloads 4 skills across all kingdoms → .cursor/rules/
+```
+
+### Step 4: Restart your agent
+
+Restart Claude Code / Cursor / Cline — it'll scan the new skills on startup.
+
+---
+
+## ⏱ The 60-Second Path (Option B: Manual Copy)
 
 ### Step 1: Clone the Kingdom
 

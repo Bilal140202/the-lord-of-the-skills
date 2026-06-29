@@ -27,3 +27,6 @@ Thumbs.db
 
 # Generated PDFs/Excels (regenerable)
 # Note: We DO keep the catalogs/ PDF and xlsx so users can preview without cloning the crawler
+dist/
+build/
+*.egg-info/
