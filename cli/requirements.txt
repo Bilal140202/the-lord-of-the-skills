@@ -1,0 +1,8 @@
+# lotr CLI dependencies (minimal)
+# The CLI only needs requests for HTTP fetches.
+# All other functionality is stdlib.
+
+requests>=2.31.0
+
+# Optional: for development/testing
+pytest>=8.0.0

@@ -297,3 +297,73 @@ Based on the critique feedback:
 
 ### 🎯 Commit Hygiene Note
 This release consolidates all v1.4.0 fixes into a **single commit** (addressing feedback that v1.0→v1.3 looked like an AI mass-dump). Going forward, commits will be spaced out organically as features are developed.
+
+---
+
+## [1.5.0] — 2026-06-29 — *The One Command*
+
+### 🚀 New: `lotr` CLI — Smart Skills Installer
+
+A one-command installer that detects your project's AI agent framework, maps your natural-language task to the right LOTR kingdom, fetches canonical skills, and drops them in the exact right location.
+
+```bash
+# One command does everything:
+lotr "write unit tests for the API"
+
+# The CLI:
+# 1. Detects → cursor + typescript + react
+# 2. Maps    → "write unit tests" → rohan (testing)
+# 3. Fetches → canonical ⭐ testing skills for cursor
+# 4. Places  → .cursor/rules/jest-cursor-rules.mdc, testing-rules.mdc, ...
+```
+
+### 🛠 New Files (cli/)
+- `cli/lotr.py` — entry point with subcommands: `install`, `preview`, `list`, `search`, `detect`, `kingdoms`, `update`
+- `cli/detect.py` — framework + stack detector (10 frameworks, 6 languages, 25+ stack libraries)
+- `cli/match.py` — intent → kingdom mapper with weighted keyword voting + compound phrase scoring
+- `cli/fetch.py` — GitHub raw downloader with caching + local fallback
+- `cli/place.py` — smart per-framework placement (dir mode + append mode for conventions)
+- `cli/generate_index.py` — builds `skills/index.json` from the skills tree
+- `cli/requirements.txt` — minimal deps (just `requests`)
+- `cli/README.md` — full CLI docs with examples + architecture diagram
+
+### 📊 New: `skills/index.json` — Machine-Readable Manifest
+- **16,760 skills** indexed with: title, kingdom, frameworks, canonical flag, tags, source_repo, path
+- **354 canonical ⭐** skills (deduplicated representatives)
+- **7.3 MB** compact JSON
+- Queried by the CLI for instant skill lookup — no git clone needed
+- Schema documented in `cli/README.md`
+
+### 🎨 Per-Framework Placement
+The CLI knows exactly where each framework expects its skills:
+- `antigravity` → `.antigravity/skills/`
+- `cursor` → `.cursor/rules/`
+- `claude-code` → `~/.claude/skills/`
+- `cline` → `.clinerules/`
+- `roo` → `.roo/rules/`
+- `aider` → appends to `CONVENTIONS.md`
+- `codex` → appends to `AGENTS.md`
+- `copilot` → appends to `.github/copilot-instructions.md`
+- ... (10 frameworks total)
+
+### 🧪 Tests
+- `tests/test_cli.py` — **43 new tests** for detect/match/fetch/place
+- All 43 passing
+- Covers: framework detection, stack detection, intent matching (9 kingdoms), compound phrase scoring, per-framework placement, conflict resolution, append mode, filtering logic
+
+### ✨ Match Quality Improvements
+- Fixed regex: `unit.?test` → `unit.?tests?` (now matches plural "unit tests")
+- Added compound phrase scoring: "unit tests" = 2 points (vs 1 for single words)
+- This breaks ties correctly: "write unit tests" → rohan (2) beats the-shire (1, "write")
+- Verified across 9 test intents covering all kingdoms
+
+### 📋 Summary
+| Item | Count |
+|:---|---:|
+| CLI modules | 6 (lotr, detect, match, fetch, place, generate_index) |
+| CLI subcommands | 7 (install, preview, list, search, detect, kingdoms, update) |
+| Skills indexed | 16,760 |
+| Canonical ⭐ in index | 354 |
+| New tests | 43 |
+| Frameworks supported | 10 (antigravity, cursor, claude-code, cline, roo, continue, goose, aider, codex, copilot) |
+| Languages detected | 6 (typescript, javascript, python, ruby, go, rust) |
