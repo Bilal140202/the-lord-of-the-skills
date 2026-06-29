@@ -123,14 +123,14 @@ open catalogs/Lord_of_the_Skills_Catalog.pdf
 open catalogs/Lord_of_the_Skills_Index.xlsx
 ```
 
-- **PDF**: cover, fellowship manifesto, map of kingdoms, per-kingdom sections with top canonical skills, credits
-- **Excel**: About, Artifacts (10,888+ filterable rows), Kingdoms, Frameworks, Canonical ⭐, Stats
+- **PDF**: Cover, Fellowship Manifesto, Map of kingdoms, Per-kingdom sections with top canonical skills, Credits
+- **Excel**: About, Artifacts (18,142+ filterable rows), Kingdoms, Frameworks, Canonical ⭐, Stats
 
 ---
 
 ## 🕷 Run the Crawler Yourself
 
-Want to build your own kingdom from scratch, or refresh this one with the latest skills?
+Want to build your own kingdom from scratch, or refresh this one with the latest skills? Follow the below given instructions:
 
 ```bash
 cd crawler/
@@ -183,10 +183,10 @@ git grep -l "code-review" skills/
 
 ## 🎯 Next Steps
 
-1. ⭐ [Star the repo](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers) — helps others discover it
-2. 🍴 [Fork it](https://github.com/Bilal140202/the-lord-of-the-skills/fork) — customize for your workflow
-3. 📖 Read [`KINGDOMS.md`](KINGDOMS.md) — explore the 10 kingdoms
-4. 🤝 [Contribute](CONTRIBUTING.md) — add a skill, fix a bug, improve docs
+1. ⭐ [Star the repo](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers) — Help others discover it
+2. 🍴 [Fork it](https://github.com/Bilal140202/the-lord-of-the-skills/fork) — Customize it for your workflow
+3. 📖 Read [`KINGDOMS.md`](KINGDOMS.md) — Explore the 10 kingdoms
+4. 🤝 [Contribute](CONTRIBUTING.md) — Add a skill, fix a bug and improve docs
 
 ---
 

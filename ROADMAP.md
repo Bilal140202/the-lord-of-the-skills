@@ -43,7 +43,7 @@ This document tracks the future direction of The Lord of the Skills.
 ## 🚧 In Progress
 
 ### v1.4.0 — *The Searchable Realm* (target: Q3 2026)
-- [ ] **Web search interface** — Streamlit app for browsing/searching skills by keyword, kingdom, framework
+- [ ] **Web search interface** — Streamlit app for browsing/searching skills by keyword, kingdom and/or framework
 - [ ] **Semantic search** — Embeddings-based search using sentence-transformers
 - [ ] **Skill preview pane** — Render SKILL.md content in-browser
 
@@ -96,7 +96,7 @@ The roadmap is a living document — items may be added, removed, or reprioritiz
 
 | Status | Count |
 |:---|---:|
-| ✅ Completed | 25 |
+| ✅ Completed | 22 |
 | 🚧 In Progress | 3 |
 | 📋 Planned | 11 |
 | 💡 Ideas | 7 |

@@ -10,7 +10,7 @@ Common questions about The Lord of the Skills.
 
 ### Q: What is The Lord of the Skills?
 
-**A:** A compilation of **18,142+ AI agent skills, rules, and conventions** from **307+ GitHub repositories** across **14 frameworks** (Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, Antigravity). Organized into **10 LOTR-themed kingdoms** by domain.
+**A:** A compilation of **18,142+ AI agent skills, rules, and conventions** from **307+ GitHub repositories** across **14 frameworks** (Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, Antigravity), organized into **10 LOTR-themed kingdoms** by domain.
 
 ### Q: Why LOTR theme?
 
@@ -23,9 +23,9 @@ Common questions about The Lord of the Skills.
 ### Q: How is this different from awesome-claude-code or awesome-cursorrules?
 
 **A:** Three key differences:
-1. **Multi-framework** — We cover 14 frameworks, not just one
-2. **Canonical deduplication** — We identify one best representative per concept across all frameworks
-3. **Reusable crawler** — You can run our spider yourself to build a custom kingdom
+1. **Multi-framework** — We cover 14 frameworks, not just one.
+2. **Canonical deduplication** — We identify one best representative per concept across all frameworks.
+3. **Reusable crawler** — You can run our spider yourself to build a custom kingdom (domain).
 
 ---
 
@@ -106,6 +106,7 @@ The crawler is **resumable** — if it crashes or you kill it, just run again an
 **A:** No, but it helps. Without a token: 60 API req/hr (very slow). With a token: 5,000 req/hr (fast).
 
 ```bash
+cd crawler/
 export GITHUB_TOKEN=ghp_xxx
 python3 crawler.py
 ```
@@ -113,9 +114,9 @@ python3 crawler.py
 ### Q: The crawler says "No space left on device". What do I do?
 
 **A:** The crawler clones 300+ repos (~5-10 GB). Either:
-1. Free up disk space (each cached repo can be deleted after extraction)
-2. Use the `cleanup_repo_cache()` function (built into v1.2.0+)
-3. Run on a machine with 20+ GB free
+1. Free up disk space (each cached repo can be deleted after extraction).
+2. Use the `cleanup_repo_cache()` function (built into v1.2.0+).
+3. Run on a machine with 20+ GB free.
 
 ### Q: How do I add my own seed repos?
 
@@ -219,6 +220,7 @@ git clone --depth=1 https://github.com/Bilal140202/the-lord-of-the-skills.git
 
 **A:** Get a GitHub token (free at https://github.com/settings/tokens) and set it:
 ```bash
+cd crawler/
 export GITHUB_TOKEN=ghp_xxx
 python3 crawler.py
 ```
@@ -237,6 +239,6 @@ Or [start a discussion](https://github.com/Bilal140202/the-lord-of-the-skills/di
 
 <div align="center">
 
-*"All who wander are not lost."*
+*"Not all those who wander are lost"*
 
 </div>
