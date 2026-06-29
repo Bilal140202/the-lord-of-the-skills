@@ -11,7 +11,7 @@ Welcome to The Lord of the Skills — 18,142 AI agent skills organized into 10 L
 ### Step 1: Install the CLI
 
 ```bash
-# Once published to PyPI (see PUBLISHING.md):
+# From PyPI (live!):
 pip install lotr-skills
 
 # Or run from source (no install needed):

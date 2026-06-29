@@ -65,7 +65,7 @@ This document tracks the future direction of The Lord of the Skills.
 ## 🚧 In Progress
 
 ### v1.7.0 — *The Searchable Realm* (target: Q3 2026)
-- [ ] **Publish `lotr-skills` to PyPI** — `pip install lotr-skills` for everyone (see [`PUBLISHING.md`](PUBLISHING.md))
+- [x] **Publish `lotr-skills` to PyPI** — LIVE at https://pypi.org/project/lotr-skills/
 - [ ] **Web search interface** — Streamlit app for browsing/searching skills by keyword, kingdom, framework
 - [ ] **Semantic search** — Embeddings-based search using sentence-transformers
 - [ ] **Skill preview pane** — Render SKILL.md content in-browser

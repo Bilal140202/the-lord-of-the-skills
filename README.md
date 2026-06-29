@@ -59,7 +59,7 @@ While most AI skill catalogs have **zero Antigravity coverage**, this repo has b
 ### Option A — `lotr` CLI (recommended)
 
 ```bash
-# Install (once PyPI is published — see PUBLISHING.md)
+# Install
 pip install lotr-skills
 
 # cd into any project that uses an AI agent
@@ -179,8 +179,6 @@ the-lord-of-the-skills/
 ├── FAQ.md                 ← Common questions
 ├── MANIFEST.md            ← _manifest.json schema docs
 ├── DEDUP.md               ← Canonical dedup explained
-├── PUBLISHING.md          ← How to publish lotr-skills to PyPI
-├── pyproject.toml         ← PyPI package config (lotr-skills)
 ├── CHANGELOG.md           ← Version history
 ├── catalogs/              ← PDF + Excel indexes
 ├── cli/                   ← lotr CLI (install, kickoff, search, ...)
@@ -246,7 +244,7 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 ### [v1.6.0] — 2026-06-29 — *The Kickoff + PyPI*
 - 🚀 New `lotr kickoff` mode — multi-kingdom project setup (`lotr "building a tauri app"`)
 - 🧠 Smart auto-detection: CLI figures out install vs kickoff from your phrasing
-- 📦 PyPI package ready: `pip install lotr-skills` (see [`PUBLISHING.md`](PUBLISHING.md))
+- 📦 PyPI package LIVE: `pip install lotr-skills` → https://pypi.org/project/lotr-skills/
 - 🧪 21 new tests (194 total, all passing)
 
 ### [v1.5.0] — 2026-06-29 — *The One Command*

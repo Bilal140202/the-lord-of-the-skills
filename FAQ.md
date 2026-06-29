@@ -107,19 +107,19 @@ See [`cli/README.md`](cli/README.md) for full docs.
 
 ### Q: How do I install the `lotr` CLI?
 
-**A:** Once published to PyPI:
+**A:** It's LIVE on PyPI:
 ```bash
 pip install lotr-skills
 ```
 
-Until then, run from source:
+Or run from source:
 ```bash
 git clone https://github.com/Bilal140202/the-lord-of-the-skills.git
 cd the-lord-of-the-skills
 python3 cli/lotr.py "write unit tests"
 ```
 
-See [`PUBLISHING.md`](PUBLISHING.md) for PyPI publishing instructions.
+PyPI page: https://pypi.org/project/lotr-skills/
 
 ### Q: What's the difference between `lotr install` and `lotr kickoff`?
 

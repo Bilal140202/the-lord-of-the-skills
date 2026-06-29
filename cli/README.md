@@ -7,12 +7,15 @@
 ## 🚀 Install
 
 ```bash
-# From source (for now; PyPI package coming in v1.6.0)
+# From PyPI (live!):
+pip install lotr-skills
+
+# Or run from source:
 git clone https://github.com/Bilal140202/the-lord-of-the-skills.git
 cd the-lord-of-the-skills/cli
 pip install -r requirements.txt  # just `requests` for now
 
-# Add to PATH (optional)
+# Add to PATH (optional, if running from source)
 echo 'alias lotr="python3 /path/to/the-lord-of-the-skills/cli/lotr.py"' >> ~/.bashrc
 ```
 
@@ -227,10 +230,10 @@ python3 cli/generate_index.py
 python3 cli/lotr.py detect --project-root /path/to/project
 ```
 
-## 📦 PyPI Package (coming in v1.6.0)
+## 📦 PyPI Package (LIVE)
 
 ```bash
-pip install lotr-skills   # not yet published
+pip install lotr-skills   # https://pypi.org/project/lotr-skills/
 ```
 
 ## 🗺 Roadmap
@@ -241,7 +244,7 @@ pip install lotr-skills   # not yet published
 - [x] `place` — smart per-framework placement
 - [x] `install` / `preview` / `list` / `search` / `kingdoms` / `detect` / `update`
 - [x] `skills/index.json` manifest
-- [ ] PyPI package (`pip install lotr-skills`)
+- [x] PyPI package — `pip install lotr-skills` (LIVE on https://pypi.org/project/lotr-skills/)
 - [ ] Fuzzy search (typos, synonyms)
 - [ ] AI-powered intent matching (embeddings)
 - [ ] `lotr init` — bootstrap a new project with recommended skills
