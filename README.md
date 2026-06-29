@@ -16,9 +16,9 @@
 [![Issues](https://img.shields.io/github/issues/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=DC143C)](https://github.com/Bilal140202/the-lord-of-the-skills/issues)
 [![Repo Size](https://img.shields.io/github/repo-size/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=database&logoColor=white&labelColor=black&color=4B0082)](https://github.com/Bilal140202/the-lord-of-the-skills)
 
-### 🌟 *A growing, organized collection of AI agent skills — covering 14 frameworks* 🌟
+### 🌟 *A growing, organized collection of AI agent skills — covering 15 frameworks* 🌟
 
-**18,142+ artifacts** · **14 frameworks** · **10 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
+**18,142+ artifacts** · **15 frameworks** · **10 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
 
 </div>
 
@@ -133,6 +133,7 @@ find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 | 🔵 **Copilot** | 100+ | `.github/copilot-instructions.md` |
 | 🟣 **CrewAI** | 80+ | CrewAI agent configs |
 | 🟢 **LangGraph** | 60+ | LangGraph agent definitions |
+| 🔴 **AutoGen** | 1 | Microsoft's multi-agent framework for building agentic AI applications |
 | ⚪ **General** | 2,535+ | Cross-framework / unclassified |
 
 📖 Detailed breakdown: [`FRAMEWORKS.md`](FRAMEWORKS.md)

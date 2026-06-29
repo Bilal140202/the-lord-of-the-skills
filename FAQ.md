@@ -10,7 +10,7 @@ Common questions about The Lord of the Skills.
 
 ### Q: What is The Lord of the Skills?
 
-**A:** A compilation of **18,142+ AI agent skills, rules, and conventions** from **307+ GitHub repositories** across **14 frameworks** (Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, Antigravity), organized into **10 LOTR-themed kingdoms** by domain.
+**A:** A compilation of **18,142+ AI agent skills, rules, and conventions** from **307+ GitHub repositories** across **15 frameworks** (Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, Antigravity and General), organized into **10 LOTR-themed kingdoms** by domain.
 
 ### Q: Why LOTR theme?
 
@@ -191,7 +191,7 @@ This is faster (~20-30 min) and only targets antigravity-specific repos.
 
 ### Q: Do you accept skills in any language?
 
-**A:** Yes — we accept skills in English, Spanish, French, German, Chinese, Japanese, and any other language. The classifier works on keyword matching so non-English skills may end up in `general` or `mirkwood` — that's fine.
+**A:** Yes — we accept skills in English, Spanish, French, German, Chinese, Japanese and any other language. The classifier works on keyword matching so non-English skills may end up in `general` or `mirkwood` — that's fine.
 
 ### Q: How do I become a maintainer?
 
