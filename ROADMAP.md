@@ -53,6 +53,14 @@ This document tracks the future direction of The Lord of the Skills.
 - [x] 7 subcommands: install, preview, list, search, detect, kingdoms, update
 - [x] 43 CLI tests (all passing)
 
+### v1.7.0 — *The Complete CLI* (2026-06-29)
+- [x] `lotr init` — creates `.lotr/AGENTS.md` bootstrap file for agent awareness
+- [x] `lotr starter` — safe defaults per framework (no task needed, 9 skills across 3 kingdoms)
+- [x] `lotr guide` — full usage guide in-terminal
+- [x] Bumped to v1.2.0 on PyPI
+- [x] 6 new tests (200 total, all passing)
+- [x] 11 subcommands total
+
 ### v1.6.0 — *The Kickoff + PyPI* (2026-06-29)
 - [x] `lotr kickoff` mode — multi-kingdom project setup
 - [x] Smart auto-detection (install vs kickoff from phrasing)
@@ -64,8 +72,7 @@ This document tracks the future direction of The Lord of the Skills.
 
 ## 🚧 In Progress
 
-### v1.7.0 — *The Searchable Realm* (target: Q3 2026)
-- [x] **Publish `lotr-skills` to PyPI** — LIVE at https://pypi.org/project/lotr-skills/
+### v1.8.0 — *The Searchable Realm* (target: Q3 2026)
 - [ ] **Web search interface** — Streamlit app for browsing/searching skills by keyword, kingdom, framework
 - [ ] **Semantic search** — Embeddings-based search using sentence-transformers
 - [ ] **Skill preview pane** — Render SKILL.md content in-browser

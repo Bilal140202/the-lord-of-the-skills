@@ -26,23 +26,36 @@ python3 cli/lotr.py --version
 cd my-react-project/   # must have .cursor/, .claude/, .clinerules/, etc.
 ```
 
-### Step 3: Install skills for a task
+### Step 3: Bootstrap (once per project)
 
 ```bash
+lotr init
+# → creates .lotr/AGENTS.md (tells your agent about lotr)
+# → creates .lotr/config.json (detected framework + stack)
+```
+
+### Step 4: Install skills
+
+```bash
+# Safe defaults (if unsure what you need):
+lotr starter
+# → installs 9 canonical skills across 3 kingdoms (gondor, fangorn, mordor)
+
 # Single-task mode (auto-detected):
 lotr "write unit tests for the API"
-# → detects cursor + typescript + react
 # → matches "unit tests" → rohan (testing)
 # → downloads 2 canonical skills → .cursor/rules/
 
 # Project kickoff mode (auto-detected):
 lotr "building a tauri app"
-# → detects cursor + typescript
 # → plans 5 kingdoms (gondor, rohan, moria, fangorn, isengard)
 # → downloads 4 skills across all kingdoms → .cursor/rules/
+
+# Full usage guide:
+lotr guide
 ```
 
-### Step 4: Restart your agent
+### Step 5: Restart your agent
 
 Restart Claude Code / Cursor / Cline — it'll scan the new skills on startup.
 

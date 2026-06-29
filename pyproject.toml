@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lotr-skills"
-version = "1.0.0"
+version = "1.2.0"
 description = "One command to rule all your AI agent skills — smart skills installer for any agentic AI framework"
 readme = "README.md"
 requires-python = ">=3.10"

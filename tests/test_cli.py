@@ -377,3 +377,89 @@ class TestMatchMulti:
         results = match_multi("building a react app with tests and deployment and docs")
         scores = [r[1] for r in results]
         assert scores == sorted(scores, reverse=True)
+
+
+# ============================================================
+# Starter + guide + init tests
+# ============================================================
+
+class TestStarterPack:
+    """Test starter pack configuration."""
+
+    def test_all_frameworks_have_starter_kingdoms(self):
+        """Every supported framework should have a starter pack defined."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / "cli"))
+        from lotr import STARTER_KINGDOMS
+        expected_frameworks = {"antigravity", "cursor", "claude-code", "codex",
+                                "cline", "roo", "aider", "general"}
+        for fw in expected_frameworks:
+            assert fw in STARTER_KINGDOMS, f"Missing starter pack for {fw}"
+
+    def test_starter_kingdoms_are_valid(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / "cli"))
+        from lotr import STARTER_KINGDOMS, KINGDOMS
+        for fw, kingdoms in STARTER_KINGDOMS.items():
+            for k in kingdoms:
+                assert k in KINGDOMS, f"Invalid kingdom {k} in starter pack for {fw}"
+
+    def test_starter_kingdoms_include_gondor(self):
+        """Every starter pack should include gondor (coding basics)."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / "cli"))
+        from lotr import STARTER_KINGDOMS
+        for fw, kingdoms in STARTER_KINGDOMS.items():
+            assert "gondor" in kingdoms, f"Starter pack for {fw} missing gondor"
+
+    def test_general_fallback_exists(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / "cli"))
+        from lotr import STARTER_KINGDOMS
+        assert "general" in STARTER_KINGDOMS
+
+
+class TestInitCommand:
+    """Test lotr init command."""
+
+    def test_init_creates_bootstrap_files(self, tmp_path):
+        """lotr init should create .lotr/AGENTS.md and .lotr/config.json."""
+        import sys, json
+        sys.path.insert(0, str(Path(__file__).parent.parent / "cli"))
+        from lotr import cmd_init
+
+        # Create a mock project with .cursor/
+        (tmp_path / ".cursor").mkdir()
+        (tmp_path / "package.json").write_text('{"dependencies": {"react": "^18"}}')
+
+        # Mock args
+        class Args:
+            project_root = str(tmp_path)
+        cmd_init(Args())
+
+        # Verify files created
+        assert (tmp_path / ".lotr" / "AGENTS.md").exists()
+        assert (tmp_path / ".lotr" / "config.json").exists()
+
+        # Verify config.json has detected framework
+        config = json.loads((tmp_path / ".lotr" / "config.json").read_text())
+        assert config["framework"] == "cursor"
+        assert config["language"] in ["javascript", "typescript"]
+
+    def test_init_agents_md_has_commands(self, tmp_path):
+        """The AGENTS.md bootstrap file should mention lotr commands."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / "cli"))
+        from lotr import cmd_init
+
+        (tmp_path / ".cursor").mkdir()
+
+        class Args:
+            project_root = str(tmp_path)
+        cmd_init(Args())
+
+        content = (tmp_path / ".lotr" / "AGENTS.md").read_text()
+        assert "lotr install" in content
+        assert "lotr kickoff" in content
+        assert "lotr starter" in content
+        assert "Gondor" in content
