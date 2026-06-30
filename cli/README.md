@@ -37,6 +37,38 @@ lotr "write unit tests for the API"
 
 ## 📋 Commands
 
+### `lotr init`
+Bootstrap — creates `.lotr/AGENTS.md` so your agent knows about lotr. Run once per project.
+
+```bash
+lotr init
+# → creates .lotr/AGENTS.md (agent instructions)
+# → creates .lotr/config.json (detected framework + stack)
+# → adds .lotr/ to .gitignore
+```
+
+### `lotr starter`
+Download a starter skill pack — safe defaults for your detected framework. No task description needed.
+
+```bash
+lotr starter                    # 9 skills across 3 kingdoms (default)
+lotr starter --skills-per-kingdom 5   # more skills per kingdom
+```
+
+Starter kingdoms per framework:
+- **antigravity / cursor / general**: gondor + fangorn + mordor (coding + docs + security)
+- **claude-code**: gondor + fangorn + isengard (coding + docs + agents)
+- **codex**: gondor + fangorn + moria (coding + docs + devops)
+- **cline / roo**: gondor + rohan + fangorn (coding + testing + docs)
+- **aider**: gondor + fangorn (coding + docs)
+
+### `lotr guide`
+Show the full usage guide in-terminal.
+
+```bash
+lotr guide
+```
+
 ### `lotr "<intent>"` (auto-detects install vs kickoff)
 Natural-language install. Auto-detects framework, matches intent to kingdom, fetches + places skills.
 

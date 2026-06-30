@@ -425,3 +425,76 @@ lotr "write unit tests"
 | PyPI package | Ready to publish (`lotr-skills` 1.0.0) |
 | Kickoff detection accuracy | 13/13 (100%) |
 | Skills downloaded in kickoff mode | 10-15 (not 18,000) |
+
+---
+
+## [1.7.0] — 2026-06-29 — *The Complete CLI*
+
+### 🚀 New Commands (3 added — CLI now has 11 subcommands)
+
+#### `lotr init` — Bootstrap
+Creates `.lotr/AGENTS.md` so your AI agent knows about lotr and can reference its commands. Run once per project.
+
+```bash
+lotr init
+# → creates .lotr/AGENTS.md (agent instructions with all lotr commands)
+# → creates .lotr/config.json (detected framework + stack)
+# → adds .lotr/ to .gitignore
+```
+
+#### `lotr starter` — Safe Defaults
+Download a starter skill pack with safe defaults for your detected framework. No task description needed — perfect when you're unsure what you need.
+
+```bash
+lotr starter                    # 9 skills across 3 kingdoms (default)
+lotr starter --skills-per-kingdom 5   # more skills per kingdom
+```
+
+Starter kingdoms per framework:
+- **antigravity / cursor / general**: gondor + fangorn + mordor (coding + docs + security)
+- **claude-code**: gondor + fangorn + isengard (coding + docs + agents)
+- **codex**: gondor + fangorn + moria (coding + docs + devops)
+- **cline / roo**: gondor + rohan + fangorn (coding + testing + docs)
+- **aider**: gondor + fangorn (coding + docs)
+
+#### `lotr guide` — Full Usage Guide
+Show the complete usage guide in-terminal. Lists all commands with examples.
+
+```bash
+lotr guide
+```
+
+### 📦 Version Bump
+- Bumped from v1.0.0 → **v1.2.0** on PyPI
+- Updated `pyproject.toml`, `cli/__init__.py`, `cli/lotr.py` version strings
+- Banner now shows "CLI v1.2"
+
+### 🧪 Tests
+- **6 new tests** (200 total, all passing)
+- `TestStarterPack` — 4 tests for starter pack configuration
+- `TestInitCommand` — 2 tests for init command (creates files, AGENTS.md has commands)
+
+### 📋 Final Command List (11 subcommands)
+
+| Command | What it does |
+|:---|:---|
+| `lotr init` | Bootstrap — creates .lotr/AGENTS.md so agent knows lotr |
+| `lotr starter` | Safe defaults — no task needed, 9 skills across 3 kingdoms |
+| `lotr guide` | Full usage guide in-terminal |
+| `lotr install "task"` | Skills for one specific task |
+| `lotr kickoff "project"` | Full project skill suite (multi-kingdom) |
+| `lotr detect` | Show detected stack |
+| `lotr list` | Browse available skills |
+| `lotr search` | Search by keyword |
+| `lotr preview` | Dry run |
+| `lotr kingdoms` | List all 10 kingdoms |
+| `lotr update` | Refresh skills |
+| `lotr --help` | Auto-generated help |
+
+### 📊 Summary
+| Item | Count |
+|:---|---:|
+| CLI subcommands | 11 (was 8) |
+| Tests passing | 200 (was 194) |
+| PyPI version | 1.2.0 (was 1.0.0) |
+| New commands | 3 (init, starter, guide) |

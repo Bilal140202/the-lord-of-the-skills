@@ -46,7 +46,7 @@ This repository crawls public GitHub repositories and redistributes their skill/
 
 ### For Upstream Maintainers
 If you are an upstream maintainer and:
-- **Want your skills removed** → [open an issue](https://github.com/Bilal140202/the-lord-of-the-skills/issues/new) with the title of `Removal request: <your-repo>`. We shall comply within 24 hours.
+- **Want your skills removed** → [Open an issue](https://github.com/Bilal140202/the-lord-of-the-skills/issues/new) with the title of `Removal request: <your-repo>`. We shall comply within 24 hours.
 - **Want attribution corrected** → See [docs/CREDITS.md](docs/CREDITS.md); Open a PR or issue.
 - **Want a license notice added** → Open a PR for adding it to `docs/CREDITS.md`.
 - **Believe your code is misused** → Email us privately (above).

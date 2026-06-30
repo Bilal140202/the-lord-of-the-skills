@@ -76,7 +76,7 @@ def c(text: str, color: str) -> str:
     return f"{_COLORS.get(color, '')}{text}{_COLORS['reset']}"
 
 def banner():
-    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.0", "gold"))
+    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.2", "gold"))
     print(c("  One command. Any framework. Any kingdom.", "gray"))
     print()
 
@@ -405,15 +405,281 @@ def cmd_update(args):
     print(c(f"✓ Updated {updated}/{len(installed)} skills", "green"))
     return 0
 
+
+# ============================================================
+# Starter pack — safe defaults per framework
+# ============================================================
+
+# Starter kingdoms per framework — curated safe defaults
+STARTER_KINGDOMS = {
+    "antigravity": ["gondor", "fangorn", "mordor"],
+    "cursor":      ["gondor", "fangorn", "mordor"],
+    "claude-code": ["gondor", "fangorn", "isengard"],
+    "codex":       ["gondor", "fangorn", "moria"],
+    "cline":       ["gondor", "rohan", "fangorn"],
+    "roo":         ["gondor", "rohan", "fangorn"],
+    "aider":       ["gondor", "fangorn"],
+    "general":     ["gondor", "fangorn", "mordor"],
+}
+
+def cmd_starter(args):
+    """Download a starter skill pack for your detected framework.
+
+    Installs safe default skills across 2-3 kingdoms — no task description
+    needed. Perfect for when you're unsure what you need.
+    """
+    banner()
+    print(c("[detect]", "bold"), "Scanning project...")
+    result = detect_stack(args.project_root)
+    framework = args.framework or result["framework"]
+    if not framework:
+        print(c("  ✗ No agent framework detected. Pass --framework to override.", "red"))
+        return 1
+    print(f"  Framework: {c(framework, 'gold')}  Language: {c(result['language'], 'blue')}  Stack: {c(str(result['stack']), 'blue')}")
+
+    kingdoms = STARTER_KINGDOMS.get(framework, STARTER_KINGDOMS["general"])
+
+    print()
+    print(c("[starter]", "bold"), f"STARTER PACK for {c(framework, 'gold')}")
+    print(f"   Kingdoms: {', '.join(kingdoms)}")
+    kingdom_names = [KINGDOMS.get(k, {}).get("name", k.title()) for k in kingdoms]
+    print(f"   Covers: {' + '.join(kingdom_names).lower()}")
+    print()
+
+    # Fetch index
+    print(c("[fetch]", "bold"), "Querying skills index...")
+    try:
+        idx = fetch_index()
+    except Exception as e:
+        print(c(f"  ✗ Failed to fetch index: {e}", "red"))
+        return 1
+
+    # Get skills per kingdom (limit per kingdom from args)
+    skills_per_kingdom = args.skills_per_kingdom or 3
+    all_skills = []
+    for kingdom in kingdoms:
+        skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
+                                        canonical_only=not args.all,
+                                        limit=skills_per_kingdom)
+        all_skills.extend(skills)
+
+    if not all_skills:
+        print(c(f"  ✗ No canonical skills found for {framework}. Try --all to include non-canonical.", "red"))
+        return 1
+
+    print(f"  Downloading {c(str(len(all_skills)), 'green')} canonical skills across {c(str(len(kingdoms)), 'green')} kingdoms")
+
+    # Place
+    print()
+    print(c("[place]", "bold"), f"Installing to {c(str(resolve_destination(framework, args.project_root)), 'blue')}")
+    dest = resolve_destination(framework, args.project_root)
+    installed = []
+    current_kingdom = None
+    for s in all_skills:
+        if s.get("kingdom") != current_kingdom:
+            current_kingdom = s.get("kingdom")
+            info = KINGDOMS.get(current_kingdom, {"symbol": "?", "name": current_kingdom.title()})
+            print(f"  {c(info['symbol'], 'gold')} {c(info['name'], 'bold')}:")
+        try:
+            path = fetch_and_save(s, dest)
+            installed.append(path)
+            title = (s.get("title") or s.get("filename") or "(untitled)")[:55]
+            print(f"      {c('✓', 'green')} {title}")
+        except Exception as e:
+            print(f"      {c('✗', 'red')} {s.get('filename', '?')}: {e}")
+
+    print()
+    print(c(f"✓ Starter pack ready — {len(installed)} skills installed", "green"))
+    print(c(f'  Run  lotr install "<your task>"  anytime for more.', "gray"))
+    print(c(f"  Or  lotr kickoff \"<project description>\"  for full project setup.", "gray"))
+    return 0
+
+
+# ============================================================
+# Guide — full usage guide
+# ============================================================
+
+def cmd_guide(args):
+    """Show the full usage guide."""
+    banner()
+    print(c("⚔ THE LORD OF THE SKILLS — Usage Guide", "bold"))
+    print()
+    print(c("SETUP (once per project):", "gold"))
+    print('  lotr init          Create bootstrap file so your agent knows lotr')
+    print()
+    print(c("STARTER (if unsure what you need):", "gold"))
+    print("  lotr starter       Download safe defaults for your framework")
+    print()
+    print(c("TASK-BASED (mid-project):", "gold"))
+    print('  lotr install "add authentication"')
+    print('  lotr install "improve UI design"')
+    print('  lotr install "write unit tests"')
+    print()
+    print(c("PROJECT KICKOFF (full setup):", "gold"))
+    print('  lotr kickoff "building a tauri app with react and auth"')
+    print()
+    print(c("EXPLORE:", "gold"))
+    print("  lotr detect        See what framework/stack was detected")
+    print("  lotr kingdoms      List all 10 kingdoms")
+    print("  lotr list          Show available skills for your stack")
+    print('  lotr search react  Search skills by keyword')
+    print('  lotr preview "task" Dry run — see what would install')
+    print()
+    print(c("UPDATE:", "gold"))
+    print("  lotr update        Refresh installed skills to latest")
+    print()
+    print(c("Docs: https://github.com/Bilal140202/the-lord-of-the-skills", "gray"))
+    print(c("PyPI: https://pypi.org/project/lotr-skills/", "gray"))
+    return 0
+
+
+# ============================================================
+# Init — bootstrap file for agent awareness
+# ============================================================
+
+def cmd_init(args):
+    """Create a bootstrap file so your agent knows about lotr.
+
+    Creates a `.lotr/AGENTS.md` file in your project root that tells
+    your AI agent about the lotr CLI and how to use it. This makes
+    the agent aware that it can request skills via lotr.
+    """
+    banner()
+    print(c("[init]", "bold"), "Creating lotr bootstrap file...")
+    project_root = Path(args.project_root).resolve()
+    lotr_dir = project_root / ".lotr"
+    lotr_dir.mkdir(parents=True, exist_ok=True)
+    bootstrap_path = lotr_dir / "AGENTS.md"
+
+    bootstrap_content = """# Lord of the Skills — Agent Bootstrap
+
+This project uses [lotr](https://github.com/Bilal140202/the-lord-of-the-skills),
+a CLI for installing AI agent skills from The Lord of the Skills compilation.
+
+## Available Commands
+
+```bash
+# Install skills for a specific task
+lotr install "write unit tests"
+lotr install "add authentication"
+lotr install "deploy to kubernetes"
+
+# Full project kickoff (multiple kingdoms)
+lotr kickoff "building a tauri app"
+
+# Safe defaults (if unsure what you need)
+lotr starter
+
+# Explore available skills
+lotr list              # skills for your detected framework
+lotr search "react"    # search by keyword
+lotr kingdoms          # list all 10 kingdoms
+lotr detect            # show detected framework + stack
+
+# Dry run (see what would install)
+lotr preview "write unit tests"
+
+# Update installed skills
+lotr update
+```
+
+## The 10 Kingdoms
+
+| Kingdom | Domain |
+|:---|:---|
+| ⚔ Gondor | Coding & Software Engineering |
+| ✦ Rivendell | Research & Knowledge |
+| ⚙ Isengard | Agents & Orchestration |
+| ✎ The Shire | Writing & Content |
+| ⛏ Moria | DevOps & Infrastructure |
+| 🐴 Rohan | Testing & Verification |
+| 🌳 Fangorn | Documentation & Memory |
+| ✿ Lothlórien | Data & Analysis |
+| 👁 Mordor | Security & Auditing |
+| 🕸 Mirkwood | Specialized & Niche |
+
+## How It Works
+
+1. lotr detects your framework (cursor, claude-code, cline, etc.)
+2. You describe a task in natural language
+3. lotr matches it to the right kingdom(s)
+4. Downloads only the canonical skills you need (2-15 files, not 18,000)
+5. Places them in the right location for your framework
+
+## When to Use lotr
+
+- **Starting a new project**: `lotr kickoff "building a ..."`
+- **Mid-project task**: `lotr install "write unit tests"`
+- **Unsure what you need**: `lotr starter`
+- **Looking for specific skill**: `lotr search "keyword"`
+
+Installed skills live in your framework's skills directory (e.g., `.cursor/rules/`,
+`~/.claude/skills/`, `.clinerules/`). Restart your agent after installing new skills.
+"""
+
+    bootstrap_path.write_text(bootstrap_content, encoding="utf-8")
+    print(f"  {c('✓', 'green')} Created {c(str(bootstrap_path), 'blue')}")
+
+    # Also create a .lotr/config.json with detected framework
+    import json
+    result = detect_stack(project_root)
+    config = {
+        "framework": result["framework"],
+        "language": result["language"],
+        "stack": result["stack"],
+        "initialized_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    config_path = lotr_dir / "config.json"
+    config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    print(f"  {c('✓', 'green')} Created {c(str(config_path), 'blue')}")
+    print(f"    Framework: {c(result['framework'] or '(none)', 'gold')}  Language: {c(result['language'], 'blue')}")
+
+    print()
+    print(c("✓ Bootstrap complete.", "green"))
+    print(c("  Your agent can now reference lotr commands. The .lotr/ directory", "gray"))
+    print(c("  contains AGENTS.md (agent instructions) and config.json (detected stack).", "gray"))
+    print()
+    print(c("  Next steps:", "gray"))
+    print(c("    lotr starter              # install safe defaults", "gray"))
+    print(c('    lotr install "task"       # install for a specific task', "gray"))
+    print(c('    lotr kickoff "project"    # full project setup', "gray"))
+
+    # Add .lotr/ to .gitignore if not already there
+    gitignore = project_root / ".gitignore"
+    if gitignore.exists():
+        content = gitignore.read_text()
+        if ".lotr/" not in content:
+            gitignore.write_text(content.rstrip() + "\n.lotr/\n")
+            print()
+            print(c("  Added .lotr/ to .gitignore", "gray"))
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="lotr",
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.0.0")
+    parser.add_argument("--version", action="version", version="lotr 1.2.0")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
+
+    # init
+    p_init = subparsers.add_parser("init", help="Create .lotr/ bootstrap file so your agent knows lotr")
+    p_init.add_argument("--project-root", default=".")
+
+    # starter
+    p_starter = subparsers.add_parser("starter",
+        help="Download a starter skill pack (safe defaults, no task needed)")
+    p_starter.add_argument("--project-root", default=".")
+    p_starter.add_argument("--framework")
+    p_starter.add_argument("--all", action="store_true")
+    p_starter.add_argument("--skills-per-kingdom", type=int, default=3,
+        help="Skills per kingdom (default: 3)")
+
+    # guide
+    subparsers.add_parser("guide", help="Show the full usage guide")
 
     # detect
     p_detect = subparsers.add_parser("detect", help="Show detected framework + stack")
@@ -464,8 +730,9 @@ def main():
     p_update.add_argument("--project-root", default=".")
 
     # Shorthand: `lotr "do something"` = auto-detect install vs kickoff
-    known_commands = {"detect", "kingdoms", "search", "list", "preview", "install",
-                      "kickoff", "update", "-h", "--help", "--version"}
+    known_commands = {"init", "starter", "guide", "detect", "kingdoms", "search",
+                      "list", "preview", "install", "kickoff", "update",
+                      "-h", "--help", "--version"}
     argv = sys.argv[1:]
     if argv and argv[0] not in known_commands and not argv[0].startswith("-"):
         # Auto-detect: if the intent looks like a project kickoff, use kickoff mode
@@ -480,7 +747,13 @@ def main():
         parser.print_help()
         return 0
 
-    if args.command == "detect":
+    if args.command == "init":
+        return cmd_init(args)
+    elif args.command == "starter":
+        return cmd_starter(args)
+    elif args.command == "guide":
+        return cmd_guide(args)
+    elif args.command == "detect":
         return cmd_detect(args)
     elif args.command == "kingdoms":
         return cmd_kingdoms(args)

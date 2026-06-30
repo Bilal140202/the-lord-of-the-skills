@@ -63,19 +63,26 @@ pip install lotr-skills
 # cd into any project that uses an AI agent
 cd my-react-project/
 
-# One command does everything:
-lotr "write unit tests for the API"
-# → detects cursor + typescript + react
-# → matches "unit tests" → rohan (testing)
-# → downloads 2 canonical skills
-# → places in .cursor/rules/ (1 second)
+# Bootstrap (once per project — creates .lotr/AGENTS.md so your agent knows lotr)
+lotr init
 
-# Project kickoff mode (auto-detected):
+# Safe defaults (if unsure what you need)
+lotr starter
+# → detects cursor + typescript + react
+# → installs 9 canonical skills across 3 kingdoms (gondor, fangorn, mordor)
+
+# One command for a specific task:
+lotr "write unit tests for the API"
+# → matches "unit tests" → rohan (testing)
+# → downloads 2 canonical skills → .cursor/rules/
+
+# Project kickoff (auto-detected):
 lotr "building a tauri app"
-# → detects cursor + typescript
 # → plans 5 kingdoms (gondor, rohan, moria, fangorn, isengard)
-# → downloads 4 canonical skills across all kingdoms
-# → places in .cursor/rules/ (1.4 seconds)
+# → downloads 4 skills across all kingdoms → .cursor/rules/
+
+# Full usage guide:
+lotr guide
 ```
 
 ### Option B — Manual copy
@@ -239,6 +246,14 @@ The kingdoms grow with the aid of every contributor. See [`CONTRIBUTING.md`](CON
 ---
 
 ## 📜 Changelog (latest)
+
+### [v1.7.0] — 2026-06-29 — *The Complete CLI*
+- 🚀 New `lotr init` — creates `.lotr/AGENTS.md` bootstrap file so your agent knows lotr
+- 🚀 New `lotr starter` — safe defaults per framework (no task needed, 9 skills across 3 kingdoms)
+- 🚀 New `lotr guide` — full usage guide in-terminal
+- 📦 Bumped to v1.2.0 on PyPI (`pip install --upgrade lotr-skills`)
+- 🧪 6 new tests (200 total, all passing)
+- 11 subcommands total: init, starter, guide, install, kickoff, preview, list, search, detect, kingdoms, update
 
 ### [v1.6.0] — 2026-06-29 — *The Kickoff + PyPI*
 - 🚀 New `lotr kickoff` mode — multi-kingdom project setup (`lotr "building a tauri app"`)
