@@ -16,9 +16,9 @@
 [![Issues](https://img.shields.io/github/issues/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=DC143C)](https://github.com/Bilal140202/the-lord-of-the-skills/issues)
 [![Repo Size](https://img.shields.io/github/repo-size/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=database&logoColor=white&labelColor=black&color=4B0082)](https://github.com/Bilal140202/the-lord-of-the-skills)
 
-### 🌟 *A growing, organized collection of AI agent skills — covering 14 frameworks* 🌟
+### 🌟 *A growing, organized collection of AI agent skills — covering 15 frameworks* 🌟
 
-**18,142+ artifacts** · **14 frameworks** · **10 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
+**18,142+ artifacts** · **15 frameworks** · **10 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
 
 </div>
 
@@ -30,11 +30,11 @@
 
 **🟪 Google Antigravity** ([antigravity.google](https://antigravity.google)) is Google's new AI-first IDE launched November 2025 alongside Gemini 3 — a heavily modified VS Code fork.
 
-**820 Antigravity-tagged skills** · across all 10 kingdoms · spidered via a dedicated 30-query focused crawler
+**820 Antigravity-tagged skills** · Across all 10 kingdoms · Spidered via a dedicated 30-query focused crawler.
 
 </div>
 
-While most AI skill catalogs have **zero Antigravity coverage**, this repo has been on it since launch. If you're an Antigravity user, this is your definitive skill library. Browse: `find skills/ -path '*antigravity*' -name '*.md'`
+While most AI skill catalogs have **zero Antigravity coverage**, this repo has covered it since launch. If you're an Antigravity user, this is your definitive skill library. Browse via terminal: `find skills/ -path '*antigravity*' -name '*.md'`
 
 📖 See [`FRAMEWORKS.md`](FRAMEWORKS.md) for the full 14-framework breakdown.
 
@@ -44,13 +44,11 @@ While most AI skill catalogs have **zero Antigravity coverage**, this repo has b
 
 | | |
 |:---|:---|
-| 🏆 **Largest collection** | 18,142+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity** |
-| 🎭 **LOTR-themed** | Sorted into 10 kingdoms (⚔ Gondor = Coding, ✦ Rivendell = Research, 👁 Mordor = Security, ⚙ Isengard = Agents, ...) — memorable, fun, and easy to navigate |
-| ✨ **Canonical skills** | Deduplicated with **357 ⭐ canonical representatives** — one best version per concept. See [`DEDUP.md`](DEDUP.md) for how it works |
-| 🤖 **`lotr` CLI** | One-command installer: `lotr "write unit tests"` — auto-detects your framework, matches intent to kingdom, downloads only the skills you need. See [`cli/README.md`](cli/README.md) |
-| 🚀 **Kickoff mode** | `lotr "building a tauri app"` — auto-installs skills across 5+ kingdoms for a new project. Only 10-15 files downloaded, not 18,000 |
-| 🤖 **Reusable crawler** | Open-source Python spider — clone it and build your own kingdom. See [`crawler/README.md`](crawler/README.md) |
-| 📦 **Drop-in ready** | Copy any kingdom's skills into your agent's `~/.claude/skills/`, `.cursor/rules/`, `.clinerules/`, etc. — works instantly |
+| 🏆 **Largest collection** | 18,142+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity**. |
+| 🎭 **LOTR-themed** | Sorted into 10 kingdoms (⚔ Gondor = Coding, ✦ Rivendell = Research, 👁 Mordor = Security, ⚙ Isengard = Agents, ...) — memorable, fun, and easy to navigate. |
+| ✨ **Canonical skills** | Deduplicated with **357 ⭐ canonical representatives** — one best version per concept. See [`DEDUP.md`](DEDUP.md) for how it works. |
+| 🤖 **Reusable crawler** | Open-source Python spider — clone it and build your own kingdom. See [`crawler/README.md`](crawler/README.md). |
+| 📦 **Drop-in ready** | Copy any kingdom's skills into your agents' `~/.claude/skills/`, `.cursor/rules/`, `.clinerules/`, etc. — and they will work instantly. |
 
 ---
 
@@ -96,7 +94,7 @@ cd the-lord-of-the-skills
 
 # 2. Copy skills into your agent (pick your framework)
 cp -r skills/gondor/claude-code/* ~/.claude/skills/           # Claude Code
-cp -r skills/gondor/cursor/*     .cursor/rules/               # Cursor
+cp -r skills/gondor/cursor/*     .cursor/rules/               # Cursor (Note: Ensure nested .mdc files are moved to the root of .cursor/rules/)
 cp -r skills/gondor/cline/*      .clinerules/                 # Cline / Roo
 cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md        # Aider
 
@@ -155,20 +153,21 @@ find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 
 | Framework | Files | Description |
 |:---|---:|:---|
-| 🟠 **claude-code** | 8,104 | Anthropic's `SKILL.md` format |
-| 🟣 **cursor** | 1,400+ | `.cursorrules` / `.cursor/rules/*.mdc` |
-| 🟡 **openhands** | 400+ | OpenHands agent files |
-| 🟤 **continue** | 200+ | `.continue/` config |
-| 🟪 **antigravity** | 820 | **Google Antigravity IDE** (new!) |
-| ⚫ **codex** | 500+ | OpenAI Codex `AGENTS.md` |
-| 🔵 **cline** | 1,400+ | `.clinerules/` memory banks |
-| ⚪ **roo** | 800+ | Roo Code `.roo/rules/` |
-| 🟢 **aider** | 600+ | `CONVENTIONS.md` + `.aider*` |
-| ⚪ **goose** | 150+ | Block Goose extensions |
-| 🔵 **copilot** | 100+ | `.github/copilot-instructions.md` |
-| 🟣 **crewai** | 80+ | CrewAI agent configs |
-| 🟢 **langgraph** | 60+ | LangGraph agent definitions |
-| ⚪ **general** | 2,535+ | Cross-framework / unclassified |
+| 🟠 **Claude Code** | 8,104 | Anthropic's `SKILL.md` format |
+| 🟣 **Cursor** | 1,400+ | `.cursorrules` / `.cursor/rules/*.mdc` |
+| 🟡 **OpenHands** | 400+ | OpenHands agent files |
+| 🟤 **Continue** | 200+ | `.continue/` config |
+| 🟪 **Google Antigravity** | 820 | **Google Antigravity IDE** (new!) |
+| ⚫ **Codex** | 500+ | OpenAI Codex `AGENTS.md` |
+| 🔵 **Cline** | 1,400+ | `.clinerules/` memory banks |
+| ⚪ **Roo** | 800+ | Roo Code `.roo/rules/` |
+| 🟢 **Aider** | 600+ | `CONVENTIONS.md` + `.aider*` |
+| ⚪ **Goose** | 150+ | Block Goose extensions |
+| 🔵 **Copilot** | 100+ | `.github/copilot-instructions.md` |
+| 🟣 **CrewAI** | 80+ | CrewAI agent configs |
+| 🟢 **LangGraph** | 60+ | LangGraph agent definitions |
+| 🔴 **AutoGen** | 1 | Microsoft's multi-agent framework for building agentic AI applications |
+| ⚪ **General** | 2,535+ | Cross-framework / unclassified |
 
 📖 Detailed breakdown: [`FRAMEWORKS.md`](FRAMEWORKS.md)
 
@@ -205,12 +204,12 @@ The crawler is fully reusable — clone it and build your own kingdom:
 ```bash
 cd crawler/
 pip install -r requirements.txt
-python3 crawler.py            # Spider GitHub (5-phase, resumable)
-python3 classify.py           # Tag each file with kingdom + skill type
-python3 dedup.py              # Cluster + mark canonical ⭐
-python3 build_package.py      # Build themed package
-python3 generate_excel.py     # Excel index
-python3 generate_pdf.py       # PDF catalog
+python3 crawler.py            # Run 5-phase reusable GitHub crawler
+python3 classify.py           # Tag files by kingdom and skill type
+python3 dedup.py              # Cluster and mark canonical skills ⭐
+python3 build_package.py      # Build the themed local package
+python3 generate_excel.py     # Generate the static Excel index
+python3 generate_pdf.py       # Generate the static PDF catalog
 ```
 
 📖 Full docs: [`crawler/README.md`](crawler/README.md) · Auto-refresh monthly via `cron`
@@ -225,7 +224,7 @@ python3 generate_pdf.py       # PDF catalog
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Bilal140202/the-lord-of-the-skills&type=Date)](https://star-history.com/#Bilal140202/the-lord-of-the-skills&Date)
 
-**Every star tells the compiler the kingdom was worth building.**
+**Every star tells the compiler that the kingdom was worth building.**
 
 [![Stargazers](https://reporoster.com/stars/Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers)
 
@@ -235,12 +234,12 @@ python3 generate_pdf.py       # PDF catalog
 
 ## 🤝 Contributing
 
-The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for:
+The kingdoms grow with the aid of every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for:
 
-- 🏰 **Adding a new skill** — submit a PR with a SKILL.md / AGENTS.md / .cursorrules file
-- ⚔ **Adding a new kingdom** — propose a new domain in an Issue
-- 🕷 **Improving the crawler** — make the spider smarter, broader, faster
-- 📚 **Improving docs** — fix typos, add examples, translate
+- 🏰 **Adding a new skill** — submit a PR with a SKILL.md / AGENTS.md / .cursorrules file.
+- ⚔ **Adding a new kingdom** — propose a new domain in an Issue.
+- 🕷 **Improving the crawler** — make the spider smarter, broader, faster.
+- 📚 **Improving docs** — fix typos, add examples, translate.
 
 [![Contributors Display](https://contrib.rocks/image?repo=Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/graphs/contributors)
 

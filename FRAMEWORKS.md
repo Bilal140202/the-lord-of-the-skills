@@ -1,6 +1,6 @@
 # ⚙ Frameworks — *The Fellowship of the Skills*
 
-The Lord of the Skills covers **14 agentic AI frameworks**. Each is identified by a unique file convention, listed below.
+The Lord of the Skills covers **15 agentic AI frameworks**. Each is identified by a unique file convention, listed below.
 
 ---
 
@@ -8,26 +8,27 @@ The Lord of the Skills covers **14 agentic AI frameworks**. Each is identified b
 
 | Framework | Files | Kingdoms | Detection Pattern | Description |
 |:---|---:|---:|:---|:---|
-| 🟠 **claude-code** | 8,104 | 10 | `SKILL.md`, `skills/**/*.md` | Anthropic's official skill format used in Claude Code |
-| 🟣 **cursor** | 1,400+ | 10 | `.cursorrules`, `.cursor/rules/*.mdc` | Cursor IDE rules — project-specific or global |
-| 🔵 **cline** | 1,400+ | 10 | `.clinerules/`, `.cline/` | Cline memory banks and rules |
-| ⚫ **roo** | 800+ | 9 | `.roo/rules/`, `.roo/modes/` | Roo Code (Cline fork) — extended rules |
-| 🟢 **aider** | 600+ | 8 | `CONVENTIONS.md`, `.aider*` | Aider AI pair-programmer conventions |
-| 🟡 **openhands** | 400+ | 8 | `openhands`, `OpenHands` | All-Hands-AI OpenHands agent files |
-| ⚫ **codex** | 500+ | 9 | `AGENTS.md` | OpenAI Codex `AGENTS.md` convention |
-| 🟤 **continue** | 200+ | 7 | `.continue/` | Continue.dev config files |
-| ⚪ **goose** | 150+ | 6 | `.goose/`, `extensions/` | Block Goose extensions |
-| 🔵 **copilot** | 100+ | 5 | `.github/copilot-instructions.md` | GitHub Copilot instructions |
-| 🟣 **crewai** | 80+ | 6 | `crewai`, `CrewAI` | CrewAI agent configs |
-| 🟢 **langgraph** | 60+ | 5 | `langgraph`, `LangGraph` | LangGraph agent definitions |
-| 🟪 **antigravity** | 820 | 10 | Antigravity-tagged repos | [Google Antigravity IDE](https://antigravity.google) — Google's AI-first IDE launched Nov 2025 with Gemini 3. **This is the only major skills catalog covering Antigravity.** |
-| ⚪ **general** | 2,535+ | 10 | Various / unclassified | Cross-framework or unclassified skills |
+| 🟠 **(Claude Code) claude-code** | 8,104 | 10 | `SKILL.md`, `skills/**/*.md` | Anthropic's official skill format used in Claude Code |
+| 🟣 **(Cursor) cursor** | 1,400+ | 10 | `.cursorrules`, `.cursor/rules/*.mdc` | Cursor IDE rules — project-specific or global |
+| 🔵 **(Cline) cline** | 1,400+ | 10 | `.clinerules/`, `.cline/` | Cline memory banks and rules |
+| ⚫ **(Roo) roo** | 800+ | 9 | `.roo/rules/`, `.roo/modes/` | Roo Code (Cline fork) — extended rules |
+| 🟢 **(Aider) aider** | 600+ | 8 | `CONVENTIONS.md`, `.aider*` | Aider AI pair-programmer conventions |
+| 🟡 **(OpenHands) openhands** | 400+ | 8 | `openhands`, `OpenHands` | All-Hands-AI OpenHands agent files |
+| ⚫ **(Codex) codex** | 500+ | 9 | `AGENTS.md` | OpenAI Codex `AGENTS.md` convention |
+| 🟤 **(Continue) continue** | 200+ | 7 | `.continue/` | Continue.dev config files |
+| ⚪ **(Goose) goose** | 150+ | 6 | `.goose/`, `extensions/` | Block Goose extensions |
+| 🔵 **(Copilot) copilot** | 100+ | 5 | `.github/copilot-instructions.md` | GitHub Copilot instructions |
+| 🟣 **(CrewAI) crewai** | 80+ | 6 | `crewai`, `CrewAI` | CrewAI agent configs |
+| 🟢 **(LangGraph) langgraph** | 60+ | 5 | `langgraph`, `LangGraph` | LangGraph agent definitions |
+| 🟪 **(Antigravity) antigravity** | 820 | 10 | Antigravity-tagged repos | [Google Antigravity IDE](https://antigravity.google) — Google's AI-first IDE launched Nov 2025 with Gemini 3. **This is the only major skills catalog covering Antigravity** |
+| 🔴 **(Microsoft AutoGen) autogen** | 1 | 1 | `microsoft__autogen/` | Microsoft's multi-agent framework for building agentic AI applications |
+| ⚪ **(General) general** | 2,535+ | 10 | Various / unclassified | Cross-framework or unclassified skills |
 
 ---
 
 ## 🎯 Framework Detection Logic
 
-The crawler identifies framework by both **filename pattern** and **repo name**. The detection priority is:
+The crawler identifies the framework by both **filename pattern** and **repo name**. The detection priority is:
 
 1. **Explicit path indicators** (highest priority):
    - `.cursor/rules/*.mdc` → cursor
@@ -106,6 +107,8 @@ python3 crawler.py
 python3 classify.py
 python3 dedup.py
 python3 build_package.py
+python3 generate_excel.py
+python3 generate_pdf.py
 ```
 
 ### Step 7: Update This Doc
@@ -145,8 +148,8 @@ Google Antigravity is a new agentic IDE released in 2025. We added support for i
 
 1. **Dedicated crawler**: `crawler/crawler_antigravity.py` with 30 targeted search queries
 2. **Antigravity-specific seeds**: `sickn33/antigravity-awesome-skills`, `google/antigravity`, etc.
-3. **GitHub Code Search**: for files containing "antigravity"
-4. **BFS expansion**: scan antigravity-awesome-skills README for related repos
+3. **GitHub Code Search**: For files containing "antigravity"
+4. **BFS expansion**: Scan antigravity-awesome-skills README for related repos
 
 **Result**: 689 antigravity-related repos discovered, 307 cloned, 11,697 files extracted. **820 files explicitly tagged as `antigravity` framework**.
 
@@ -168,7 +171,6 @@ ls skills/gondor/antigravity/
 |:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | v1.0.0 | 4,200 | 2,100 | 1,400 | 800 | 600 | 400 | 500 | — | 10,888 |
 | v1.2.0 | 8,104 | 1,400+ | 1,400+ | 800+ | 600+ | 400+ | 500+ | 820 | 18,142 |
-
 ---
 
 <div align="center">

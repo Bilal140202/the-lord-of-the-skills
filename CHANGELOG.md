@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🎉 Added
 - Initial compilation of **10,888** agentic AI skill/agent/rule files
 - Spidered from **102** source GitHub repositories
-- Coverage of **13** frameworks:
+- Coverage of **14** frameworks:
   - Anthropic Claude Code (`SKILL.md`, `skills/`)
   - Cursor (`.cursorrules`, `.cursor/rules/*.mdc`)
   - Cline (`.clinerules/`, `.cline/`)
