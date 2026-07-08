@@ -94,6 +94,9 @@ class TestFrameworkDetection:
         # A bare 'skills/foo.md' (no leading /) doesn't match, falls to general.
         # In practice, paths from os.walk always have a leading dir, so this works.
         ("/skills/foo.md", "my-repo", "claude-code"),
+        # Antigravity (added v1.7.0)
+        (".antigravity/skills/test.md", "my-repo", "antigravity"),
+        (".antigravity/config.yaml", "my-repo", "antigravity"),
         ("random.md", "my-cursor-rules", "cursor"),
         ("random.md", "my-cline-tools", "cline"),
         ("random.md", "my-aider-config", "aider"),

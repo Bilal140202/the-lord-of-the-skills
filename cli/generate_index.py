@@ -8,10 +8,8 @@ canonical flag, summary (first 200 chars).
 
 Output: skills/index.json
 """
-from __future__ import annotations
 import json
 import re
-import os
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime, timezone

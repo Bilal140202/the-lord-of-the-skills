@@ -361,6 +361,8 @@ def detect_framework(rel_path: str, repo_name: str) -> str:
     rp = rel_path.lower()
     rn = repo_name.lower()
     # explicit path indicators
+    if ".antigravity" in rp:
+        return "antigravity"
     if ".cursor" in rp or ".cursorrules" in rp or rp.endswith(".mdc"):
         return "cursor"
     if ".cline" in rp or "clinerules" in rp or "cline-rules" in rp:
