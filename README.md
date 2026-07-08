@@ -44,7 +44,7 @@ While most AI skill catalogs have **zero Antigravity coverage**, this repo has b
 
 | | |
 |:---|:---|
-| 🏆 **Largest collection** | 18,142+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity** |
+| 🏆 **Largest collection** | 17,000+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity** |
 | 🎭 **LOTR-themed** | Sorted into 10 kingdoms (⚔ Gondor = Coding, ✦ Rivendell = Research, 👁 Mordor = Security, ⚙ Isengard = Agents, ...) — memorable, fun, and easy to navigate |
 | ✨ **Canonical skills** | Deduplicated with **357 ⭐ canonical representatives** — one best version per concept. See [`DEDUP.md`](DEDUP.md) for how it works |
 | 🤖 **`lotr` CLI** | One-command installer: `lotr "write unit tests"` — auto-detects your framework, matches intent to kingdom, downloads only the skills you need. See [`cli/README.md`](cli/README.md) |
@@ -146,7 +146,7 @@ find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 | 👁 | [**Mordor**](skills/mordor/README.md) | Security & Auditing | 406 | 9 ⭐ |
 | 🕸 | [**Mirkwood**](skills/mirkwood/README.md) | Specialized & Niche | 81 | 1 ⭐ |
 | 🏰 | [**Minas Tirith**](skills/minas-tirith/README.md) | UI & Design | 366 | 0 ⭐ |
-| | **TOTAL** | | **18,142** | **357 ⭐** |
+| | **TOTAL** | | **17,126** | **354 ⭐** |
 
 📖 Full mottos, frameworks, and per-kingdom stats: [`KINGDOMS.md`](KINGDOMS.md)
 
@@ -228,7 +228,7 @@ python3 generate_pdf.py       # PDF catalog
 
 **Every star tells the compiler the kingdom was worth building.**
 
-[![Stargazers](https://reporoster.com/stars/Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers)
+⭐ **[Star this repo](https://github.com/Bilal140202/the-lord-of-the-skills/stargazers)** if it helped you!
 
 </div>
 
