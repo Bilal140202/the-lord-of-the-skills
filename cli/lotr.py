@@ -42,14 +42,35 @@ try:
     # Package mode (when installed via pip)
     from cli.detect import detect as detect_stack
     from cli.match import match as match_intent, match_kingdoms, match_multi, is_kickoff_intent
-    from cli.fetch import fetch_index, fetch_skills_by_index, fetch_and_save
+    from cli.fetch import fetch_index, fetch_skills_by_index, fetch_and_save, fetch_skill
     from cli.place import resolve_destination, place_skill, list_installed, DESTINATIONS
 except ImportError:
     # Script mode (python3 cli/lotr.py)
     from detect import detect as detect_stack
     from match import match as match_intent, match_kingdoms, match_multi, is_kickoff_intent
-    from fetch import fetch_index, fetch_skills_by_index, fetch_and_save
+    from fetch import fetch_index, fetch_skills_by_index, fetch_and_save, fetch_skill
     from place import resolve_destination, place_skill, list_installed, DESTINATIONS
+
+def install_skill(skill, framework, project_root):
+    """Install a single skill — handles both dir mode and append mode."""
+    mode = DESTINATIONS.get(framework, {}).get("mode", "dir")
+    if mode == "append":
+        # Append mode: fetch content, use place_skill to append
+        kingdom = skill["kingdom"]
+        fw = skill.get("frameworks", ["general"])[0]
+        path = skill["path"]
+        rel_path = path
+        for prefix in [f"skills/{kingdom}/{fw}/", f"skills/{kingdom}/"]:
+            if rel_path.startswith(prefix):
+                rel_path = rel_path[len(prefix):]
+                break
+        content = fetch_skill(kingdom, fw, rel_path)
+        filename = skill.get("filename", "skill.md")
+        return place_skill(framework, content, filename, project_root)
+    else:
+        # Dir mode: use fetch_and_save
+        dest = resolve_destination(framework, project_root)
+        return fetch_and_save(skill, dest)
 
 # Kingdom data (for `lotr kingdoms` command)
 KINGDOMS = {
@@ -260,15 +281,29 @@ def cmd_kickoff(args):
         return 1
     skills_per_kingdom = args.skills_per_kingdom or 2
     all_skills = []
+    used_fallback = False
     for kingdom, _, _ in matches:
+        # Try canonical first
         skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
                                         canonical_only=not args.all,
                                         limit=skills_per_kingdom)
+        if not skills and not args.all:
+            # Try non-canonical for this framework
+            skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
+                                            canonical_only=False, limit=skills_per_kingdom)
+        if not skills and framework != "claude-code":
+            # Fall back to claude-code for this kingdom
+            skills = fetch_skills_by_index(idx, kingdom=kingdom, framework="claude-code",
+                                            canonical_only=False, limit=skills_per_kingdom)
+            if skills:
+                used_fallback = True
         all_skills.extend(skills)
+    if used_fallback:
+        print(c(f"  Some skills fell back to claude-code (your framework has fewer skills)...", "gray"))
     if not all_skills:
-        print(c(f"  No canonical skills found for {framework}. Try --all to include non-canonical.", "red"))
+        print(c(f"  No skills found for any kingdom. Try --all.", "red"))
         return 1
-    print(f"  Downloading {c(str(len(all_skills)), 'green')} canonical skills across {c(str(len(matches)), 'green')} kingdoms")
+    print(f"  Downloading {c(str(len(all_skills)), 'green')} skills across {c(str(len(matches)), 'green')} kingdoms")
     # Place
     print()
     print(c("[place]", "bold"), f"Installing to {c(str(resolve_destination(framework, args.project_root)), 'blue')}")
@@ -281,7 +316,7 @@ def cmd_kickoff(args):
             info = KINGDOMS.get(current_kingdom, {"symbol": "?", "name": current_kingdom.title()})
             print(f"  {c(info['symbol'], 'gold')} {c(info['name'], 'bold')}:")
         try:
-            path = fetch_and_save(s, dest)
+            path = install_skill(s, framework, args.project_root)
             installed.append(path)
             title = (s.get("title") or s.get("filename") or "(untitled)")[:55]
             canon = "star" if s.get("canonical") else " "
@@ -373,7 +408,7 @@ def cmd_install(args):
     installed = []
     for s in skills:
         try:
-            path = fetch_and_save(s, resolve_destination(framework, args.project_root))
+            path = install_skill(s, framework, args.project_root)
             installed.append(path)
             title = (s.get("title") or s.get("filename") or "(untitled)")[:60]
             canon = "⭐" if s.get("canonical") else " "
@@ -422,7 +457,7 @@ def cmd_update(args):
             if s.get("filename") == lookup_name and s.get("kingdom") in KINGDOMS:
                 # Re-fetch
                 try:
-                    fetch_and_save(s, resolve_destination(framework, args.project_root))
+                    install_skill(s, framework, args.project_root)
                     print(f"  {c('✓', 'green')} Updated {fname}")
                     updated += 1
                     break
@@ -493,7 +528,7 @@ def cmd_design(args):
     installed = []
     for s in skills:
         try:
-            path = fetch_and_save(s, dest)
+            path = install_skill(s, framework, args.project_root)
             installed.append(path)
             title = (s.get("title") or s.get("filename") or "(untitled)")[:55]
             canon = "⭐" if s.get("canonical") else " "
@@ -583,7 +618,7 @@ def cmd_starter(args):
             info = KINGDOMS.get(current_kingdom, {"symbol": "?", "name": current_kingdom.title()})
             print(f"  {c(info['symbol'], 'gold')} {c(info['name'], 'bold')}:")
         try:
-            path = fetch_and_save(s, dest)
+            path = install_skill(s, framework, args.project_root)
             installed.append(path)
             title = (s.get("title") or s.get("filename") or "(untitled)")[:55]
             print(f"      {c('✓', 'green')} {title}")
@@ -763,7 +798,7 @@ def main():
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.3.1")
+    parser.add_argument("--version", action="version", version="lotr 1.3.2")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
