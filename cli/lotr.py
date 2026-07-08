@@ -336,9 +336,35 @@ def cmd_install(args):
         return 1
     skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
                                     canonical_only=not args.all, limit=args.limit or 10)
+    if not skills and not args.all:
+        # No canonical skills for this framework — try non-canonical
+        non_canon = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
+                                           canonical_only=False, limit=args.limit or 10)
+        if len(non_canon) >= 3:
+            skills = non_canon
+            print(c(f"  No canonical skills for {framework}, using non-canonical...", "gray"))
+        else:
+            # Too few non-canonical — fall back to claude-code (largest skill set)
+            fallback_fw = "claude-code"
+            if framework != fallback_fw:
+                print(c(f"  Few {framework} skills for {kingdom}, falling back to {fallback_fw}...", "gray"))
+                skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=fallback_fw,
+                                                canonical_only=not args.all, limit=args.limit or 10)
+                if not skills:
+                    skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=fallback_fw,
+                                                    canonical_only=False, limit=args.limit or 10)
+                framework = fallback_fw
     if not skills:
-        print(c(f"  ✗ No skills found for kingdom={kingdom}, framework={framework}", "red"))
-        print(c("  Try: lotr list  to see what's available, or --all to include non-canonical.", "gray"))
+        # Last resort: fall back to claude-code
+        fallback_fw = "claude-code"
+        if framework != fallback_fw:
+            print(c(f"  No {framework} skills for {kingdom}, falling back to {fallback_fw}...", "gray"))
+            skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=fallback_fw,
+                                            canonical_only=False, limit=args.limit or 10)
+            framework = fallback_fw
+    if not skills:
+        print(c(f"  ✗ No skills found for kingdom={kingdom}", "red"))
+        print(c("  Try: lotr list  to see what's available.", "gray"))
         return 1
     print(f"  Found {c(str(len(skills)), 'green')} skills")
     # Place
@@ -737,7 +763,7 @@ def main():
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.3.0")
+    parser.add_argument("--version", action="version", version="lotr 1.3.1")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 

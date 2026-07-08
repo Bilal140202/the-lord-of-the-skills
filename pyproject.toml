@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 # ─────────────────────────────────────────────
 [project]
 name = "lotr-skills"
-version = "1.3.0"
+version = "1.3.1"
 description = "⚔ One command to install the right AI agent skills for any framework — Claude Code, Cursor, Cline, Codex, Antigravity & more"
 readme = "README.md"
 license = { file = "LICENSE" }
