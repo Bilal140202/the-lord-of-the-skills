@@ -187,6 +187,7 @@ the-lord-of-the-skills/
 ├── FAQ.md                 ← Common questions
 ├── MANIFEST.md            ← _manifest.json schema docs
 ├── DEDUP.md               ← Canonical dedup explained
+├── SOURCES.md             ← All 310 source repos with links + licenses
 ├── CHANGELOG.md           ← Version history
 ├── catalogs/              ← PDF + Excel indexes
 ├── cli/                   ← lotr CLI (install, kickoff, search, ...)
@@ -316,7 +317,7 @@ If you are an upstream maintainer and wish to have your skills removed, please [
 
 ## 🙏 Credits
 
-This compilation would not exist without the **307+ source repositories**. See [`docs/CREDITS.md`](docs/CREDITS.md) for the full list.
+This compilation would not exist without the **307+ source repositories**. See [`SOURCES.md`](SOURCES.md) for the full list of all 310 source repositories with links and file counts.
 
 Special thanks to: `anthropics/anthropic-cookbook`, `hesreallyhim/awesome-claude-code`, `cline/cline`, `Aider-AI/aider`, `All-Hands-AI/OpenHands`, `continuedev/continue`, `block/goose`, `microsoft/autogen`, `crewAIInc/crewAI`, `langchain-ai/langgraph`, `modelcontextprotocol/servers`, `sickn33/antigravity-awesome-skills`, and 295+ more.
 
