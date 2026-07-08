@@ -1,22 +1,23 @@
 # 🗺 Map of the Kingdoms
 
-> *Ten kingdoms, ten domains, one catalog to rule them all.*
+> *Eleven kingdoms, eleven domains, one catalog to rule them all.*
 
 ---
 
 | Kingdom | Domain | Artifacts | Repos | Canonical | Motto |
 |:---|:---|---:|---:|---:|:---|
-| [⚔ Gondor](skills/gondor/README.md) | Coding & Software Engineering | 10141 | 544 | 188 | *Gondor sees, Gondor codes.* |
-| [✦ Rivendell](skills/rivendell/README.md) | Research & Knowledge | 1776 | 109 | 30 | *Knowledge flows from the Last Homely House.* |
+| [⚔ Gondor](skills/gondor/README.md) | Coding & Software Engineering | 10,141 | 544 | 188 | *Gondor sees, Gondor codes.* |
+| [✦ Rivendell](skills/rivendell/README.md) | Research & Knowledge | 1,776 | 109 | 30 | *Knowledge flows from the Last Homely House.* |
 | [⛏ Moria](skills/moria/README.md) | DevOps & Infrastructure | 914 | 107 | 40 | *Speak, friend, and enter the deploy.* |
 | [✿ Lothlórien](skills/lothlorien/README.md) | Data & Analysis | 496 | 91 | 13 | *Where data roots run deep.* |
 | [👁 Mordor](skills/mordor/README.md) | Security & Auditing | 406 | 94 | 9 | *One audit to rule them all.* |
-| [✎ The Shire](skills/the-shire/README.md) | Writing & Content | 1272 | 168 | 22 | *Quiet writing, deep roots.* |
-| [⚙ Isengard](skills/isengard/README.md) | Agents & Orchestration | 1630 | 173 | 19 | *Industry wakes the deep.* |
+| [✎ The Shire](skills/the-shire/README.md) | Writing & Content | 1,272 | 168 | 22 | *Quiet writing, deep roots.* |
+| [⚙ Isengard](skills/isengard/README.md) | Agents & Orchestration | 1,630 | 173 | 19 | *Industry wakes the deep.* |
 | [🐴 Rohan](skills/rohan/README.md) | Testing & Verification | 718 | 129 | 20 | *Ride now, ride to verify.* |
 | [🌳 Fangorn](skills/fangorn/README.md) | Documentation & Memory | 708 | 148 | 15 | *The old forest remembers.* |
 | [🕸 Mirkwood](skills/mirkwood/README.md) | Specialized & Niche | 81 | 16 | 1 | *Strange paths through the wood.* |
-| **TOTAL** | | **18142** | **1579** | **357** | |
+| [🏰 Minas Tirith](skills/minas-tirith/README.md) | UI & Design | 366 | 3 | 0 | *The White City, where every surface is crafted with intention.* |
+| **TOTAL** | | **17,508** | **1,582** | **357** | |
 
 ---
 
@@ -32,3 +33,4 @@
 - **🐴 Rohan** — *"Ride now, ride to verify."*
 - **🌳 Fangorn** — *"The old forest remembers."*
 - **🕸 Mirkwood** — *"Strange paths through the wood."*
+- **🏰 Minas Tirith** — *"The White City, where every surface is crafted with intention."*
