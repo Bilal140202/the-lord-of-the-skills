@@ -29,6 +29,7 @@ KINGDOM_DOMAINS = {
     "rohan": "Testing & Verification",
     "fangorn": "Documentation & Memory",
     "mirkwood": "Specialized & Niche",
+    "minas-tirith": "UI & Design",
 }
 
 # Tag-extraction keywords per kingdom

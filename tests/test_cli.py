@@ -121,7 +121,7 @@ class TestMatch:
     @pytest.mark.parametrize("intent,expected_top", [
         ("write unit tests for the API", "rohan"),
         ("deploy to kubernetes", "moria"),
-        ("update the UI to be more modern", "gondor"),
+        ("update the UI to be more modern", "minas-tirith"),
         ("audit for OWASP vulnerabilities", "mordor"),
         ("research the literature on transformers", "rivendell"),
         ("write a blog post about our launch", "the-shire"),

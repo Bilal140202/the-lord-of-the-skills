@@ -18,7 +18,7 @@
 
 ### 🌟 *A growing, organized collection of AI agent skills — covering 14 frameworks* 🌟
 
-**18,142+ artifacts** · **14 frameworks** · **10 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
+**17,126+ artifacts** · **14 frameworks** · **11 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
 
 </div>
 
@@ -145,6 +145,7 @@ find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 | ✿ | [**Lothlórien**](skills/lothlorien/README.md) | Data & Analysis | 496 | 13 ⭐ |
 | 👁 | [**Mordor**](skills/mordor/README.md) | Security & Auditing | 406 | 9 ⭐ |
 | 🕸 | [**Mirkwood**](skills/mirkwood/README.md) | Specialized & Niche | 81 | 1 ⭐ |
+| 🏰 | [**Minas Tirith**](skills/minas-tirith/README.md) | UI & Design | 366 | 0 ⭐ |
 | | **TOTAL** | | **18,142** | **357 ⭐** |
 
 📖 Full mottos, frameworks, and per-kingdom stats: [`KINGDOMS.md`](KINGDOMS.md)
@@ -247,6 +248,13 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 ---
 
 ## 📜 Changelog (latest)
+
+### [v1.8.0] — *The Design Kingdom*
+- 🏰 New 11th kingdom: **Minas Tirith** (UI & Design) — 366 design skills
+- 🎨 New `lotr design` command — install design skills with one command
+- 🕷 Crawled 3 design repos: taste-skill (59k stars), LibreUIUX (352 files), awesome-claude-design
+- 📦 Bumped to v1.3.0 on PyPI
+- 231 tests passing (11 kingdoms)
 
 ### [v1.7.0] — 2026-06-29 — *The Complete CLI*
 - 🚀 New `lotr init` — creates `.lotr/AGENTS.md` bootstrap file so your agent knows lotr

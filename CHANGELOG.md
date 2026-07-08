@@ -498,3 +498,44 @@ lotr guide
 | Tests passing | 200 (was 194) |
 | PyPI version | 1.2.0 (was 1.0.0) |
 | New commands | 3 (init, starter, guide) |
+
+---
+
+## [1.8.0] — 2026-06-29 — *The Design Kingdom*
+
+### 🏰 New: 11th Kingdom — Minas Tirith (UI & Design)
+
+Added a new kingdom dedicated to UI design, frontend aesthetics, and design systems.
+
+**Motto:** *"The White City, where every surface is crafted with intention."*
+
+**366 design skills** crawled from 3 repos:
+- **leonxlnx/taste-skill** — 14 skills (brutalist, minimalist, stitch, brandkit, redesign, image-to-code, etc.) — the #1 most-stard design skill on GitHub (59k+ stars)
+- **HermeticOrmus/LibreUIUX-Claude-Code** — 352 skills (design vocabulary, modern card/button/nav/form prompts, design systems, CLAUDE.md templates, checklists)
+- **VoltAgent/awesome-claude-design** — README only (links to others)
+
+### 🎨 New: `lotr design` Command
+
+```bash
+lotr design "make this app look premium"
+# → detects framework
+# → installs design skills from Minas Tirith
+# → falls back to claude-code if your framework has no design skills
+```
+
+### 🛠 Changes
+- Added `minas-tirith` to `classify.py` KINGDOM_KEYWORDS (design, ui, ux, aesthetic, glassmorphism, brutalism, etc.)
+- Added `minas-tirith` to `build_package.py`, `generate_excel.py`, `cli/lotr.py`, `cli/match.py`
+- Added `minas-tirith` to `generate_index.py` KINGDOM_DOMAINS
+- Created `skills/minas-tirith/README.md` kingdom documentation
+- Regenerated `skills/index.json` — now 17,126 skills across 11 kingdoms
+- Bumped CLI version to 1.3.0
+- Updated test expectations (11 kingdoms, "update the UI" → minas-tirith)
+
+### 📊 Updated Stats
+| Metric | Before | After |
+|:---|---:|---:|
+| Total artifacts | 16,760 | 17,126 |
+| Kingdoms | 10 | 11 |
+| CLI subcommands | 11 | 12 (added `design`) |
+| PyPI version | 1.2.0 | 1.3.0 |

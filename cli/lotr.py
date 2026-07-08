@@ -63,6 +63,7 @@ KINGDOMS = {
     "rohan":       {"name": "Rohan",        "domain": "Testing & Verification",         "symbol": "🐴"},
     "fangorn":     {"name": "Fangorn",      "domain": "Documentation & Memory",         "symbol": "🌳"},
     "mirkwood":    {"name": "Mirkwood",     "domain": "Specialized & Niche",            "symbol": "🕸"},
+    "minas-tirith": {"name": "Minas Tirith", "domain": "UI & Design",                   "symbol": "🏰"},
 }
 
 # ANSI colors (auto-disabled if not a TTY)
@@ -76,7 +77,7 @@ def c(text: str, color: str) -> str:
     return f"{_COLORS.get(color, '')}{text}{_COLORS['reset']}"
 
 def banner():
-    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.2", "gold"))
+    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.3", "gold"))
     print(c("  One command. Any framework. Any kingdom.", "gray"))
     print()
 
@@ -96,9 +97,9 @@ def cmd_detect(args):
     return 0
 
 def cmd_kingdoms(args):
-    """List all 10 kingdoms."""
+    """List all kingdoms."""
     banner()
-    print(c("The Ten Kingdoms:", "bold"))
+    print(c(f"The {len(KINGDOMS)} Kingdoms:", "bold"))
     print()
     for k, info in KINGDOMS.items():
         print(f"  {c(info['symbol'], 'gold')} {c(info['name'], 'bold'):14s} "
@@ -407,6 +408,81 @@ def cmd_update(args):
 
 
 # ============================================================
+# Design — install UI/design skills from Minas Tirith
+# ============================================================
+
+def cmd_design(args):
+    """Install design skills from Minas Tirith (the 11th kingdom).
+
+    Maps your design intent to UI/design skills and installs them.
+    Works like `lotr install` but always targets the minas-tirith kingdom.
+    """
+    banner()
+    intent = args.intent or "make this app look premium"
+    t0 = time.time()
+    # Detect
+    print(c("[detect]", "bold"), "Scanning project...")
+    result = detect_stack(args.project_root)
+    framework = args.framework or result["framework"]
+    if not framework:
+        print(c("  ✗ No agent framework detected. Pass --framework to override.", "red"))
+        return 1
+    print(f"  Framework: {c(framework, 'gold')}  Language: {c(result['language'], 'blue')}  Stack: {c(str(result['stack']), 'blue')}")
+    # Always use minas-tirith kingdom
+    kingdom = "minas-tirith"
+    info = KINGDOMS.get(kingdom, {"symbol": "🏰"})
+    print()
+    print(c("[design]", "bold"), f"{c(info['symbol'], 'gold')} Minas Tirith — UI & Design")
+    print(f"  Intent: {c(intent, 'gold')!r}")
+    print(f'  Styles: glassmorphism, brutalist, editorial, minimal, modern, premium')
+    # Fetch
+    print()
+    print(c("[fetch]", "bold"), "Querying skills index...")
+    try:
+        idx = fetch_index()
+    except Exception as e:
+        print(c(f"  ✗ Failed to fetch index: {e}", "red"))
+        return 1
+    # Design skills are new — default to all (not canonical-only) since they
+    # haven't been through the canonical dedup pipeline yet
+    canonical_only = args.canonical if hasattr(args, 'canonical') else False
+    skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
+                                    canonical_only=canonical_only,
+                                    limit=args.limit or 10)
+    if not skills and framework != "claude-code":
+        # Design skills are primarily in claude-code — fall back to it
+        print(c(f"  No design skills for {framework}, falling back to claude-code...", "gray"))
+        framework = "claude-code"
+        skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
+                                        canonical_only=canonical_only,
+                                        limit=args.limit or 10)
+    if not skills:
+        print(c(f"  No design skills found. Try --all to include non-canonical.", "red"))
+        return 1
+    print(f"  Found {c(str(len(skills)), 'green')} design skills")
+    # Place
+    print()
+    print(c("[place]", "bold"), f"Installing to {c(str(resolve_destination(framework, args.project_root)), 'blue')}")
+    dest = resolve_destination(framework, args.project_root)
+    installed = []
+    for s in skills:
+        try:
+            path = fetch_and_save(s, dest)
+            installed.append(path)
+            title = (s.get("title") or s.get("filename") or "(untitled)")[:55]
+            canon = "⭐" if s.get("canonical") else " "
+            print(f"  {c('✓', 'green')} {canon} {title}")
+        except Exception as e:
+            print(f"  {c('✗', 'red')} {s.get('filename', '?')}: {e}")
+    elapsed = time.time() - t0
+    print()
+    print(c(f"✓ Installed {len(installed)} design skills in {elapsed:.1f}s", "green"))
+    print(c(f"  Your agent now has elite design taste.", "gray"))
+    print(c(f"  Restart your agent ({framework}) to pick up the new skills.", "gray"))
+    return 0
+
+
+# ============================================================
 # Starter pack — safe defaults per framework
 # ============================================================
 
@@ -661,13 +737,23 @@ def main():
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.2.0")
+    parser.add_argument("--version", action="version", version="lotr 1.3.0")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
     # init
     p_init = subparsers.add_parser("init", help="Create .lotr/ bootstrap file so your agent knows lotr")
     p_init.add_argument("--project-root", default=".")
+
+    # design
+    p_design = subparsers.add_parser("design",
+        help="Install UI/design skills from Minas Tirith (11th kingdom)")
+    p_design.add_argument("intent", nargs="?", default="make this app look premium",
+        help="Design intent (default: 'make this app look premium')")
+    p_design.add_argument("--project-root", default=".")
+    p_design.add_argument("--framework")
+    p_design.add_argument("--all", action="store_true")
+    p_design.add_argument("--limit", type=int, default=10)
 
     # starter
     p_starter = subparsers.add_parser("starter",
@@ -730,7 +816,7 @@ def main():
     p_update.add_argument("--project-root", default=".")
 
     # Shorthand: `lotr "do something"` = auto-detect install vs kickoff
-    known_commands = {"init", "starter", "guide", "detect", "kingdoms", "search",
+    known_commands = {"init", "design", "starter", "guide", "detect", "kingdoms", "search",
                       "list", "preview", "install", "kickoff", "update",
                       "-h", "--help", "--version"}
     argv = sys.argv[1:]
@@ -749,6 +835,8 @@ def main():
 
     if args.command == "init":
         return cmd_init(args)
+    elif args.command == "design":
+        return cmd_design(args)
     elif args.command == "starter":
         return cmd_starter(args)
     elif args.command == "guide":

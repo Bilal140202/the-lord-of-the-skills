@@ -76,6 +76,14 @@ INTENT_MAP: dict[str, list[str]] = {
         r"\b(specialized|niche|domain.?specific|custom|esoteric|unusual|advanced|"
         r"experimental|prototype|research.?grade|hack|trick|one.?off|specific)\b",
     ],
+    "minas-tirith": [
+        r"\b(design|ui|ux|user.?interface|user.?experience|frontend.?design|"
+        r"aesthetic|aesthetics|style|theme|color.?palette|typography|layout|"
+        r"design.?system|glassmorphism|brutalism|brutalist|minimal|minimalist|"
+        r"editorial|modern|premium|beautiful|animation|transition|responsive|"
+        r"mobile.?first|accessibility|wireframe|figma|look.?good|look.?premium|"
+        r"make.?it.?beautiful|redesign)\b",
+    ],
 }
 
 # Compile patterns once

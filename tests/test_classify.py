@@ -221,9 +221,10 @@ class TestCanonicalScore:
 class TestKingdomData:
     """Sanity checks on kingdom data structures."""
 
-    def test_all_10_kingdoms_present(self):
+    def test_all_11_kingdoms_present(self):
         expected = {"gondor", "rivendell", "moria", "lothlorien", "mordor",
-                    "the-shire", "isengard", "rohan", "fangorn", "mirkwood"}
+                    "the-shire", "isengard", "rohan", "fangorn", "mirkwood",
+                    "minas-tirith"}
         assert set(KINGDOM_KEYWORDS.keys()) == expected
 
     def test_every_kingdom_has_motto(self):

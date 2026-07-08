@@ -79,6 +79,10 @@ KINGDOMS = {
                     "motto": "Strange paths through the wood.",
                     "color": "#581c87",
                     "symbol": "🕸"},
+    "minas-tirith": {"name": "Minas Tirith", "domain": "UI & Design",
+                    "motto": "The White City, where every surface is crafted with intention.",
+                    "color": "#E6E6FA",
+                    "symbol": "🏰"},
 }
 
 def safe_filename(s: str) -> str:

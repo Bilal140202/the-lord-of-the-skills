@@ -126,6 +126,18 @@ KINGDOM_KEYWORDS = {
         "domain_label": "Specialized & Niche",
         "motto": "Strange paths through the wood.",
     },
+    "minas-tirith": {  # UI & Design
+        "keywords": ["design", "ui", "ux", "user interface", "user experience",
+                     "frontend", "frontend design", "aesthetic", "style",
+                     "theme", "color", "typography", "layout", "component",
+                     "design system", "glassmorphism", "brutalism", "minimal",
+                     "minimalist", "editorial", "modern", "premium", "beautiful",
+                     "animation", "transition", "responsive", "mobile-first",
+                     "accessibility", "wireframe", "prototype", "figma",
+                     "tailwind", "css", "sass", "scss"],
+        "domain_label": "UI & Design",
+        "motto": "The White City, where every surface is crafted with intention.",
+    },
 }
 
 # ----------------------------------------------------------------------

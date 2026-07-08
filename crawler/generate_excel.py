@@ -46,6 +46,7 @@ KINGDOM_COLORS = {
     "rohan":       "92400E",  # horse brown
     "fangorn":     "166534",  # bark green
     "mirkwood":    "581C87",  # spider purple
+    "minas-tirith": "E6E6FA",  # lavender white
 }
 
 HEADER_FILL = PatternFill("solid", fgColor="1E3A8A")
@@ -140,6 +141,7 @@ def write_kingdoms_sheet(wb, files):
         "rohan":      ("Rohan", "Testing & Verification", "Ride now, ride to verify."),
         "fangorn":    ("Fangorn", "Documentation & Memory", "The old forest remembers."),
         "mirkwood":   ("Mirkwood", "Specialized & Niche", "Strange paths through the wood."),
+        "minas-tirith": ("Minas Tirith", "UI & Design", "The White City, where every surface is crafted with intention."),
     }
     counts = Counter(f["kingdom"] for f in files)
     canon_counts = Counter(f["kingdom"] for f in files if f.get("canonical"))
