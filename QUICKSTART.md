@@ -178,7 +178,7 @@ open catalogs/Lord_of_the_Skills_Catalog.pdf
 open catalogs/Lord_of_the_Skills_Index.xlsx
 ```
 
-- **PDF**: cover, fellowship manifesto, map of kingdoms, per-kingdom sections with top canonical skills, credits
+- **PDF**: Cover, Fellowship Manifesto, map of kingdoms, Per-kingdom sections with top canonical skills, Credits
 - **Excel**: About, Artifacts (10,888+ filterable rows), Kingdoms, Frameworks, Canonical ⭐, Stats
 
 ---

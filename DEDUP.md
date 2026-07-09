@@ -42,6 +42,8 @@ Each file's title (extracted from frontmatter or first H1) is normalized:
 - Punctuation stripped
 - Whitespace normalized
 
+Normalization is performed before any clustering occurs to ensure we aren't splitting identical concepts due to case or punctuation differences.
+
 ```python
 "Git Commit Skill" → "git commit skill"
 "git-commit-skill" → "git commit skill"
@@ -69,7 +71,7 @@ Cluster "git commit":
 ### Step 3: Jaccard Similarity for Singletons
 
 Files that didn't match by exact title are compared by **summary similarity**:
-- Tokenize each file's summary (first substantive paragraph)
+- Tokenize each file's summary (first substantive paragraph). A and B represent the set of words in the summaries.
 - Compute Jaccard similarity: `|A ∩ B| / |A ∪ B|`
 - If similarity ≥ 0.7, group them into a cluster
 
@@ -209,30 +211,30 @@ for f in canonical[:10]:
 
 ## 🐛 Known Limitations
 
-1. **Title-based clustering is conservative** — files with different titles but similar content won't cluster. The Jaccard pass catches some of these, but not all.
+1. **Title-based clustering is conservative** — Files with different titles but similar content won't cluster. The Jaccard pass catches some of these, but not all.
 
-2. **The 671-file "skill" cluster** — many repos have `SKILL.md` without a frontmatter title or H1. They all get the title "skill" and cluster together. The canonical is the largest Claude Code SKILL.md.
+2. **The 671-file "skill" cluster** — Many repos have `SKILL.md` without a frontmatter title or H1. They all get the title "skill" and cluster together. The canonical is the largest Claude Code SKILL.md.
 
 3. **Framework priority bias** — Claude Code skills are preferred as canonical. If a Cursor rule is genuinely better, it won't be chosen as canonical. This is intentional (Claude Code format is the most structured) but worth knowing.
 
-4. **No semantic similarity** — we use Jaccard on word sets, not embeddings. Two skills saying the same thing in different words won't cluster. Future work: add sentence-transformer embeddings.
+4. **No semantic similarity** — We use Jaccard on word sets, not embeddings. Two skills saying the same thing in different words won't cluster. Future work: add sentence-transformer embeddings.
 
 ---
 
 ## 🚀 Future Improvements
 
-- [ ] **Embeddings-based similarity** — use sentence-transformers for semantic clustering
-- [ ] **Quality scoring** — incorporate upstream repo stars, recency, license clarity
-- [ ] **Multi-canonical** — allow 2-3 canonicals per cluster (one per framework)
-- [ ] **Manual curation** — allow maintainers to override canonical selection
+- [ ] **Embeddings-based similarity** — Use sentence-transformers for semantic clustering
+- [ ] **Quality scoring** — Incorporate upstream repo stars, recency, license clarity
+- [ ] **Multi-canonical** — Allow 2-3 canonicals per cluster (one per framework)
+- [ ] **Manual curation** — Allow maintainers to override canonical selection
 
 ---
 
 ## 📖 See Also
 
-- [`crawler/dedup.py`](crawler/dedup.py) — the implementation
-- [`MANIFEST.md`](MANIFEST.md) — full manifest schema (including `canonical`, `cluster_id`, `cluster_size` fields)
-- [`FAQ.md`](FAQ.md) — common questions about dedup
+- [`crawler/dedup.py`](crawler/dedup.py) — The implementation
+- [`MANIFEST.md`](MANIFEST.md) — Full manifest schema (including `canonical`, `cluster_id`, `cluster_size` fields)
+- [`FAQ.md`](FAQ.md) — Common questions about dedup
 
 ---
 
