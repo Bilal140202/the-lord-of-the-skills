@@ -109,10 +109,13 @@ KINGDOMS = {
     "mirkwood":    {"name": "Mirkwood",     "domain": "Specialized & Niche",
                     "motto": "Strange paths through the wood.",
                     "color": COLOR_PURPLE, "symbol": "🕸"},
+    "minas-tirith": {"name": "Minas Tirith", "domain": "UI & Design",
+                    "motto": "The White City, where every surface is crafted with intention.",
+                    "color": colors.HexColor("#E6E6FA"), "symbol": "🏰"},
 }
 
 KINGDOM_ORDER = ["gondor", "rivendell", "isengard", "moria", "lothlorien",
-                 "mordor", "the-shire", "rohan", "fangorn", "mirkwood"]
+                 "mordor", "the-shire", "rohan", "fangorn", "mirkwood", "minas-tirith"]
 
 # ----------------------------------------------------------------------
 # Paragraph styles
