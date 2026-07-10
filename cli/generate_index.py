@@ -14,7 +14,8 @@ from pathlib import Path
 from collections import defaultdict
 from datetime import datetime, timezone
 
-REPO_ROOT = Path("/home/z/my-project/repo-push")
+# Resolve repo root dynamically (parent of cli/ directory)
+REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO_ROOT / "skills"
 OUT_PATH = SKILLS_DIR / "index.json"
 
@@ -48,6 +49,8 @@ KINGDOM_TAGS = {
     "rohan": ["test", "verify", "assert", "coverage", "lint", "typecheck", "tdd", "e2e"],
     "fangorn": ["memory", "context", "rag", "embedding", "knowledge-base", "session"],
     "mirkwood": ["specialized", "niche", "experimental"],
+    "minas-tirith": ["design", "ui", "ux", "aesthetic", "glassmorphism", "brutalism",
+                     "minimal", "figma", "tailwind", "typography", "frontend-design"],
 }
 
 def extract_title(content: str, filename: str) -> str:

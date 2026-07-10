@@ -10,6 +10,7 @@ falls back to constructing raw URLs from kingdom/framework/skill name.
 """
 from __future__ import annotations
 import json
+import logging
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -53,7 +54,8 @@ def fetch_index(force_refresh: bool = False) -> Dict:
         if age < _CACHE_TTL_SECONDS:
             try:
                 return json.loads(_CACHE_INDEX.read_text(encoding="utf-8"))
-            except Exception:
+            except Exception as e:
+                logging.debug(f"Cache corrupt, re-downloading: {e}")
                 pass  # cache corrupt, re-download
     # Download fresh
     try:
@@ -66,15 +68,16 @@ def fetch_index(force_refresh: bool = False) -> Dict:
         if _CACHE_INDEX.exists():
             try:
                 return json.loads(_CACHE_INDEX.read_text(encoding="utf-8"))
-            except Exception:
+            except Exception as e:
+                logging.debug(f"Stale cache also corrupt: {e}")
                 pass
-        # Last resort: look for a local copy in the repo (dev mode)
         # Walk up from cli/ to find skills/index.json
         local_index = Path(__file__).parent.parent / "skills" / "index.json"
         if local_index.exists():
             try:
                 return json.loads(local_index.read_text(encoding="utf-8"))
-            except Exception:
+            except Exception as e:
+                logging.debug(f"Local index.json also corrupt: {e}")
                 pass
         raise RuntimeError(f"Failed to fetch skills index from {INDEX_URL}: {e}")
 
@@ -95,7 +98,8 @@ def fetch_skill(kingdom: str, framework: str, skill_path: str, timeout: int = 30
     url = f"{RAW_BASE}/skills/{kingdom}/{framework}/{skill_path}"
     try:
         return _http_get(url, timeout=timeout).decode("utf-8")
-    except Exception:
+    except Exception as e:
+        logging.debug(f"Remote fetch failed for {url}: {e}")
         # Fall back to local copy (dev mode)
         local = Path(__file__).parent.parent / "skills" / kingdom / framework / skill_path
         if local.exists():

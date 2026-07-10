@@ -98,7 +98,7 @@ def c(text: str, color: str) -> str:
     return f"{_COLORS.get(color, '')}{text}{_COLORS['reset']}"
 
 def banner():
-    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.3", "gold"))
+    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.3.3", "gold"))
     print(c("  One command. Any framework. Any kingdom.", "gray"))
     print()
 
@@ -319,7 +319,7 @@ def cmd_kickoff(args):
             path = install_skill(s, framework, args.project_root)
             installed.append(path)
             title = (s.get("title") or s.get("filename") or "(untitled)")[:55]
-            canon = "star" if s.get("canonical") else " "
+            canon = "⭐" if s.get("canonical") else " "
             print(f"      {c('OK', 'green')} {title}")
         except Exception as e:
             print(f"      {c('X', 'red')} {s.get('filename', '?')}: {e}")
@@ -389,14 +389,6 @@ def cmd_install(args):
                     skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=fallback_fw,
                                                     canonical_only=False, limit=args.limit or 10)
                 framework = fallback_fw
-    if not skills:
-        # Last resort: fall back to claude-code
-        fallback_fw = "claude-code"
-        if framework != fallback_fw:
-            print(c(f"  No {framework} skills for {kingdom}, falling back to {fallback_fw}...", "gray"))
-            skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=fallback_fw,
-                                            canonical_only=False, limit=args.limit or 10)
-            framework = fallback_fw
     if not skills:
         print(c(f"  ✗ No skills found for kingdom={kingdom}", "red"))
         print(c("  Try: lotr list  to see what's available.", "gray"))
@@ -556,6 +548,9 @@ STARTER_KINGDOMS = {
     "cline":       ["gondor", "rohan", "fangorn"],
     "roo":         ["gondor", "rohan", "fangorn"],
     "aider":       ["gondor", "fangorn"],
+    "continue":    ["gondor", "fangorn", "mordor"],
+    "goose":       ["gondor", "fangorn", "mordor"],
+    "copilot":     ["gondor", "fangorn", "mordor"],
     "general":     ["gondor", "fangorn", "mordor"],
 }
 
@@ -798,7 +793,7 @@ def main():
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.3.2")
+    parser.add_argument("--version", action="version", version="lotr 1.3.3")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
