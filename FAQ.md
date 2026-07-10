@@ -23,9 +23,9 @@ Common questions about The Lord of the Skills.
 ### Q: How is this different from awesome-claude-code or awesome-cursorrules?
 
 **A:** Three key differences:
-1. **Multi-framework** — We cover 14 frameworks, not just one
-2. **Canonical deduplication** — We identify one best representative per concept across all frameworks
-3. **Reusable crawler** — You can run our spider yourself to build a custom kingdom
+1. **Multi-framework** — We cover 14 frameworks, not just one.
+2. **Canonical deduplication** — We identify one best representative per concept across all frameworks.
+3. **Reusable crawler** — You can run our spider yourself to build a custom kingdom.
 
 ---
 
@@ -124,10 +124,10 @@ PyPI page: https://pypi.org/project/lotr-skills/
 ### Q: What's the difference between `lotr install`, `lotr kickoff`, and `lotr starter`?
 
 **A:**
-- **`lotr init`** — one-time setup. Creates `.lotr/AGENTS.md` so your agent knows about lotr. Run once per project.
-- **`lotr starter`** — safe defaults. No task description needed. Installs 9 canonical skills across 3 kingdoms (gondor + fangorn + mordor). Perfect when you're unsure what you need.
-- **`lotr install`** — single-task mode. Maps your intent to ONE kingdom and installs 2-10 skills for that task. Example: `lotr "write unit tests"` → rohan only.
-- **`lotr kickoff`** — project kickoff mode. Maps your project description to MULTIPLE kingdoms (5-6) and installs skills across all of them. Example: `lotr "building a tauri app"` → gondor + rohan + moria + fangorn + isengard.
+- **`lotr init`** — One-time setup. Creates `.lotr/AGENTS.md` so your agent knows about lotr. Run once per project.
+- **`lotr starter`** — Safe defaults. No task description needed. Installs 9 canonical skills across 3 kingdoms (gondor + fangorn + mordor). Perfect when you're unsure what you need.
+- **`lotr install`** — Single-task mode. Maps your intent to ONE kingdom and installs 2-10 skills for that task. Example: `lotr "write unit tests"` → rohan only.
+- **`lotr kickoff`** — Project kickoff mode. Maps your project description to MULTIPLE kingdoms (5-6) and installs skills across all of them. Example: `lotr "building a tauri app"` → gondor + rohan + moria + fangorn + isengard.
 
 The CLI **auto-detects** install vs kickoff based on your phrasing. `lotr starter` and `lotr init` are explicit commands.
 

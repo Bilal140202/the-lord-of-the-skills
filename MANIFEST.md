@@ -214,7 +214,6 @@ bash crawler/refresh_lord_of_skills.sh
 | v1.0.0 | 10,888 | ~42 MB |
 | v1.1.0 | 10,888 | ~42 MB |
 | v1.2.0 | 18,142 | ~70 MB |
-
 ---
 
 <div align="center">
