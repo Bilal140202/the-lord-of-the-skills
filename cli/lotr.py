@@ -87,19 +87,38 @@ KINGDOMS = {
     "minas-tirith": {"name": "Minas Tirith", "domain": "UI & Design",                   "symbol": "🏰"},
 }
 
+# Windows Unicode fix: reconfigure stdout to UTF-8 if possible (Python 3.7+)
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass  # Not all environments support reconfigure
+
 # ANSI colors (auto-disabled if not a TTY)
 _USE_COLOR = sys.stdout.isatty()
 _COLORS = {"gold": "\033[33m", "green": "\033[32m", "red": "\033[31m",
            "blue": "\033[34m", "gray": "\033[90m", "bold": "\033[1m",
            "reset": "\033[0m"}
+
 def c(text: str, color: str) -> str:
     if not _USE_COLOR:
         return text
     return f"{_COLORS.get(color, '')}{text}{_COLORS['reset']}"
 
+def safe_print(text: str) -> None:
+    """Print that handles Windows Unicode encoding gracefully."""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        # Windows console can't encode some Unicode chars — replace them
+        safe = text.encode('ascii', 'replace').decode('ascii')
+        print(safe)
+
 def banner():
-    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.3.4", "gold"))
-    print(c("  One command. Any framework. Any kingdom.", "gray"))
+    safe_print(c("⚔ THE LORD OF THE SKILLS — CLI v1.3.5", "gold"))
+    safe_print(c("  One command. Any framework. Any kingdom.", "gray"))
     print()
 
 def cmd_detect(args):
@@ -193,11 +212,13 @@ def cmd_list(args):
     return 0
 
 def cmd_preview(args):
-    """Dry-run: show what would be installed for a given intent."""
+    """Dry-run: show what would be installed for a given intent or kingdom."""
     banner()
     intent = args.intent
-    if not intent:
+    kingdom_override = getattr(args, 'kingdom', None)
+    if not intent and not kingdom_override:
         print(c("  ✗ No intent provided. Usage: lotr preview \"write unit tests\"", "red"))
+        print(c("  Or: lotr preview --kingdom mordor --framework cursor", "gray"))
         return 1
     print(c("[detect]", "bold"), "Scanning project...")
     result = detect_stack(args.project_root)
@@ -207,14 +228,21 @@ def cmd_preview(args):
         return 1
     print(f"  Framework: {c(framework, 'gold')}  Language: {c(result['language'], 'blue')}")
     print()
-    print(c("[match]", "bold"), f"Intent: {c(intent, 'gold')!r}")
-    matches = match_intent(intent, top_n=3)
-    if not matches:
-        print(c("  ✗ No kingdoms matched. Try rephrasing.", "red"))
-        return 1
-    for kingdom, score, kws in matches:
-        info = KINGDOMS.get(kingdom, {"symbol": "?", "name": kingdom.title()})
-        print(f"  {c(info['symbol'], 'gold')} {c(kingdom, 'bold'):12s} (score={score}, keywords={kws})")
+    # Use --kingdom override if provided, otherwise match from intent
+    kingdom = getattr(args, 'kingdom', None)
+    if kingdom:
+        print(c("[match]", "bold"), f"Using kingdom: {c(kingdom, 'gold')} (from --kingdom flag)")
+        top_kingdom = kingdom
+    else:
+        print(c("[match]", "bold"), f"Intent: {c(intent, 'gold')!r}")
+        matches = match_intent(intent, top_n=3)
+        if not matches:
+            print(c("  ✗ No kingdoms matched. Try rephrasing or use --kingdom.", "red"))
+            return 1
+        for kingdom, score, kws in matches:
+            info = KINGDOMS.get(kingdom, {"symbol": "?", "name": kingdom.title()})
+            print(f"  {c(info['symbol'], 'gold')} {c(kingdom, 'bold'):12s} (score={score}, keywords={kws})")
+        top_kingdom = matches[0][0]
     print()
     print(c("[fetch]", "bold"), "Querying skills index...")
     try:
@@ -222,7 +250,6 @@ def cmd_preview(args):
     except Exception as e:
         print(c(f"  ✗ Failed to fetch index: {e}", "red"))
         return 1
-    top_kingdom = matches[0][0]
     skills = fetch_skills_by_index(idx, kingdom=top_kingdom, framework=framework,
                                     canonical_only=not args.all, limit=args.limit or 10)
     print(f"  Would install {c(str(len(skills)), 'green')} skills to {c(str(resolve_destination(framework, args.project_root)), 'blue')}")
@@ -666,6 +693,50 @@ def cmd_guide(args):
 
 
 # ============================================================
+# Framework set — configure target framework via CLI
+# ============================================================
+
+def cmd_framework_set(args):
+    """Set the target framework in .lotr/config.json without editing the file manually."""
+    banner()
+    framework = args.framework_name
+    project_root = Path(args.project_root).resolve()
+
+    # Validate framework name
+    valid_frameworks = {"antigravity", "cursor", "claude-code", "cline", "roo",
+                        "aider", "codex", "continue", "goose", "copilot", "general"}
+    if framework not in valid_frameworks:
+        print(c(f"  ✗ Unknown framework: {framework}", "red"))
+        print(c(f"  Valid frameworks: {', '.join(sorted(valid_frameworks))}", "gray"))
+        return 1
+
+    # Load or create .lotr/config.json
+    lotr_dir = project_root / ".lotr"
+    lotr_dir.mkdir(parents=True, exist_ok=True)
+    config_path = lotr_dir / "config.json"
+
+    import json
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except Exception:
+            config = {}
+    else:
+        config = {}
+
+    old_framework = config.get("framework", "(none)")
+    config["framework"] = framework
+    config["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+
+    print(c(f"  ✓ Framework set: {c(old_framework, 'gray')} → {c(framework, 'gold')}", "green"))
+    print(c(f"  Written to: {config_path}", "gray"))
+    print()
+    print(c(f"  Next: lotr install \"your task\"", "gray"))
+    return 0
+
+
+# ============================================================
 # Init — bootstrap file for agent awareness
 # ============================================================
 
@@ -793,13 +864,20 @@ def main():
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.3.4")
+    parser.add_argument("--version", action="version", version="lotr 1.3.5")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
     # init
     p_init = subparsers.add_parser("init", help="Create .lotr/ bootstrap file so your agent knows lotr")
     p_init.add_argument("--project-root", default=".")
+
+    # framework set
+    p_fw_set = subparsers.add_parser("framework", help="Set or view the target framework for this project")
+    p_fw_sub = p_fw_set.add_subparsers(dest="framework_action")
+    p_fw_set_cmd = p_fw_sub.add_parser("set", help="Set the target framework")
+    p_fw_set_cmd.add_argument("framework_name", help="Framework name (e.g., antigravity, cursor, claude-code)")
+    p_fw_set_cmd.add_argument("--project-root", default=".")
 
     # design
     p_design = subparsers.add_parser("design",
@@ -845,6 +923,7 @@ def main():
     p_preview.add_argument("intent", nargs="?", help="Natural-language task")
     p_preview.add_argument("--project-root", default=".")
     p_preview.add_argument("--framework")
+    p_preview.add_argument("--kingdom", help="Override matched kingdom (e.g., mordor)")
     p_preview.add_argument("--all", action="store_true")
     p_preview.add_argument("--limit", type=int, default=10)
 
@@ -872,7 +951,7 @@ def main():
     p_update.add_argument("--project-root", default=".")
 
     # Shorthand: `lotr "do something"` = auto-detect install vs kickoff
-    known_commands = {"init", "design", "starter", "guide", "detect", "kingdoms", "search",
+    known_commands = {"init", "framework", "design", "starter", "guide", "detect", "kingdoms", "search",
                       "list", "preview", "install", "kickoff", "update",
                       "-h", "--help", "--version"}
     argv = sys.argv[1:]
@@ -891,6 +970,12 @@ def main():
 
     if args.command == "init":
         return cmd_init(args)
+    elif args.command == "framework":
+        if getattr(args, 'framework_action', None) == "set":
+            return cmd_framework_set(args)
+        else:
+            print(c("  Usage: lotr framework set <framework-name>", "gray"))
+            return 0
     elif args.command == "design":
         return cmd_design(args)
     elif args.command == "starter":
