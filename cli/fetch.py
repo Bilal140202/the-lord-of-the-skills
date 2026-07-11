@@ -63,23 +63,21 @@ def fetch_index(force_refresh: bool = False) -> Dict:
         manifest = json.loads(data)
         _CACHE_INDEX.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         return manifest
-    except Exception as e:
+    except Exception as fetch_err:
         # Fall back to cache even if stale
         if _CACHE_INDEX.exists():
             try:
                 return json.loads(_CACHE_INDEX.read_text(encoding="utf-8"))
-            except Exception as e:
-                logging.debug(f"Stale cache also corrupt: {e}")
-                pass
+            except Exception as cache_err:
+                logging.debug(f"Stale cache also corrupt: {cache_err}")
         # Walk up from cli/ to find skills/index.json
         local_index = Path(__file__).parent.parent / "skills" / "index.json"
         if local_index.exists():
             try:
                 return json.loads(local_index.read_text(encoding="utf-8"))
-            except Exception as e:
-                logging.debug(f"Local index.json also corrupt: {e}")
-                pass
-        raise RuntimeError(f"Failed to fetch skills index from {INDEX_URL}: {e}")
+            except Exception as local_err:
+                logging.debug(f"Local index.json also corrupt: {local_err}")
+        raise RuntimeError(f"Failed to fetch skills index from {INDEX_URL}: {fetch_err}")
 
 def fetch_skill(kingdom: str, framework: str, skill_path: str, timeout: int = 30) -> str:
     """Fetch a single skill file's content from GitHub raw.

@@ -11,7 +11,7 @@ Usage:
   lotr list                                  # List available skills for detected stack
   lotr update                                # Update all installed skills to latest
   lotr detect                                # Show detected framework + stack
-  lotr kingdoms                              # List all 10 kingdoms
+  lotr kingdoms                              # List all 11 kingdoms
   lotr search "code review"                  # Search the index by keyword
 
 Examples:
@@ -98,7 +98,7 @@ def c(text: str, color: str) -> str:
     return f"{_COLORS.get(color, '')}{text}{_COLORS['reset']}"
 
 def banner():
-    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.3.3", "gold"))
+    print(c("⚔ THE LORD OF THE SKILLS — CLI v1.3.4", "gold"))
     print(c("  One command. Any framework. Any kingdom.", "gray"))
     print()
 
@@ -652,7 +652,7 @@ def cmd_guide(args):
     print()
     print(c("EXPLORE:", "gold"))
     print("  lotr detect        See what framework/stack was detected")
-    print("  lotr kingdoms      List all 10 kingdoms")
+    print("  lotr kingdoms      List all 11 kingdoms")
     print("  lotr list          Show available skills for your stack")
     print('  lotr search react  Search skills by keyword')
     print('  lotr preview "task" Dry run — see what would install')
@@ -705,7 +705,7 @@ lotr starter
 # Explore available skills
 lotr list              # skills for your detected framework
 lotr search "react"    # search by keyword
-lotr kingdoms          # list all 10 kingdoms
+lotr kingdoms          # list all 11 kingdoms
 lotr detect            # show detected framework + stack
 
 # Dry run (see what would install)
@@ -715,7 +715,7 @@ lotr preview "write unit tests"
 lotr update
 ```
 
-## The 10 Kingdoms
+## The 11 Kingdoms
 
 | Kingdom | Domain |
 |:---|:---|
@@ -793,7 +793,7 @@ def main():
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.3.3")
+    parser.add_argument("--version", action="version", version="lotr 1.3.4")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
@@ -828,7 +828,7 @@ def main():
     p_detect.add_argument("--project-root", default=".")
 
     # kingdoms
-    subparsers.add_parser("kingdoms", help="List all 10 kingdoms")
+    subparsers.add_parser("kingdoms", help="List all 11 kingdoms")
 
     # search
     p_search = subparsers.add_parser("search", help="Search the skills index by keyword")
@@ -842,7 +842,7 @@ def main():
 
     # preview
     p_preview = subparsers.add_parser("preview", help="Dry-run: show what would be installed")
-    p_preview.add_argument("intent", help="Natural-language task")
+    p_preview.add_argument("intent", nargs="?", help="Natural-language task")
     p_preview.add_argument("--project-root", default=".")
     p_preview.add_argument("--framework")
     p_preview.add_argument("--all", action="store_true")
@@ -860,7 +860,7 @@ def main():
     # kickoff
     p_kickoff = subparsers.add_parser("kickoff",
         help="Multi-kingdom project setup: install skills across all relevant kingdoms")
-    p_kickoff.add_argument("intent", help="Project description (e.g., 'building a tauri app')")
+    p_kickoff.add_argument("intent", nargs="?", help="Project description (e.g., 'building a tauri app')")
     p_kickoff.add_argument("--project-root", default=".")
     p_kickoff.add_argument("--framework")
     p_kickoff.add_argument("--all", action="store_true")
