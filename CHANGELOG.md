@@ -65,13 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### 🚀 Planned
-- Broader crawler coverage (target 500+ repos)
-- Per-kingdom dedicated READMEs
-- Star-based ranking of canonical skills
-- Weekly auto-refresh option (in addition to monthly)
-- Star-fetcher for upstream repo stars to improve canonical scoring
-- Docker image for one-command refresh
+- MCP server — expose skills via Model Context Protocol
+- Semantic search — embeddings-based skill matching
+- Windsurf framework support (15th framework)
+- Self-improving crawler — auto-detect new awesome-lists
 - VSCode extension for browsing skills in-editor
+- Docker image for one-command refresh
 
 ---
 
@@ -575,3 +574,27 @@ lotr framework set cursor         # validates name, rejects invalid frameworks
 | Frameworks supported | 14 |
 | Kingdoms | 11 |
 | Total artifacts | 17,126+ |
+
+---
+
+## [1.4.0] — 2026-07-12 — *The Searchable Realm*
+
+### 🌐 New: Streamlit Web UI
+- `web/app.py` — interactive skill browser with search, filter, and preview
+- Search 17,000+ skills by keyword (title, summary, tags)
+- Filter by kingdom (11), framework (14), canonical ⭐
+- Preview full skill content without leaving the browser
+- Kingdom dashboard with visual cards + bar chart
+- Framework coverage table with detection patterns
+- Copy `lotr install` command with one click
+- Deployable to Streamlit Cloud / Hugging Face Spaces (free)
+
+### 🧹 Cleanup
+- Cleaned stale `[Unreleased]` section in CHANGELOG (removed already-done items)
+- Updated README with web UI section + repo structure
+
+### 📦 Version
+- Bumped to v1.4.0
+- 231 tests passing
+- 13 CLI subcommands
+- 11 kingdoms, 14 frameworks, 17,126 skills

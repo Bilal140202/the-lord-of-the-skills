@@ -109,6 +109,8 @@ cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md        # Aider
 find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 ```
 
+🌐 **Web UI:** Browse all 17,000+ skills in your browser — `streamlit run web/app.py`
+
 📖 **Full guide:** [`QUICKSTART.md`](QUICKSTART.md) · **CLI docs:** [`cli/README.md`](cli/README.md) · **Browse:** [`KINGDOMS.md`](KINGDOMS.md) · **Frameworks:** [`FRAMEWORKS.md`](FRAMEWORKS.md)
 
 ---
@@ -196,6 +198,7 @@ the-lord-of-the-skills/
 ├── CHANGELOG.md           ← Version history
 ├── catalogs/              ← PDF + Excel indexes
 ├── cli/                   ← lotr CLI (install, kickoff, search, ...)
+├── web/                   ← Streamlit web UI (browse skills in browser)
 ├── crawler/               ← Reusable Python pipeline
 ├── docs/                  ← Credits, map, full index
 ├── tests/                 ← pytest unit tests
@@ -254,6 +257,12 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 ---
 
 ## 📜 Changelog (latest)
+
+### [v1.4.0] — *The Searchable Realm*
+- 🌐 New: Streamlit web UI — browse + search 17,000+ skills in your browser
+- 📊 Kingdom dashboard, framework coverage chart, skill content preview
+- 🧹 Cleaned up stale changelog entries
+- Bumped to v1.4.0 on PyPI
 
 ### [v1.3.5] — Windows Fix + Framework Command
 - 🪟 Fixed Windows Unicode crash (stdout.reconfigure + safe_print fallback)
