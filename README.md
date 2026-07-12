@@ -16,6 +16,8 @@
 [![Issues](https://img.shields.io/github/issues/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=github&logoColor=white&labelColor=black&color=DC143C)](https://github.com/Bilal140202/the-lord-of-the-skills/issues)
 [![Repo Size](https://img.shields.io/github/repo-size/Bilal140202/the-lord-of-the-skills?style=for-the-badge&logo=database&logoColor=white&labelColor=black&color=4B0082)](https://github.com/Bilal140202/the-lord-of-the-skills)
 
+📖 **Read the Dev.to article:** [The Ultimate Collection of 18k AI Agent Skills Across 14 Frameworks](https://dev.to/ansari_bilal/the-ultimate-collection-of-18k-ai-agent-skills-across-14-frameworks-fbo)
+
 ### 🌟 *A growing, organized collection of AI agent skills — covering 14 frameworks* 🌟
 
 **17,126+ artifacts** · **14 frameworks** · **11 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**

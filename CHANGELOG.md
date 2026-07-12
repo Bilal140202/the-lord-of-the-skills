@@ -563,6 +563,9 @@ lotr framework set cursor         # validates name, rejects invalid frameworks
 - Preview now works with `--kingdom` alone (no intent required when using --kingdom)
 - `safe_print` used in banner to prevent Windows crashes
 
+### 📝 Media Coverage
+- Dev.to article published: https://dev.to/ansari_bilal/the-ultimate-collection-of-18k-ai-agent-skills-across-14-frameworks-fbo
+
 ### 📊 Current State
 | Item | Value |
 |:---|---:|
