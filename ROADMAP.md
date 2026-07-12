@@ -53,6 +53,12 @@ This document tracks the future direction of The Lord of the Skills.
 - [x] 7 subcommands: install, preview, list, search, detect, kingdoms, update
 - [x] 43 CLI tests (all passing)
 
+### v1.3.5 — *Windows Fix + Framework Command* (2026-07-11)
+- [x] Windows Unicode fix (stdout.reconfigure + safe_print)
+- [x] `lotr framework set` command
+- [x] `--kingdom` flag on `lotr preview`
+- [x] 13 CLI subcommands
+
 ### v1.7.0 — *The Complete CLI* (2026-06-29)
 - [x] `lotr init` — creates `.lotr/AGENTS.md` bootstrap file for agent awareness
 - [x] `lotr starter` — safe defaults per framework (no task needed, 9 skills across 3 kingdoms)

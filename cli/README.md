@@ -6,6 +6,9 @@
 
 ## 🚀 Install
 
+> **Windows users:** The CLI auto-reconfigures stdout to UTF-8. If you still see encoding errors, run `chcp 65001` first.
+
+
 ```bash
 # From PyPI (live!):
 pip install lotr-skills
@@ -35,7 +38,7 @@ lotr "write unit tests for the API"
 # 4. Places  → .cursor/rules/jest-cursor-rules.mdc, testing-rules.mdc, ...
 ```
 
-## 📋 Commands
+## 📋 Commands (13 subcommands)
 
 ### `lotr init`
 Bootstrap — creates `.lotr/AGENTS.md` so your agent knows about lotr. Run once per project.
@@ -68,6 +71,16 @@ Show the full usage guide in-terminal.
 ```bash
 lotr guide
 ```
+
+### `lotr framework set <name>`
+Set the target framework for this project. Writes to `.lotr/config.json` without manual editing.
+
+```bash
+lotr framework set antigravity    # if auto-detection fails
+lotr framework set cursor         # validates name, shows old → new
+```
+
+Valid frameworks: antigravity, cursor, claude-code, cline, roo, aider, codex, continue, goose, copilot, general
 
 ### `lotr "<intent>"` (auto-detects install vs kickoff)
 Natural-language install. Auto-detects framework, matches intent to kingdom, fetches + places skills.

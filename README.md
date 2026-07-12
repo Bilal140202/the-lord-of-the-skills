@@ -83,6 +83,9 @@ lotr "building a tauri app"
 # → plans 5 kingdoms (gondor, rohan, moria, fangorn, isengard)
 # → downloads 4 skills across all kingdoms → .cursor/rules/
 
+# Set framework manually (if detection fails):
+lotr framework set antigravity
+
 # Full usage guide:
 lotr guide
 ```
@@ -249,6 +252,12 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 ---
 
 ## 📜 Changelog (latest)
+
+### [v1.3.5] — Windows Fix + Framework Command
+- 🪟 Fixed Windows Unicode crash (stdout.reconfigure + safe_print fallback)
+- 🏷 New `lotr framework set <name>` command — configure framework without editing files
+- 🔍 Added `--kingdom` flag to `lotr preview` (parity with install)
+- 13 CLI subcommands total
 
 ### [v1.8.0] — *The Design Kingdom*
 - 🏰 New 11th kingdom: **Minas Tirith** (UI & Design) — 366 design skills

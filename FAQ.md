@@ -149,6 +149,29 @@ If a kickoff signal is present → kickoff mode. If a compound phrase dominates 
 1. Initialize your agent (e.g., `cursor init`, `claude code init`)
 2. Pass `--framework` explicitly: `lotr "write unit tests" --framework cursor`
 
+### Q: I'm on Windows and getting UnicodeEncodeError.
+
+**A:** The CLI (v1.3.5+) automatically reconfigures stdout to UTF-8 and uses `safe_print()` to handle encoding errors. If you still see issues, run this in your terminal first:
+```powershell
+chcp 65001
+```
+
+### Q: How do I set my framework if auto-detection fails?
+
+**A:** Use the new `lotr framework set` command:
+```bash
+lotr framework set antigravity
+```
+This writes to `.lotr/config.json` directly — no manual file editing needed. It validates the framework name against all 11 supported frameworks.
+
+### Q: Can I preview skills for a specific kingdom without typing an intent?
+
+**A:** Yes (v1.3.5+):
+```bash
+lotr preview --kingdom mordor --framework cursor
+```
+The `--kingdom` flag works on both `lotr preview` and `lotr install`.
+
 ---
 
 ## 🕷 Crawler

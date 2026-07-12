@@ -539,3 +539,36 @@ lotr design "make this app look premium"
 | Kingdoms | 10 | 11 |
 | CLI subcommands | 11 | 12 (added `design`) |
 | PyPI version | 1.2.0 | 1.3.0 |
+
+---
+
+## [1.3.5] — 2026-07-11 — *Windows Fix + Framework Command*
+
+### 🪟 Windows Unicode Fix
+- Added `sys.stdout.reconfigure(encoding='utf-8', errors='replace')` at CLI startup
+- Added `safe_print()` function that catches `UnicodeEncodeError` and falls back to ASCII replacement
+- Fixes crash on Windows consoles with cp1252 encoding when printing emoji (⚔, ⭐, 🏰)
+
+### 🏷 New: `lotr framework set` Command
+```bash
+lotr framework set antigravity    # sets framework in .lotr/config.json
+lotr framework set cursor         # validates name, rejects invalid frameworks
+```
+- Validates framework name against 11 known frameworks
+- Writes to `.lotr/config.json` without requiring manual file editing
+- Shows old → new transition
+
+### 🔍 Improvements
+- Added `--kingdom` flag to `lotr preview` subcommand (parity with `lotr install`)
+- Preview now works with `--kingdom` alone (no intent required when using --kingdom)
+- `safe_print` used in banner to prevent Windows crashes
+
+### 📊 Current State
+| Item | Value |
+|:---|---:|
+| CLI subcommands | 13 (init, framework, design, starter, guide, detect, kingdoms, search, list, preview, install, kickoff, update) |
+| PyPI version | 1.3.5 |
+| Tests passing | 231 |
+| Frameworks supported | 14 |
+| Kingdoms | 11 |
+| Total artifacts | 17,126+ |
