@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-NOTE: This MIT license applies ONLY to the compilation scripts (crawler/, 
-build_package.py, classify.py, dedup.py, generate_excel.py, generate_pdf.py, 
-refresh_lord_of_skills.sh) and the README, docs, and catalog files.
-
-The skill artifacts in the skills/ directory are NOT re-licensed by this 
-compilation. Each retains its original upstream license. See docs/CREDITS.md 
-for the full list of source repositories and their respective licenses.
