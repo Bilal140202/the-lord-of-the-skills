@@ -121,18 +121,24 @@ find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 
 <div align="center">
 
+**🌐 [Try the live web UI](https://bilal140202.github.io/the-lord-of-the-skills/) — no install needed**
+
 <table>
 <tr>
-<td width="50%" align="center"><b>📄 PDF Catalog (11 kingdoms, updated v1.8.0)</b></td>
-<td width="50%" align="center"><b>📊 Excel Index (6 sheets, filterable)</b></td>
+<td width="50%" align="center"><b>🌐 Web UI — Desktop</b></td>
+<td width="50%" align="center"><b>🏰 Kingdoms Dashboard</b></td>
 </tr>
 <tr>
+<td width="50%" align="center"><img src="assets/screenshots/web-ui-desktop.png" alt="Web UI desktop view" width="100%"/></td>
+<td width="50%" align="center"><img src="assets/screenshots/web-ui-kingdoms.png" alt="Kingdoms dashboard" width="100%"/></td>
+</tr>
+<tr>
+<td width="50%" align="center"><b>📱 Web UI — Mobile</b></td>
+<td width="50%" align="center"><b>📄 PDF Catalog</b></td>
+</tr>
+<tr>
+<td width="50%" align="center"><img src="assets/screenshots/web-ui-mobile.png" alt="Web UI mobile view" width="100%"/></td>
 <td width="50%" align="center"><img src="assets/screenshots/pdf-preview-01.png" alt="PDF cover with LOTR ring" width="100%"/></td>
-<td width="50%" align="center"><img src="assets/screenshots/pdf-preview-02.png" alt="PDF kingdom sections" width="100%"/></td>
-</tr>
-<tr>
-<td width="50%" align="center"><img src="assets/screenshots/pdf-preview-03.png" alt="PDF skill entries" width="100%"/></td>
-<td width="50%" align="center"><img src="assets/screenshots/folder-structure.png" alt="Repo folder structure" width="100%"/></td>
 </tr>
 </table>
 
