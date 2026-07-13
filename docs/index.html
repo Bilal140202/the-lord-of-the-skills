@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Lord of the Skills — AI Agent Skills Browser</title>
+<meta name="description" content="Browse and search 17,000+ AI agent skills across 14 frameworks and 11 LOTR-themed kingdoms. pip install lotr-skills.">
+<meta name="keywords" content="AI agent skills, cursor rules, claude code skills, SKILL.md, AGENTS.md, skill installer, lotr-skills, ai coding assistant">
+<meta property="og:title" content="The Lord of the Skills — AI Agent Skills Browser">
+<meta property="og:description" content="17,000+ AI agent skills across 14 frameworks. Browse, search, and install with one command.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://bilal140202.github.io/the-lord-of-the-skills/">
+<meta property="og:image" content="https://raw.githubusercontent.com/Bilal140202/the-lord-of-the-skills/main/assets/social/social-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Lord of the Skills — 17,000+ AI Agent Skills">
+<meta name="twitter:description" content="Browse and search AI agent skills across 14 frameworks. pip install lotr-skills.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"The Lord of the Skills","applicationCategory":"DeveloperTool","operatingSystem":"Cross-platform","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"CLI installer for 17,000+ AI agent skills across 14 frameworks","url":"https://github.com/Bilal140202/the-lord-of-the-skills","installUrl":"https://pypi.org/project/lotr-skills/","softwareVersion":"1.4.0","license":"MIT"}
+</script>
+<style>
+:root{--bg:#0d0a06;--surface:#1a1410;--border:#3d2817;--gold:#B8860B;--gold-bright:#FFD700;--parchment:#F5E9C9;--text:#e8dcc8;--text-dim:#9c8b6f;--red:#991b1b;--green:#15803d;--blue:#1e3a8a;--purple:#581c87;--teal:#0f766e;--radius:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--gold-bright);text-decoration:none}a:hover{text-decoration:underline}
+.container{max-width:1200px;margin:0 auto;padding:0 20px}
+/* Header */
+header{text-align:center;padding:40px 20px 20px;border-bottom:2px solid var(--border)}
+header h1{font-size:2.5em;color:var(--gold-bright);margin-bottom:5px}
+header p{color:var(--text-dim);font-size:1.2em}
+.stats-bar{display:flex;justify-content:center;gap:30px;margin:20px 0;flex-wrap:wrap}
+.stat{text-align:center}
+.stat .num{font-size:1.8em;font-weight:bold;color:var(--gold-bright)}
+.stat .label{font-size:0.85em;color:var(--text-dim)}
+.install-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;display:inline-block;margin:10px 0}
+.install-box code{color:var(--green);font-size:1.1em;font-family:'Fira Code',Consolas,monospace}
+/* Layout */
+.main-grid{display:grid;grid-template-columns:280px 1fr;gap:20px;padding:20px 0}
+@media(max-width:768px){.main-grid{grid-template-columns:1fr}}
+/* Sidebar */
+.sidebar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;position:sticky;top:20px;align-self:start;max-height:90vh;overflow-y:auto}
+.sidebar h3{color:var(--gold);margin-bottom:10px;font-size:1em;text-transform:uppercase;letter-spacing:1px}
+.sidebar input,.sidebar select{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:0.95em;margin-bottom:10px}
+.sidebar input:focus,.sidebar select:focus{outline:none;border-color:var(--gold)}
+.sidebar label{display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:0.95em}
+.sidebar .pip{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px}
+.sidebar hr{border:none;border-top:1px solid var(--border);margin:15px 0}
+.sidebar .install-link{display:block;text-align:center;margin-top:10px;padding:8px;background:var(--gold);color:var(--bg);border-radius:4px;font-weight:bold;text-decoration:none}
+.sidebar .install-link:hover{background:var(--gold-bright);text-decoration:none}
+/* Results */
+.results-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.results-header h2{font-size:1.3em;color:var(--parchment)}
+.results-header .count{color:var(--text-dim);font-size:0.95em}
+.skill-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px;margin-bottom:10px;cursor:pointer;transition:border-color .2s}
+.skill-card:hover{border-color:var(--gold)}
+.skill-card .title-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.skill-card .canon{color:var(--gold-bright)}
+.skill-card .title{font-weight:bold;font-size:1.05em;color:var(--parchment)}
+.skill-card .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:5px}
+.badge{padding:2px 8px;border-radius:10px;font-size:0.8em;font-weight:bold}
+.badge-kingdom{color:#fff}
+.badge-framework{background:var(--border);color:var(--text-dim)}
+.skill-card .summary{color:var(--text-dim);font-size:0.9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skill-card .meta{font-size:0.8em;color:var(--text-dim);margin-top:4px}
+/* Tabs */
+.tabs{display:flex;gap:5px;margin-bottom:15px;border-bottom:2px solid var(--border)}
+.tab{padding:10px 20px;cursor:pointer;color:var(--text-dim);border-bottom:3px solid transparent;font-weight:bold}
+.tab.active{color:var(--gold-bright);border-bottom-color:var(--gold-bright)}
+.tab-content{display:none}.tab-content.active{display:block}
+/* Kingdom cards */
+.kingdom-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:15px}
+.kingdom-card{background:var(--surface);border:2px solid;border-radius:var(--radius);padding:20px;text-align:center}
+.kingdom-card .symbol{font-size:2.5em}
+.kingdom-card .name{font-size:1.3em;font-weight:bold;margin:5px 0}
+.kingdom-card .domain{font-size:0.85em;color:var(--text-dim);margin-bottom:8px}
+.kingdom-card .count{font-size:2em;font-weight:bold}
+.kingdom-card .count-label{font-size:0.8em;color:var(--text-dim)}
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;overflow-y:auto}
+.modal-overlay.active{display:block}
+.modal{max-width:800px;margin:40px auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px}
+.modal-header{display:flex;justify-content:space-between;align-items:start;margin-bottom:15px}
+.modal-header h2{color:var(--gold-bright);font-size:1.5em}
+.modal-close{background:none;border:none;color:var(--text-dim);font-size:1.5em;cursor:pointer}
+.modal-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:15px}
+.modal-meta div{background:var(--bg);padding:8px 12px;border-radius:4px;font-size:0.9em}
+.modal-meta strong{color:var(--gold)}
+.modal-content{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:20px;max-height:500px;overflow-y:auto;font-family:monospace;font-size:0.9em;white-space:pre-wrap;color:var(--text);line-height:1.5}
+.modal-content pre{white-space:pre-wrap;word-wrap:break-word}
+.modal-footer{margin-top:15px;text-align:center}
+.modal-footer code{background:var(--bg);padding:8px 12px;border-radius:4px;color:var(--green);font-size:1em}
+/* Chart */
+.chart-bar{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.chart-bar .label{width:140px;text-align:right;font-size:0.9em;color:var(--text-dim)}
+.chart-bar .bar{height:24px;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:0.85em;color:#fff;font-weight:bold;min-width:40px;transition:width .3s}
+.chart-bar .val{font-size:0.85em;color:var(--text-dim);margin-left:5px}
+/* Framework table */
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--gold);font-size:0.9em;text-transform:uppercase}
+td{font-size:0.95em}
+td code{background:var(--bg);padding:2px 6px;border-radius:3px;color:var(--green);font-size:0.85em}
+/* Footer */
+footer{text-align:center;padding:30px 20px;border-top:2px solid var(--border);color:var(--text-dim);font-size:0.9em}
+footer a{margin:0 8px}
+/* Loading */
+.loading{text-align:center;padding:40px;color:var(--text-dim)}
+.spinner{display:inline-block;width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Pagination */
+.pagination{display:flex;justify-content:center;gap:5px;margin-top:20px}
+.pagination button{padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:var(--text);cursor:pointer}
+.pagination button:hover{border-color:var(--gold)}
+.pagination button.active{background:var(--gold);color:var(--bg);border-color:var(--gold)}
+.pagination button:disabled{opacity:0.4;cursor:default}
+</style>
+</head>
+<body>
+
+<header>
+<div class="container">
+<h1>⚔ The Lord of the Skills</h1>
+<p>One catalog to rule them all — <span id="stat-total">17,000+</span> AI agent skills across <span id="stat-kingdoms">11</span> kingdoms and <span id="stat-frameworks">14</span> frameworks</p>
+<div class="stats-bar">
+<div class="stat"><div class="num" id="s-skills">—</div><div class="label">Total Skills</div></div>
+<div class="stat"><div class="num" id="s-canon">—</div><div class="label">Canonical ⭐</div></div>
+<div class="stat"><div class="num" id="s-kingdoms">—</div><div class="label">Kingdoms</div></div>
+<div class="stat"><div class="num" id="s-frameworks">—</div><div class="label">Frameworks</div></div>
+</div>
+<div class="install-box"><code>pip install lotr-skills</code></div>
+</div>
+</header>
+
+<div class="container">
+<div class="main-grid">
+
+<!-- Sidebar -->
+<div class="sidebar">
+<h3>🔍 Filters</h3>
+<input type="text" id="search" placeholder="Search skills..." oninput="debounceSearch()">
+
+<h3>Kingdom</h3>
+<select id="kingdom-filter" onchange="applyFilters()">
+<option value="">All Kingdoms</option>
+</select>
+
+<h3>Framework</h3>
+<select id="framework-filter" onchange="applyFilters()">
+<option value="">All Frameworks</option>
+</select>
+
+<label><input type="checkbox" id="canonical-only" onchange="applyFilters()"> ⭐ Canonical only</label>
+
+<hr>
+<h3>Results</h3>
+<select id="page-size" onchange="applyFilters()">
+<option value="25">25 per page</option>
+<option value="50" selected>50 per page</option>
+<option value="100">100 per page</option>
+</select>
+
+<hr>
+<a class="install-link" href="https://github.com/Bilal140202/the-lord-of-the-skills" target="_blank">📦 View on GitHub</a>
+<br><br>
+<a href="https://pypi.org/project/lotr-skills/" target="_blank" style="font-size:0.85em">PyPI</a> ·
+<a href="https://dev.to/ansari_bilal/the-ultimate-collection-of-18k-ai-agent-skills-across-14-frameworks-fbo" target="_blank" style="font-size:0.85em">Dev.to</a>
+</div>
+
+<!-- Main content -->
+<div>
+<div class="tabs">
+<div class="tab active" onclick="switchTab('browse')">📋 Browse Skills</div>
+<div class="tab" onclick="switchTab('kingdoms')">🏰 Kingdoms</div>
+<div class="tab" onclick="switchTab('frameworks')">⚙ Frameworks</div>
+</div>
+
+<div id="tab-browse" class="tab-content active">
+<div class="results-header">
+<h2 id="results-title">All Skills</h2>
+<span class="count" id="results-count">Loading...</span>
+</div>
+<div id="skill-list"><div class="loading"><div class="spinner"></div><p>Loading 17,000+ skills...</p></div></div>
+<div class="pagination" id="pagination"></div>
+</div>
+
+<div id="tab-kingdoms" class="tab-content">
+<h2>The Eleven Kingdoms</h2>
+<p style="color:var(--text-dim);margin:10px 0">Ten domains of agent capability, one catalog to rule them all.</p>
+<div class="kingdom-grid" id="kingdom-grid"></div>
+<h3 style="margin:20px 0 10px">📊 Skills per Kingdom</h3>
+<div id="kingdom-chart"></div>
+</div>
+
+<div id="tab-frameworks" class="tab-content">
+<h2>Framework Coverage</h2>
+<table id="framework-table">
+<thead><tr><th>Framework</th><th>Skills</th><th>Install Command</th></tr></thead>
+<tbody></tbody>
+</table>
+<h3 style="margin:20px 0 10px">📊 Skills per Framework</h3>
+<div id="framework-chart"></div>
+</div>
+
+</div>
+</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+<div class="modal">
+<div class="modal-header">
+<h2 id="modal-title">Skill Title</h2>
+<button class="modal-close" onclick="closeModal()">✕</button>
+</div>
+<div class="modal-meta" id="modal-meta"></div>
+<div class="modal-content" id="modal-content"><div class="loading"><div class="spinner"></div></div></div>
+<div class="modal-footer">
+<strong>Install:</strong> <code id="modal-install">lotr install</code>
+</div>
+</div>
+</div>
+
+<footer>
+<div class="container">
+<p>⚔ <strong>The Lord of the Skills</strong> — Built by <a href="https://github.com/Bilal140202" target="_blank">Ansari Mohammad Bilal</a></p>
+<p>
+<a href="https://github.com/Bilal140202/the-lord-of-the-skills" target="_blank">GitHub</a> ·
+<a href="https://pypi.org/project/lotr-skills/" target="_blank">PyPI</a> ·
+<a href="https://dev.to/ansari_bilal/the-ultimate-collection-of-18k-ai-agent-skills-across-14-frameworks-fbo" target="_blank">Dev.to</a> ·
+<code>pip install lotr-skills</code>
+</p>
+<p><em>May your agents be wise, your prompts be sharp, and your skills be many.</em></p>
+</div>
+</footer>
+
+<script>
+const INDEX_URL="https://raw.githubusercontent.com/Bilal140202/the-lord-of-the-skills/main/skills/index.json";
+const RAW_BASE="https://raw.githubusercontent.com/Bilal140202/the-lord-of-the-skills/main";
+const KINGDOMS={
+"gondor":{name:"Gondor",domain:"Coding & Software Engineering",symbol:"⚔",color:"#1e3a8a"},
+"rivendell":{name:"Rivendell",domain:"Research & Knowledge",symbol:"✦",color:"#0f766e"},
+"moria":{name:"Moria",domain:"DevOps & Infrastructure",symbol:"⛏",color:"#4b5563"},
+"lothlorien":{name:"Lothlórien",domain:"Data & Analysis",symbol:"✿",color:"#15803d"},
+"mordor":{name:"Mordor",domain:"Security & Auditing",symbol:"👁",color:"#991b1b"},
+"the-shire":{name:"The Shire",domain:"Writing & Content",symbol:"✎",color:"#a16207"},
+"isengard":{name:"Isengard",domain:"Agents & Orchestration",symbol:"⚙",color:"#52525b"},
+"rohan":{name:"Rohan",domain:"Testing & Verification",symbol:"🐴",color:"#92400e"},
+"fangorn":{name:"Fangorn",domain:"Documentation & Memory",symbol:"🌳",color:"#166534"},
+"mirkwood":{name:"Mirkwood",domain:"Specialized & Niche",symbol:"🕸",color:"#581c87"},
+"minas-tirith":{name:"Minas Tirith",domain:"UI & Design",symbol:"🏰",color:"#7c3aed"}
+};
+let allSkills=[],filtered=[],currentPage=1,pageSize=50,searchTimer=null;
+
+async function init(){
+try{
+const r=await fetch(INDEX_URL,{headers:{"User-Agent":"lotr-web-ui"}});
+const data=await r.json();
+allSkills=data.skills||[];
+document.getElementById('s-skills').textContent=data.total_skills?.toLocaleString()||allSkills.length.toLocaleString();
+document.getElementById('s-canon').textContent=data.canonical_count||0;
+document.getElementById('s-kingdoms').textContent=Object.keys(data.kingdoms||{}).length;
+document.getElementById('s-frameworks').textContent=Object.keys(data.frameworks||{}).length;
+document.getElementById('stat-total').textContent=(data.total_skills||allSkills.length).toLocaleString();
+document.getElementById('stat-kingdoms').textContent=Object.keys(data.kingdoms||{}).length;
+document.getElementById('stat-frameworks').textContent=Object.keys(data.frameworks||{}).length;
+populateFilters(data.kingdoms||{},data.frameworks||{});
+renderKingdoms(data.kingdoms||{});
+renderFrameworks(data.frameworks||{});
+applyFilters();
+}catch(e){
+document.getElementById('skill-list').innerHTML='<p style="color:var(--red)">Failed to load skills. Please check your connection and try again.</p>';
+console.error(e);
+}
+}
+
+function populateFilters(kingdoms,frameworks){
+const ks=document.getElementById('kingdom-filter');
+Object.keys(kingdoms).sort().forEach(k=>{
+const info=KINGDOMS[k]||{symbol:'',name:k};
+const opt=document.createElement('option');
+opt.value=k;opt.textContent=`${info.symbol} ${info.name} (${kingdoms[k]})`;
+ks.appendChild(opt);
+});
+const fs=document.getElementById('framework-filter');
+Object.keys(frameworks).sort().forEach(f=>{
+const opt=document.createElement('option');
+opt.value=f;opt.textContent=`${f} (${frameworks[f]})`;
+fs.appendChild(opt);
+});
+}
+
+function debounceSearch(){clearTimeout(searchTimer);searchTimer=setTimeout(applyFilters,300)}
+
+function applyFilters(){
+const q=document.getElementById('search').value.toLowerCase();
+const k=document.getElementById('kingdom-filter').value;
+const f=document.getElementById('framework-filter').value;
+const canon=document.getElementById('canonical-only').checked;
+pageSize=parseInt(document.getElementById('page-size').value);
+filtered=allSkills.filter(s=>{
+if(k&&s.kingdom!==k)return false;
+if(f&&!s.frameworks.includes(f))return false;
+if(canon&&!s.canonical)return false;
+if(q){
+const t=(s.title||'').toLowerCase(),su=(s.summary||'').toLowerCase(),fn=(s.filename||'').toLowerCase();
+const tags=(s.tags||[]).join(' ').toLowerCase();
+if(!t.includes(q)&&!su.includes(q)&&!fn.includes(q)&&!tags.includes(q))return false;
+}
+return true;
+});
+currentPage=1;
+renderResults();
+}
+
+function renderResults(){
+const start=(currentPage-1)*pageSize;
+const page=filtered.slice(start,start+pageSize);
+document.getElementById('results-count').textContent=`${filtered.length.toLocaleString()} found (showing ${start+1}-${Math.min(start+pageSize,filtered.length)})`;
+const list=document.getElementById('skill-list');
+if(page.length===0){list.innerHTML='<p style="text-align:center;color:var(--text-dim);padding:40px">No skills found. Try adjusting your filters.</p>';document.getElementById('pagination').innerHTML='';return}
+list.innerHTML=page.map((s,i)=>{
+const info=KINGDOMS[s.kingdom]||{symbol:'?',name:s.kingdom,color:'#666'};
+const realIdx=filtered.indexOf(s);
+return `<div class="skill-card" onclick="openSkill(${realIdx})">
+<div class="title-row">
+<span class="canon">${s.canonical?'⭐':''}</span>
+<span class="title">${escHtml(s.title||'(untitled)')}</span>
+</div>
+<div class="badges">
+<span class="badge badge-kingdom" style="background:${info.color}">${info.symbol} ${info.name}</span>
+${(s.frameworks||[]).map(f=>`<span class="badge badge-framework">${f}</span>`).join('')}
+</div>
+<div class="summary">${escHtml((s.summary||'').substring(0,120))}</div>
+<div class="meta">📁 ${escHtml(s.source_repo||'?')} · ${s.size_bytes||0} bytes</div>
+</div>`}).join('');
+renderPagination();
+}
+
+function renderPagination(){
+const pages=Math.ceil(filtered.length/pageSize);
+if(pages<=1){document.getElementById('pagination').innerHTML='';return}
+let html='';
+html+=`<button ${currentPage===1?'disabled':''} onclick="goPage(${currentPage-1})">← Prev</button>`;
+const maxBtns=7;let startP=Math.max(1,currentPage-3);let endP=Math.min(pages,startP+maxBtns-1);
+if(startP>1)html+=`<button onclick="goPage(1)">1</button>`;
+if(startP>2)html+='<span style="color:var(--text-dim)">...</span>';
+for(let i=startP;i<=endP;i++)html+=`<button class="${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+if(endP<pages-1)html+='<span style="color:var(--text-dim)">...</span>';
+if(endP<pages)html+=`<button onclick="goPage(${pages})">${pages}</button>`;
+html+=`<button ${currentPage===pages?'disabled':''} onclick="goPage(${currentPage+1})">Next →</button>`;
+document.getElementById('pagination').innerHTML=html;
+}
+
+function goPage(p){currentPage=p;renderResults();window.scrollTo({top:0,behavior:'smooth'})}
+
+async function openSkill(idx){
+const s=filtered[idx];if(!s)return;
+const info=KINGDOMS[s.kingdom]||{symbol:'?',name:s.kingdom,domain:'?'};
+document.getElementById('modal-title').textContent=s.title||'(untitled)';
+document.getElementById('modal-meta').innerHTML=`
+<div><strong>Kingdom:</strong> ${info.symbol} ${info.name}</div>
+<div><strong>Domain:</strong> ${info.domain}</div>
+<div><strong>Framework:</strong> ${(s.frameworks||[]).join(', ')}</div>
+<div><strong>Canonical:</strong> ${s.canonical?'⭐ Yes':'No'}</div>
+<div><strong>Source:</strong> <a href="https://github.com/${s.source_repo}" target="_blank">${escHtml(s.source_repo||'?')}</a></div>
+<div><strong>Size:</strong> ${(s.size_bytes||0).toLocaleString()} bytes</div>`;
+document.getElementById('modal-install').textContent=`lotr install --kingdom ${s.kingdom} --framework ${(s.frameworks||['claude-code'])[0]}`;
+document.getElementById('modal').classList.add('active');
+document.getElementById('modal-content').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+try{
+const fw=(s.frameworks||['general'])[0];
+let relPath=s.path||'';
+const prefixes=[`skills/${s.kingdom}/${fw}/`,`skills/${s.kingdom}/`];
+for(const p of prefixes){if(relPath.startsWith(p)){relPath=relPath.substring(p.length);break}}
+const url=`${RAW_BASE}/skills/${s.kingdom}/${fw}/${relPath}`;
+const r=await fetch(url);
+const text=await r.text();
+document.getElementById('modal-content').innerHTML=`<pre>${escHtml(text)}</pre>`;
+}catch(e){
+document.getElementById('modal-content').innerHTML='<p style="color:var(--red)">Could not fetch skill content.</p>';
+}
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('active')}
+
+function switchTab(tab){
+document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+event.target.classList.add('active');
+document.getElementById('tab-'+tab).classList.add('active');
+}
+
+function renderKingdoms(dist){
+const grid=document.getElementById('kingdom-grid');
+grid.innerHTML=Object.entries(dist).sort((a,b)=>b[1]-a[1]).map(([k,count])=>{
+const info=KINGDOMS[k]||{symbol:'?',name:k,domain:'?',color:'#666'};
+return `<div class="kingdom-card" style="border-color:${info.color}">
+<div class="symbol">${info.symbol}</div>
+<div class="name" style="color:${info.color}">${info.name}</div>
+<div class="domain">${info.domain}</div>
+<div class="count" style="color:${info.color}">${count.toLocaleString()}</div>
+<div class="count-label">artifacts</div>
+</div>`}).join('');
+const chart=document.getElementById('kingdom-chart');
+const maxVal=Math.max(...Object.values(dist));
+chart.innerHTML=Object.entries(dist).sort((a,b)=>b[1]-a[1]).map(([k,count])=>{
+const info=KINGDOMS[k]||{name:k,color:'#666'};
+const pct=Math.round(count/maxVal*100);
+return `<div class="chart-bar">
+<div class="label">${info.name}</div>
+<div class="bar" style="width:${pct}%;background:${info.color}">${count.toLocaleString()}</div>
+</div>`}).join('');
+}
+
+function renderFrameworks(dist){
+const tbody=document.querySelector('#framework-table tbody');
+tbody.innerHTML=Object.entries(dist).sort((a,b)=>b[1]-a[1]).map(([f,count])=>
+`<tr><td>${f}</td><td>${count.toLocaleString()}</td><td><code>lotr install --framework ${f} "your task"</code></td></tr>`).join('');
+const chart=document.getElementById('framework-chart');
+const maxVal=Math.max(...Object.values(dist));
+const colors=['#FFD700','#8B4513','#52525B','#1E3A8A','#0F766E','#15803d','#991B1B','#A16207','#581C87','#92400E','#166534','#4B5563','#7C3AED','#C0C0C0'];
+chart.innerHTML=Object.entries(dist).sort((a,b)=>b[1]-a[1]).map(([f,count],i)=>{
+const pct=Math.max(2,Math.round(count/maxVal*100));
+return `<div class="chart-bar">
+<div class="label">${f}</div>
+<div class="bar" style="width:${pct}%;background:${colors[i%colors.length]}">${count.toLocaleString()}</div>
+</div>`}).join('');
+}
+
+function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+init();
+</script>
+</body>
+</html>

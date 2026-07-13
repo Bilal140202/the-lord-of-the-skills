@@ -109,7 +109,9 @@ cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md        # Aider
 find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 ```
 
-🌐 **Web UI:** Browse all 17,000+ skills in your browser — `streamlit run web/app.py`
+🌐 **Live Demo:** [bilal140202.github.io/the-lord-of-the-skills](https://bilal140202.github.io/the-lord-of-the-skills/) — browse all 17,000+ skills in your browser (no install needed!)
+
+🌐 **Self-host:** `streamlit run web/app.py`
 
 📖 **Full guide:** [`QUICKSTART.md`](QUICKSTART.md) · **CLI docs:** [`cli/README.md`](cli/README.md) · **Browse:** [`KINGDOMS.md`](KINGDOMS.md) · **Frameworks:** [`FRAMEWORKS.md`](FRAMEWORKS.md)
 
