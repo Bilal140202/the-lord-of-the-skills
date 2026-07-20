@@ -266,6 +266,7 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 
 - [@Bilal140202](https://github.com/Bilal140202) — Creator & maintainer
 - [@manavsep](https://github.com/manavsep) — Documentation (grammar fixes, proofreading PR #9)
+- [@Sowmyamaakam](https://github.com/Sowmyamaakam) — Deployed Streamlit web UI to Streamlit Cloud (PR #13)
 
 ---
 
