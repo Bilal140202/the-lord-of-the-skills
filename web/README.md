@@ -11,6 +11,14 @@ streamlit run web/app.py
 
 The app opens at `http://localhost:8501`.
 
+
+## 🌐 Live Demo
+
+Browse the AI agent skills directly in your browser:
+
+https://the-lord-of-the-skills.streamlit.app/
+
+
 ## ☁ Deploy
 
 ### Option 1: Streamlit Cloud (free, recommended)
