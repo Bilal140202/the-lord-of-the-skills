@@ -262,6 +262,11 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 
 [![Contributors Display](https://contrib.rocks/image?repo=Bilal140202/the-lord-of-the-skills)](https://github.com/Bilal140202/the-lord-of-the-skills/graphs/contributors)
 
+### 🌟 Contributors
+
+- [@Bilal140202](https://github.com/Bilal140202) — Creator & maintainer
+- [@manavsep](https://github.com/manavsep) — Documentation (grammar fixes, proofreading PR #9)
+
 ---
 
 ## 📜 Changelog (latest)
