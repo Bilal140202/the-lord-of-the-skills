@@ -20,7 +20,7 @@
 
 ### 🌟 *A growing, organized collection of AI agent skills — covering 14 frameworks* 🌟
 
-**17,126+ artifacts** · **14 frameworks** · **11 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
+**17,659+ artifacts** · **14 frameworks** · **11 LOTR-themed kingdoms** · **307+ source repos** · **357 canonical ⭐**
 
 </div>
 
@@ -46,7 +46,7 @@ While most AI skill catalogs have **zero Antigravity coverage**, this repo has b
 
 | | |
 |:---|:---|
-| 🏆 **Largest collection** | 17,000+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity** |
+| 🏆 **Largest collection** | 17,659+ skills from 307+ GitHub repos, covering Claude Code, Cursor, Cline, Roo, Aider, OpenHands, Codex, Continue, Goose, Copilot, AutoGen, CrewAI, LangGraph, **and Google Antigravity** |
 | 🎭 **LOTR-themed** | Sorted into 10 kingdoms (⚔ Gondor = Coding, ✦ Rivendell = Research, 👁 Mordor = Security, ⚙ Isengard = Agents, ...) — memorable, fun, and easy to navigate |
 | ✨ **Canonical skills** | Deduplicated with **357 ⭐ canonical representatives** — one best version per concept. See [`DEDUP.md`](DEDUP.md) for how it works |
 | 🤖 **`lotr` CLI** | One-command installer: `lotr "write unit tests"` — auto-detects your framework, matches intent to kingdom, downloads only the skills you need. See [`cli/README.md`](cli/README.md) |
@@ -109,7 +109,7 @@ cp skills/gondor/aider/CONVENTIONS.md ./CONVENTIONS.md        # Aider
 find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 ```
 
-🌐 **Live Demo:** [bilal140202.github.io/the-lord-of-the-skills](https://bilal140202.github.io/the-lord-of-the-skills/) — browse all 17,000+ skills in your browser (no install needed!)
+🌐 **Live Demo:** [bilal140202.github.io/the-lord-of-the-skills](https://bilal140202.github.io/the-lord-of-the-skills/) — browse all 17,659+ skills in your browser (no install needed!)
 
 🌐 **Self-host:** `streamlit run web/app.py`
 
@@ -161,7 +161,7 @@ find skills/ -name 'canonical__*' -exec cp {} ~/.claude/skills/ \;
 | 👁 | [**Mordor**](skills/mordor/README.md) | Security & Auditing | 406 | 9 ⭐ |
 | 🕸 | [**Mirkwood**](skills/mirkwood/README.md) | Specialized & Niche | 81 | 1 ⭐ |
 | 🏰 | [**Minas Tirith**](skills/minas-tirith/README.md) | UI & Design | 366 | 0 ⭐ |
-| | **TOTAL** | | **17,126** | **354 ⭐** |
+| | **TOTAL** | | **17,659** | **354 ⭐** |
 
 📖 Full mottos, frameworks, and per-kingdom stats: [`KINGDOMS.md`](KINGDOMS.md)
 
@@ -272,8 +272,20 @@ The kingdom grows with every contributor. See [`CONTRIBUTING.md`](CONTRIBUTING.m
 
 ## 📜 Changelog (latest)
 
+### [v1.4.1] — More Skills Added
+- 📥 Added 533 new skills from 4 repos:
+  - MengTo/Skills (289 files) — game dev, web design, UI, media
+  - LaunchDarkly/agent-skills (128 files) — observability, flag management
+  - terramate-io/agent-skills (58 files) — Terraform best practices
+  - netresearch/agents-skill (58 files) — agent rules, coding conventions
+- 📊 Total: 17,126 → 17,659 skills (+533)
+- 🏰 Minas Tirith: 366 → 558 (+192 design skills)
+- ⛏ Moria: 893 → 948 (+55 DevOps skills)
+- ⚔ Gondor: 9,228 → 9,512 (+284 coding skills)
+- Regenerated skills/index.json
+
 ### [v1.4.0] — *The Searchable Realm*
-- 🌐 New: Streamlit web UI — browse + search 17,000+ skills in your browser
+- 🌐 New: Streamlit web UI — browse + search 17,659+ skills in your browser
 - 📊 Kingdom dashboard, framework coverage chart, skill content preview
 - 🧹 Cleaned up stale changelog entries
 - Bumped to v1.4.0 on PyPI

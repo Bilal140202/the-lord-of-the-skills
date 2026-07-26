@@ -598,3 +598,44 @@ lotr framework set cursor         # validates name, rejects invalid frameworks
 - 231 tests passing
 - 13 CLI subcommands
 - 11 kingdoms, 14 frameworks, 17,126 skills
+
+---
+
+## [1.4.1] — 2026-07-20 — *More Skills Added*
+
+### 📥 New Skills (533 added from 4 repos)
+
+#### MengTo/Skills (289 files)
+- Game development skills (Three.js, VFX, combat, inventory, audio)
+- Web design skills (hover effects, animations, landing pages, WebGL)
+- UI design skills (design-first prompting, spec-driven UI)
+- Codex workflows (video-to-prompt, HTML-to-interaction, page capture)
+- Customer support skills (SaaS account cases)
+- Media skills (Aura asset images)
+- Kingdoms: gondor (95), minas-tirith (192), the-shire (2)
+
+#### LaunchDarkly/agent-skills (128 files)
+- Observability skills (alert investigation, logs, traces, metrics, sessions)
+- Flag management skills (feature flags, experimentation)
+- Graph creation skills (enums, metrics, traces visualization)
+- Kingdoms: gondor (112), moria (16)
+
+#### terramate-io/agent-skills (58 files)
+- Terraform best practices (37 rules across 10 categories)
+- Security, performance, language, module composition rules
+- Kingdoms: gondor (19), moria (39)
+
+#### netresearch/agents-skill (58 files)
+- Agent rules (backend Go, PHP, TypeScript, testing, examples)
+- Coding conventions and project-scoped rules
+- Kingdoms: gondor (58)
+
+### 📊 Updated Stats
+| Metric | Before | After |
+|:---|---:|---:|
+| Total skills | 17,126 | 17,659 |
+| Minas Tirith | 366 | 558 |
+| Moria | 893 | 948 |
+| Gondor | 9,228 | 9,512 |
+| The Shire | 1,238 | 1,240 |
+| Source repos | 310 | 314 |
