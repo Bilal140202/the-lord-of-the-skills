@@ -184,13 +184,9 @@ def fetch_and_save(skill: Dict, dest_dir: Path, timeout: int = 30) -> Path:
             filename = filename[len("canonical__"):]
 
     dest = dest_dir / filename
-    # Avoid overwriting existing files
-    n = 1
-    while dest.exists():
-        stem = Path(filename).stem
-        suffix = Path(filename).suffix
-        dest = dest_dir / f"{stem}_{n}{suffix}"
-        n += 1
+    # Skip if file already exists (idempotent install)
+    if dest.exists():
+        return None  # signal: already installed
     dest.write_text(content, encoding="utf-8")
     return dest
 

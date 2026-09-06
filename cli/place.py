@@ -101,6 +101,9 @@ def place_skill(framework: str, content: str, filename: str,
         # Append to existing file (with separator if non-empty)
         if dest.exists() and dest.stat().st_size > 0:
             existing = dest.read_text(encoding="utf-8")
+            # Check if content already exists (idempotent)
+            if content.strip() in existing:
+                return None  # already appended, skip
             separator = "\n\n---\n\n<!-- Appended by lotr CLI -->\n\n"
             content = existing.rstrip() + separator + content
         dest.write_text(content, encoding="utf-8")

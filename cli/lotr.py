@@ -18,7 +18,7 @@ Examples:
   $ cd my-react-project/
   $ lotr "write unit tests for the API"
   [detect] framework=claude-code  language=typescript  stack=[react, next]
-  [match]  intent="write unit tests for the API" → rohan (score=3, kws=[test, unit, tests])
+  [MATCH]  intent="write unit tests for the API" → rohan (score=3, kws=[test, unit, tests])
   [fetch]  3 canonical skills found for rohan/claude-code
   [place]  ~/.claude/skills/canonical__test-coverage.md
   [place]  ~/.claude/skills/canonical__unit-test-writer.md
@@ -66,11 +66,23 @@ def install_skill(skill, framework, project_root):
                 break
         content = fetch_skill(kingdom, fw, rel_path)
         filename = skill.get("filename", "skill.md")
-        return place_skill(framework, content, filename, project_root)
+        result = place_skill(framework, content, filename, project_root)
+        if result is None:
+            return None  # already appended
+        return result
     else:
         # Dir mode: use fetch_and_save
         dest = resolve_destination(framework, project_root)
-        return fetch_and_save(skill, dest)
+        # Warn if writing to HOME directory (global, not project-local)
+        home = Path.home().resolve()
+        if str(dest).startswith(str(home)):
+            # Only warn once per session
+            if not hasattr(cmd_install, '_home_warned'):
+                print(c(f"  ⚠ Installing to {dest} (global — affects all projects)", "gray"))
+        result = fetch_and_save(skill, dest)
+        if result is None:
+            return None  # already installed
+        return result
 
 # Kingdom data (for `lotr kingdoms` command)
 KINGDOMS = {
@@ -231,10 +243,10 @@ def cmd_preview(args):
     # Use --kingdom override if provided, otherwise match from intent
     kingdom = getattr(args, 'kingdom', None)
     if kingdom:
-        print(c("[match]", "bold"), f"Using kingdom: {c(kingdom, 'gold')} (from --kingdom flag)")
+        print(c("[MATCH]", "bold"), f"Using kingdom: {c(kingdom, 'gold')} (from --kingdom flag)")
         top_kingdom = kingdom
     else:
-        print(c("[match]", "bold"), f"Intent: {c(intent, 'gold')!r}")
+        print(c("[MATCH]", "bold"), f"Intent: {c(intent, 'gold')!r}")
         matches = match_intent(intent, top_n=3)
         if not matches:
             print(c("  ✗ No kingdoms matched. Try rephrasing or use --kingdom.", "red"))
@@ -379,7 +391,7 @@ def cmd_install(args):
     kingdom = args.kingdom
     if not kingdom and intent:
         print()
-        print(c("[match]", "bold"), f"Intent: {c(intent, 'gold')!r}")
+        print(c("[MATCH]", "bold"), f"Intent: {c(intent, 'gold')!r}")
         matches = match_intent(intent, top_n=1)
         if not matches:
             print(c("  ✗ No kingdoms matched. Try rephrasing or use --kingdom.", "red"))
@@ -428,6 +440,10 @@ def cmd_install(args):
     for s in skills:
         try:
             path = install_skill(s, framework, args.project_root)
+            if path is None:
+                title = (s.get("title") or s.get("filename") or "(untitled)")[:60]
+                print(f"  {c('⊘', 'gray')} {title} — already installed, skipping")
+                continue
             installed.append(path)
             title = (s.get("title") or s.get("filename") or "(untitled)")[:60]
             canon = "⭐" if s.get("canonical") else " "
@@ -445,7 +461,7 @@ def cmd_update(args):
     banner()
     print(c("[detect]", "bold"), "Scanning project...")
     result = detect_stack(args.project_root)
-    framework = result["framework"]
+    framework = args.framework or result["framework"]
     if not framework:
         print(c("  ✗ No agent framework detected.", "red"))
         return 1
@@ -530,12 +546,12 @@ def cmd_design(args):
                                     canonical_only=canonical_only,
                                     limit=args.limit or 10)
     if not skills and framework != "claude-code":
-        # Design skills are primarily in claude-code — fall back to it
+        # Design skills are primarily in claude-code — fall back to it for FETCHING
         print(c(f"  No design skills for {framework}, falling back to claude-code...", "gray"))
-        framework = "claude-code"
-        skills = fetch_skills_by_index(idx, kingdom=kingdom, framework=framework,
+        skills = fetch_skills_by_index(idx, kingdom=kingdom, framework="claude-code",
                                         canonical_only=canonical_only,
                                         limit=args.limit or 10)
+        # Keep original framework for PLACEMENT (don't change framework variable)
     if not skills:
         print(c(f"  No design skills found. Try --all to include non-canonical.", "red"))
         return 1
@@ -949,6 +965,7 @@ def main():
     # update
     p_update = subparsers.add_parser("update", help="Update installed skills to latest")
     p_update.add_argument("--project-root", default=".")
+    p_update.add_argument("--framework", help="Override detected framework")
 
     # Shorthand: `lotr "do something"` = auto-detect install vs kickoff
     known_commands = {"init", "framework", "design", "starter", "guide", "detect", "kingdoms", "search",
