@@ -129,7 +129,7 @@ def safe_print(text: str) -> None:
         print(safe)
 
 def banner():
-    safe_print(c("⚔ THE LORD OF THE SKILLS — CLI v1.4.0", "gold"))
+    safe_print(c("⚔ THE LORD OF THE SKILLS — CLI v1.4.1", "gold"))
     safe_print(c("  One command. Any framework. Any kingdom.", "gray"))
     print()
 
@@ -880,7 +880,7 @@ def main():
         description="⚔ The Lord of the Skills — smart skills installer for any agentic AI framework",
         epilog="One catalog to rule them all. Docs: https://github.com/Bilal140202/the-lord-of-the-skills",
     )
-    parser.add_argument("--version", action="version", version="lotr 1.4.0")
+    parser.add_argument("--version", action="version", version="lotr 1.4.1")
 
     subparsers = parser.add_subparsers(dest="command", help="Subcommand")
 
